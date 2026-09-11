@@ -1,0 +1,7 @@
+# Let git normalize line endings in the repo, checkout per-platform.
+* text=auto
+
+# These must stay LF regardless of platform. A shell script checked out
+# with CRLF fails on macOS/Linux with a bare "bad interpreter" — the \r
+# ends up part of the shebang path.
+*.sh text eol=lf
