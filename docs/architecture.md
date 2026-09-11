@@ -14,6 +14,9 @@ app/src ──vite build──> app/dist ──┬── scripts/deploy.sh copie
                                               locally: Emulator Suite on :5001
 ```
 
+`shared/` sits under both arms: the app imports its zod schemas at build time,
+and esbuild inlines them into the function. One contract, two consumers.
+
 **One build artifact, three destinations.** `app/dist/` is what Hosting serves,
 what Capacitor packages, and what `npm run preview` serves. There is no
 web-vs-native fork in the source.
@@ -54,6 +57,34 @@ Express, to keep the cold-start dependency surface minimal.
 
 Routes today: `GET /health`, `GET /missions`, `POST /echo`.
 
+## Shared contracts
+
+`shared/` is an npm workspace holding the zod schemas for every request and
+response. The API parses against them before responding; the client parses
+against them before rendering. There is one definition, so the two ends cannot
+drift.
+
+The reason this needs explaining is the deploy story. **Firebase Functions
+deployment does not follow workspace symlinks** — `firebase deploy` uploads the
+`source` directory to Cloud Build, where a `node_modules/shared` symlink
+pointing outside that directory is dead. So:
+
+- The function is **bundled with esbuild**, not just compiled. `shared` and zod
+  are inlined into `lib/index.js`, which is therefore self-contained. `tsc` is
+  demoted to `--noEmit` type-checking.
+- `shared` is a **devDependency** of `functions`, never a dependency. Cloud
+  Build installs `dependencies` from the registry, where `shared` does not
+  exist; as a build-time-only dep that is bundled away, it is never installed.
+  The same goes for zod.
+- Only `firebase-functions` and `firebase-admin` stay external and remain real
+  runtime dependencies.
+
+Bundling is a bonus for cold starts, which matter here: traffic arrives in a
+spike when the jumbotron shows the QR code.
+
+The alternative — packing `shared` to a tarball in a `predeploy` hook — avoids
+the bundler but adds a script that breaks quietly. Bundling was the call.
+
 ## Local development
 
 The emulator scripts pass `--project demo-app`. Any project id prefixed with
@@ -83,7 +114,7 @@ each with a marked seam:
 
 | Missing | Seam | Note |
 |---|---|---|
-| Firestore campaign storage | `GET /missions` in `functions/src/api.ts` returns a static array; `stores/missions.ts` fetches it | Swap the array for a Firestore query; the client contract (`missionSchema`) doesn't change |
+| Firestore campaign storage | `GET /missions` in `functions/src/api.ts` returns `SEED_CAMPAIGN`; `stores/missions.ts` fetches it | Swap the constant for a Firestore query; `missionListSchema` is the contract and doesn't change |
 | Mission photo uploads | `mission.imageUrl` is `null` in the seed; `MissionCard.vue` renders a colored block when it is | Point it at a Cloud Storage download URL |
 | Camera capture | `CapturePage.vue` `simulateCapture()` | Replace with `@capacitor/camera`; keep the same `progress.awardBadge()` call |
 | Geofence validation | `CapturePage.vue`, same function | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |

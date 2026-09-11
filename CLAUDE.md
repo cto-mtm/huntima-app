@@ -9,6 +9,8 @@ zero restructuring.
 
 ## Project Structure
 
+- `shared/` — zod contracts for the app/API wire format. Both sides import
+  these; never redeclare a schema in either package.
 - `app/` — Vue 3 + Vite web app, wrapped by Capacitor for iOS/Android
 - `firebase/` — Firebase Hosting config + Cloud Functions API + emulator scripts
 - `docs/` — Internal documentation (read `docs/animations.md` before touching any

@@ -1,62 +1,29 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { z } from 'zod'
+// One definition of the wire format, shared with the Cloud Function that
+// serves it. See docs/architecture.md § Shared contracts.
+import { missionListSchema, SEED_CAMPAIGN, type Mission } from 'shared'
 import { apiFetch } from '../lib/api'
-import { tenant } from '../config/tenant'
 
-/**
- * Client-side mirror of `missionListSchema` in firebase/functions/src/models.ts.
- *
- * It is duplicated deliberately: the two packages have separate tsconfigs and
- * separate zod majors, and a shared package would be the third build target in
- * a scaffold that currently has two. Parse rather than cast, so a server change
- * surfaces as a loud validation error instead of `undefined` in a template.
- */
-const missionSchema = z.object({
-  id: z.string(),
-  kind: z.enum(['photo', 'spyglass']),
-  titleKey: z.string(),
-  hintKey: z.string(),
-  color: z.string(),
-  imageUrl: z.string().url().nullable(),
-})
-
-const missionListSchema = z.object({
-  campaignId: z.string(),
-  badgeTarget: z.number().int().positive(),
-  missions: z.array(missionSchema),
-})
-
-export type Mission = z.infer<typeof missionSchema>
-
-/**
- * Offline fallback campaign.
- *
- * A stadium concourse is one of the worst RF environments a phone will ever
- * see — 30,000 people on one cell tower. The app must render something useful
- * when `GET /missions` times out, so it ships with the demo campaign baked in.
- */
-const FALLBACK_MISSIONS: Mission[] = [
-  { id: 'gate-statue', kind: 'photo', titleKey: 'missions.gateStatue.title', hintKey: 'missions.gateStatue.hint', color: '#3b6ea5', imageUrl: null },
-  { id: 'west-concourse', kind: 'photo', titleKey: 'missions.westConcourse.title', hintKey: 'missions.westConcourse.hint', color: '#c7563f', imageUrl: null },
-  { id: 'team-store', kind: 'photo', titleKey: 'missions.teamStore.title', hintKey: 'missions.teamStore.hint', color: '#4f8a63', imageUrl: null },
-  { id: 'foul-pole', kind: 'photo', titleKey: 'missions.foulPole.title', hintKey: 'missions.foulPole.hint', color: '#8b6db3', imageUrl: null },
-  { id: 'player-22', kind: 'spyglass', titleKey: 'missions.player22.title', hintKey: 'missions.player22.hint', color: '#d09a2c', imageUrl: null },
-  { id: 'mascot', kind: 'spyglass', titleKey: 'missions.mascot.title', hintKey: 'missions.mascot.hint', color: '#2f8f9d', imageUrl: null },
-]
+export type { Mission }
 
 export const useMissionsStore = defineStore('missions', () => {
-  const missions = ref<Mission[]>([...FALLBACK_MISSIONS])
-  const badgeTarget = ref(tenant.badgeTarget)
+  // Seeded from the shared demo campaign so the very first paint has
+  // content. A stadium concourse is one of the worst RF environments a
+  // phone will ever see — 30,000 people on one tower — so "the request
+  // failed" has to be a designed state, not an error screen.
+  const missions = ref<Mission[]>([...SEED_CAMPAIGN.missions])
+  const badgeTarget = ref(SEED_CAMPAIGN.badgeTarget)
   const loading = ref(false)
-  /** True when the list on screen is the baked-in fallback, not the server's. */
+  /** True when the list on screen is the seed campaign, not the server's. */
   const usingFallback = ref(true)
 
   const byId = computed(() => (id: string) => missions.value.find((m) => m.id === id) ?? null)
 
   /**
-   * SEAM: `GET /missions` currently serves a constant from models.ts.
-   * When it becomes a Firestore read, nothing here changes.
+   * SEAM: `GET /missions` currently serves SEED_CAMPAIGN straight back.
+   * When it becomes a Firestore read, nothing here changes — the contract
+   * is `missionListSchema`, and it lives in one place for both sides.
    */
   async function load(): Promise<void> {
     loading.value = true
@@ -72,8 +39,10 @@ export const useMissionsStore = defineStore('missions', () => {
         loading.value = false
         return
       }
-      // Server reachable but shape wrong — a deploy skew bug, not a fan's
-      // bad signal. Keep the fallback on screen and make it findable.
+      // Server reachable but shape wrong. Now that both ends share one
+      // schema this should only happen on a version skew between a
+      // deployed function and a cached client — keep the seed on screen
+      // and make it findable.
       console.error('[missions] unexpected /missions payload', parsed.error.issues)
     }
 

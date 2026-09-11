@@ -55,7 +55,7 @@ function getStartViewTransition(): StartViewTransition | null {
  */
 let finishTransition: (() => void) | null = null
 
-router.beforeResolve((to, from) => {
+router.beforeResolve((_to, from) => {
   if (from === START_LOCATION) return true // initial load: nothing to morph from
 
   const start = getStartViewTransition()

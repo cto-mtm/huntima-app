@@ -3,7 +3,10 @@ import * as logger from 'firebase-functions/logger'
 import { ZodError } from 'zod'
 
 import { applyCors } from './helpers/cors'
-import { echoSchema, missionListSchema, SEED_CAMPAIGN } from './models'
+// The wire format lives in the `shared` workspace package, which the app
+// imports too — one definition, parsed on both ends. esbuild inlines it
+// into lib/index.js at build time. See docs/architecture.md § Shared contracts.
+import { echoSchema, missionListSchema, SEED_CAMPAIGN } from 'shared'
 
 // ── Secrets ───────────────────────────────────────────────────────────
 // When you need a third-party key (an OCR provider, an SMS gateway),
@@ -47,9 +50,9 @@ export const api = onRequest(
       }
 
       // ── GET /missions ─────────────────────────────────────────────
-      // SEAM: returns the seeded campaign from models.ts. Replace with a
-      // Firestore read; `missionListSchema` is the client contract and
-      // should not change.
+      // SEAM: returns the seeded campaign from the shared package.
+      // Replace with a Firestore read; `missionListSchema` is the
+      // contract and should not change.
       if (route === 'GET /missions') {
         const payload = missionListSchema.parse(SEED_CAMPAIGN)
         res.status(200).json(payload)

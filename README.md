@@ -8,6 +8,8 @@ the team store. Built so any team can drop in their own colors and copy.
 
 - **`app/`** — Vue 3 + Vite + TypeScript SPA, Tailwind v4, Pinia, vue-router.
   Wrapped by **Capacitor 7** so the same `dist/` ships as an iOS/Android app.
+- **`shared/`** — the zod contracts for every request and response, imported by
+  both sides. One definition, parsed on both ends.
 - **`firebase/`** — Firebase Hosting config plus a single Cloud Functions HTTP
   API (`api`), with **Emulator Suite** scripts for fully offline local dev.
 - **Animation system** — Flutter-style hero/shared-element transitions built on
@@ -33,18 +35,20 @@ npm i -g firebase-tools
 ```
 
 ```bash
-# 1. Install + compile the Cloud Functions
-cd firebase/functions && npm install && npm run build
+# 1. Install every workspace from the repo root.
+#    This also builds shared/, because npm runs its `prepare` script.
+npm install
 ```
 
 ```bash
 # 2. Start the emulated backend on :5001  (leave this running)
+#    The script compiles the functions first.
 cd firebase && npm run emulators
 ```
 
 ```bash
 # 3. In a second terminal: start the web app on :5173
-cd app && cp .env.example .env && npm install && npm run dev
+cd app && cp .env.example .env && npm run dev
 ```
 
 Open <http://localhost:5173>. Visit `/about` — it calls `GET /health` on the
@@ -55,8 +59,10 @@ emulated function and renders the response, proving the whole app → API path.
 
 ### Daily workflow (two terminals)
 
-For the tightest loop, let TypeScript and the emulator watch independently — the
-emulator hot-reloads functions whenever `functions/lib/` changes:
+For the tightest loop, let the builders and the emulator watch independently — the
+emulator hot-reloads functions whenever `functions/lib/` changes. Add a
+`npm run build:watch -w shared` terminal only if you are actively editing the
+shared contracts:
 
 ```bash
 # terminal 1
@@ -105,7 +111,8 @@ Adding a whole namespace or a third locale: [`docs/i18n.md`](docs/i18n.md).
 
 ## How to add an API endpoint
 
-1. Add a zod schema to `firebase/functions/src/models.ts`.
+1. Add a zod schema to `shared/src/schemas.ts` and export it from
+   `shared/src/index.ts`.
 2. Add a route branch to the router in `firebase/functions/src/api.ts`.
 3. Call it from the app with `apiFetch<T>('/your-path')` from `src/lib/api.ts`,
    or `useApi()` if you want `loading` / `error` refs.

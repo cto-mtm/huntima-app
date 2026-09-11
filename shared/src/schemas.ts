@@ -1,15 +1,22 @@
 import { z } from 'zod'
 
 /**
- * Every request body and every response payload gets a schema here.
+ * The wire format between the app and the Cloud Functions API.
  *
- * Requests are parsed (so bad input becomes a 400 with field-level detail
- * instead of a 500). Responses are typed from the same schemas, so the
- * client contract lives in exactly one place.
+ * This module is the single definition of every request body and response
+ * payload. The API parses against it before responding; the client parses
+ * against it before rendering. If the two ever disagree, it is a build
+ * error here rather than an `undefined` in a template at a sold-out game.
+ *
+ * Rules for this package:
+ * - No Firebase imports, no Vue imports, no DOM or Node globals. It is
+ *   bundled into the function AND shipped to the browser.
+ * - Runtime values (schemas, seed data) are fine; that is the whole point
+ *   of using zod rather than bare types.
  */
 
 // ── POST /echo ────────────────────────────────────────────────────────
-// The reference endpoint: shows request validation end to end.
+// Reference endpoint: shows request validation end to end.
 export const echoSchema = z.object({
   message: z.string().min(1, 'message is required'),
   name: z.string().optional(),
@@ -26,8 +33,8 @@ export type EchoInput = z.infer<typeof echoSchema>
 //
 // `color` is a placeholder for `imageUrl`: until the admin tool can upload
 // real clue photos to Cloud Storage, the client renders a colored block.
-// Both fields are in the schema so swapping one for the other later is a
-// data change, not a contract change.
+// Both fields exist so swapping one for the other is a data change, not a
+// contract change.
 export const missionSchema = z.object({
   id: z.string(),
   kind: z.enum(['photo', 'spyglass']),
@@ -47,15 +54,18 @@ export type Mission = z.infer<typeof missionSchema>
 export type MissionList = z.infer<typeof missionListSchema>
 
 /**
- * Seeded campaign.
+ * Seeded demo campaign.
  *
- * SEAM: this is the Firestore read. Replace the constant with a query
- * (`getFirestore().collection('campaigns').doc(id)`) and nothing on the
- * client changes — `missionListSchema` is the contract.
+ * Used twice on purpose, and now from one place:
+ *  - the API serves it from `GET /missions`
+ *  - the app falls back to it when that request fails, because a stadium
+ *    concourse is one of the worst RF environments a phone will ever see
  *
- * Note the title/hint values are i18n KEYS, not display strings. Once the
- * admin campaign builder exists, staff-authored missions will instead carry
- * per-locale text; the client resolves whichever it is given.
+ * SEAM: the API side becomes a Firestore read. This constant stays as the
+ * offline/demo campaign.
+ *
+ * Note the title/hint values are i18n KEYS, not display strings — see
+ * docs/i18n.md § "Translate data, not just UI chrome".
  */
 export const SEED_CAMPAIGN: MissionList = {
   campaignId: 'demo-campaign',

@@ -1,16 +1,18 @@
 {
+  "//": "Type-checking only — esbuild produces lib/. That is why moduleResolution is Bundler rather than NodeNext: the bundler, not Node, resolves these imports.",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "ES2022",
-    "outDir": "./lib",
-    "rootDir": "./src",
+    "lib": ["ES2022"],
+    "noEmit": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "lib"]

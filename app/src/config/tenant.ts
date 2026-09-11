@@ -14,7 +14,10 @@ export interface TenantConfig {
   teamName: string
   /** Where a winner physically goes to claim. Proper noun, not translated. */
   prizeLocation: string
-  /** Badges required before the redeem screen unlocks. */
+  /**
+   * Default badge target, used only until GET /missions returns. The
+   * campaign is authoritative once loaded — see stores/progress.ts.
+   */
   badgeTarget: number
   /** Venue timezone, used for rendering timestamps. */
   timezone: string

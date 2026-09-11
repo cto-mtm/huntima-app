@@ -46,3 +46,6 @@ yarn-error.log*
 # point they are source, not build output.
 app/ios/
 app/android/
+
+# Built output of the shared contracts package.
+shared/dist/

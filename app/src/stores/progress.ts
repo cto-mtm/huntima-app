@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { tenant } from '../config/tenant'
+import { useMissionsStore } from './missions'
 
 const STORAGE_KEY = 'photo-hunt:progress'
 
@@ -47,8 +48,14 @@ export const useProgressStore = defineStore('progress', () => {
 
   const hasProfile = computed(() => nickname.value.trim().length >= 2)
   const earnedCount = computed(() => earnedIds.value.length)
-  const isComplete = computed(() => earnedCount.value >= tenant.badgeTarget)
-  const remaining = computed(() => Math.max(0, tenant.badgeTarget - earnedCount.value))
+  // The CAMPAIGN is authoritative for how many badges win, not tenant
+  // config — the server ships badgeTarget alongside the missions, and a
+  // trophy case showing six slots while /redeem unlocks at five is the
+  // kind of bug a fan notices at the counter. tenant.badgeTarget is only
+  // the pre-fetch default, held by the missions store.
+  const missionsStore = useMissionsStore()
+  const isComplete = computed(() => earnedCount.value >= missionsStore.badgeTarget)
+  const remaining = computed(() => Math.max(0, missionsStore.badgeTarget - earnedCount.value))
 
   const hasBadge = computed(() => (id: string) => earnedIds.value.includes(id))
 
