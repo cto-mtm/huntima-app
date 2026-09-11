@@ -1,0 +1,93 @@
+@import 'tailwindcss';
+@import './transitions.css';
+
+/* ════════════════════════════════════════════════════════════
+   WHITE-LABEL SEAM #1 — brand tokens
+
+   This block plus src/config/tenant.ts is the entire re-skin for a
+   new team. Nothing else in the app may hardcode a brand color.
+
+   Tailwind v4 reads @theme and generates utilities from it, so
+   `--color-brand-600` here gives you `bg-brand-600`, `text-brand-600`,
+   `ring-brand-600`, and so on for free.
+   ════════════════════════════════════════════════════════════ */
+@theme {
+  --color-brand-50: #eef4fb;
+  --color-brand-100: #d8e6f6;
+  --color-brand-200: #b2cdec;
+  --color-brand-400: #5f8fc4;
+  --color-brand-500: #3b6ea5;
+  --color-brand-600: #2f5885;
+  --color-brand-700: #24446a;
+  --color-brand-900: #14273d;
+
+  --color-accent-400: #e0b34a;
+  --color-accent-500: #d09a2c;
+  --color-accent-600: #ad7e1f;
+
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-surface: #ffffff;
+  --color-canvas: #f6f7f9;
+
+  --radius-card: 1rem;
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+@layer base {
+  html {
+    /* Keep the rubber-band overscroll color matching the shell so a
+       pull-down in the native WebView doesn't flash white. */
+    background-color: var(--color-canvas);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    /* The app is a fixed shell with one scrolling region (<main>), which
+       is what makes safe-area padding behave the same on web and native. */
+    overscroll-behavior-y: none;
+  }
+
+  /* A stadium is bright and phones are held one-handed: never ship a tap
+     target the browser has to guess at. */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Safe-area utilities ───────────────────────────────────────
+   index.html sets viewport-fit=cover, which is what makes these
+   env() values report anything other than 0. Used by AppShell.vue
+   so the same markup is correct in a browser tab and under a notch. */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Header height + notch, for the scroll region's top offset. */
+@utility mt-header-safe {
+  margin-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+}
