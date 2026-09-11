@@ -1,0 +1,135 @@
+/* ════════════════════════════════════════════════════════════
+   VIEW TRANSITION RECIPES
+
+   Every animation in the app lives in this file. Adding one means
+   adding a numbered recipe here — not inline styles, not a library.
+
+   Rules of the house:
+   - Animate ONLY transform and opacity (compositor-friendly).
+   - Durations 200–350ms. Easing: cubic-bezier(0.4, 0, 0.2, 1).
+   - Every recipe must look acceptable if it simply cross-fades
+     (that's the automatic fallback).
+   - view-transition-name must be unique per page at any moment.
+
+   Full cookbook: docs/animations.md
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Recipe 1 — default page cross-fade (applies to everything) ── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Recipe 2 — hero / shared elements ─────────────────────────
+   The morph itself is automatic: the browser matches the
+   view-transition-name on the source and target elements and
+   interpolates position, size and border-radius. We only tune
+   timing. The universal group selector covers every hero pair
+   (mission-*, mission-title-*) without naming them one by one. */
+::view-transition-group(*) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Recipe 3 — reduced motion: kill everything ────────────────
+   The router also skips startViewTransition entirely under this
+   query. Both layers exist on purpose: the router handles
+   navigation, this handles anything CSS-driven that slipped past. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  .list-move,
+  .list-enter-active,
+  .list-leave-active {
+    transition: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 4 — within-page list animation (<TransitionGroup name="list">)
+
+   Used by HubPage.vue's shuffle button. `.list-move` is the one
+   that matters: it gives you the FLIP glide when items reorder.
+   Requires a stable :key — an array index defeats the whole thing.
+   ════════════════════════════════════════════════════════════ */
+.list-move,
+.list-enter-active,
+.list-leave-active {
+  transition:
+    transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+/* Take the leaving item out of layout flow so the survivors glide into
+   the gap instead of snapping after it disappears. */
+.list-leave-active {
+  position: absolute;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 5 — reward reveal (<Transition name="reward">)
+
+   The badge-unlock moment on CapturePage.vue. Scale + fade only;
+   the "pack tearing open" treatment is art direction that belongs
+   in an asset, not in a keyframe.
+   ════════════════════════════════════════════════════════════ */
+.reward-enter-active {
+  transition:
+    transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    opacity 200ms ease-out;
+}
+
+.reward-leave-active {
+  transition:
+    transform 180ms ease-in,
+    opacity 180ms ease-in;
+}
+
+.reward-enter-from,
+.reward-leave-to {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 6 — custom per-page transition (worked example)
+
+   AboutPage.vue's root carries `view-transition-name: about-page`,
+   which opts it out of the root cross-fade and into these rules.
+
+   A STATIC name is only safe here because a page root renders
+   exactly once. Never do this for anything inside a v-for.
+
+   Copy this block to give any other page its own entrance.
+   ════════════════════════════════════════════════════════════ */
+@keyframes slide-from-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+::view-transition-new(about-page) {
+  animation: 260ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+}
+
+::view-transition-old(about-page) {
+  animation: 160ms cubic-bezier(0.4, 0, 0.2, 1) both fade-out;
+}

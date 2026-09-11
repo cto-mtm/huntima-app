@@ -1,0 +1,28 @@
+{
+  "name": "photo-hunt-functions",
+  "description": "Cloud Functions API for the Photo Hunt app",
+  "private": true,
+  "engines": { "node": "20" },
+  "main": "lib/index.js",
+  "scripts": {
+    "//build": "tsc only type-checks; esbuild does the emit. Bundling inlines the `shared` workspace package (and zod) into lib/index.js, which is what makes deploy work — Cloud Build cannot resolve a workspace symlink.",
+    "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=lib/index.js --external:firebase-functions --external:firebase-admin",
+    "//build:watch": "No type-check in the watch loop — keep it fast. The emulator reloads whenever lib/ changes.",
+    "build:watch": "esbuild src/index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=lib/index.js --external:firebase-functions --external:firebase-admin --watch",
+    "typecheck": "tsc --noEmit",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "npm run build && firebase deploy --only functions"
+  },
+  "//dependencies": "Only what must exist at RUNTIME in the cloud. Cloud Build installs these from the registry, so nothing here may be a workspace package.",
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.3.0"
+  },
+  "//devDependencies": "`shared` is safe here precisely because it is bundled at build time and never installed in the cloud.",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "shared": "*",
+    "typescript": "^5.9.3",
+    "zod": "^4.1.13"
+  }
+}
