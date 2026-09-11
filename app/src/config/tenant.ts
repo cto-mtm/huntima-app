@@ -1,13 +1,14 @@
 /**
- * Tenant (team) configuration — one of the two white-label seams.
+ * Tenant (team) DEFAULTS — the values a brand-new deployment starts from.
  *
- * The other is the `--brand-*` custom properties in assets/css/main.css.
- * Between them they are the entire re-skin. If you find yourself hardcoding
- * a team name, venue, or color anywhere else in the app, that's a bug.
+ * These are no longer the live values. `stores/tenant.ts` seeds itself from
+ * this file and is what the app actually reads, so the admin branding screen
+ * can change identity at runtime. Edit this file to change what a fresh
+ * install looks like; use /admin/branding to change what you are looking at.
  *
  * Note what is NOT here: user-facing sentences. Those are i18n keys. What
- * lives here is brand DATA — proper nouns that are passed through verbatim
- * in every language, exactly like a fan's nickname.
+ * lives here is brand DATA — proper nouns passed through verbatim in every
+ * language, exactly like a fan's nickname.
  */
 export interface TenantConfig {
   /** Proper noun. Not translated — interpolated into i18n messages. */
@@ -22,20 +23,29 @@ export interface TenantConfig {
   /** Venue timezone, used for rendering timestamps. */
   timezone: string
   /**
+   * Base brand color. The full 50→900 ramp Tailwind reads is derived from
+   * this one hex by lib/color.ts — see docs/branding.md.
+   */
+  brandBase: string
+  /** Base accent color, used for rewards, badges and the win state. */
+  accentBase: string
+  /**
    * Stadium geofence. SEAM: currently unused — CapturePage.vue simulates
    * validation. When @capacitor/geolocation lands, check the device position
    * against this, and re-check it server-side (a client can lie).
    */
   geofence: { lat: number; lng: number; radiusMeters: number }
-  /** Avatar options offered at onboarding. Ids are i18n-free by design. */
-  avatars: readonly string[]
+  /** Avatar options offered at onboarding. */
+  avatars: string[]
 }
 
-export const tenant: TenantConfig = {
+export const DEFAULT_TENANT: TenantConfig = {
   teamName: 'REPLACE_ME Team',
   prizeLocation: 'the Main Team Store',
   badgeTarget: 5,
   timezone: 'America/New_York',
+  brandBase: '#2f5885',
+  accentBase: '#d09a2c',
   geofence: { lat: 40.7128, lng: -74.006, radiusMeters: 400 },
   avatars: ['⚾', '🧢', '🥎', '🦅', '🐻', '🚀'],
 }

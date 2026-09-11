@@ -2,12 +2,13 @@
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import LocaleSwitcher from './LocaleSwitcher.vue'
-import { tenant } from '../config/tenant'
+import { useTenantStore } from '../stores/tenant'
 import { useProgressStore } from '../stores/progress'
 
 const { t } = useI18n()
 const route = useRoute()
 const progress = useProgressStore()
+const tenant = useTenantStore()
 
 // Order matters: this is thumb-reach order on a phone, most-used first.
 const NAV = [
@@ -38,7 +39,7 @@ function isActive(name: string): boolean {
       <div class="flex h-14 items-center justify-between px-4">
         <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2">
           <span aria-hidden="true" class="text-xl">{{ progress.avatar }}</span>
-          <span class="text-sm font-bold text-brand-900">{{ tenant.teamName }}</span>
+          <span class="text-sm font-bold text-brand-900">{{ tenant.settings.teamName }}</span>
         </RouterLink>
         <LocaleSwitcher />
       </div>

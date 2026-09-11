@@ -16,6 +16,23 @@ const ALLOWED_ORIGINS = [
   'http://localhost',
 ]
 
+/**
+ * IMPORTANT: this allow-list cannot be tested against the emulator.
+ *
+ * The Firebase Functions emulator wraps every function in its own
+ * permissive CORS middleware that echoes whatever Origin it is given, and
+ * it runs BEFORE this code. Locally you will therefore see
+ * `access-control-allow-origin` come back for ANY origin — including ones
+ * deliberately excluded here — and `vary: Origin` on requests that carry no
+ * Origin at all. That is the emulator talking, not this file.
+ *
+ * Consequences:
+ *  - A local curl against the emulator proves nothing about this list.
+ *  - The dev server's port does not need to be in it; the emulator lets it
+ *    through regardless of what is written here.
+ *  - The list only takes effect on a DEPLOYED function. Verify it there.
+ */
+
 // Structural types rather than imports from firebase-functions/v2/https:
 // the exported Request/Response type names have moved between major
 // versions, and this helper only needs these three members.

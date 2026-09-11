@@ -165,13 +165,16 @@ says `REPLACE_ME` or while `.env` points at localhost.
 
 ## White-labeling for a new team
 
-Team identity is confined to two files on purpose:
+Run the app and open **`/admin/branding`**. Set the team name, prize location,
+brand color and accent color; the whole app re-skins live, with a WCAG contrast
+check on the two color pairings that actually carry text.
 
-- `app/src/assets/css/main.css` — the `--brand-*` custom properties
-- `app/src/config/tenant.ts` — team name, badge target, prize location copy key
+The full ramp is derived from one hex, so there are no eight-tint palettes to
+hand-maintain. To change what a *fresh install* looks like, edit
+`app/src/config/tenant.ts`. Details and limits: [`docs/branding.md`](docs/branding.md).
 
-Change those two and the whole app re-skins. If you find yourself hardcoding a
-team name or color anywhere else, that's a bug.
+> Branding currently saves to `localStorage`, per device, and `/admin` has no
+> auth. Both are called out in `docs/branding.md` § Known limits.
 
 ## Keeping dependencies fresh
 

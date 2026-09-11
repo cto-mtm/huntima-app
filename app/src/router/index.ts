@@ -12,6 +12,22 @@ const router = createRouter({
     { path: '/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
     { path: '/redeem', name: 'redeem', component: () => import('../pages/RedeemPage.vue') },
     { path: '/about', name: 'about', component: () => import('../pages/AboutPage.vue') },
+    // Admin lives in the same SPA so the branding preview can render the
+    // real fan components. meta.admin swaps AppShell for a plain layout —
+    // the fan chrome (fixed bottom nav, safe-area header) fights a
+    // dashboard. SEAM: there is no auth on this route. It is safe today
+    // only because branding is device-local; the moment it writes to the
+    // API it needs a real guard.
+    {
+      path: '/admin',
+      redirect: { name: 'admin-branding' },
+    },
+    {
+      path: '/admin/branding',
+      name: 'admin-branding',
+      meta: { admin: true },
+      component: () => import('../pages/admin/AdminBrandingPage.vue'),
+    },
     // Catch-all 404. Required because Firebase Hosting rewrites every URL
     // to index.html — without this, typos render an empty RouterView.
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../pages/NotFoundPage.vue') },
@@ -22,7 +38,7 @@ const router = createRouter({
 // ── ONBOARDING GATE ─────────────────────────────────────────────────
 // A fan arrives by scanning a QR code, so any route can be the entry
 // point. Anything that shows personal progress needs a nickname first.
-const PUBLIC_ROUTES = new Set(['onboarding', 'about', 'not-found'])
+const PUBLIC_ROUTES = new Set(['onboarding', 'about', 'not-found', 'admin-branding'])
 
 router.beforeEach((to) => {
   const progress = useProgressStore()

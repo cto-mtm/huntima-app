@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { tenant } from '../config/tenant'
+import { useTenantStore } from './tenant'
 import { useMissionsStore } from './missions'
 
 const STORAGE_KEY = 'photo-hunt:progress'
@@ -39,10 +39,11 @@ function load(): PersistedProgress {
  * a real prize — server-side sessions are a prerequisite for redemption.
  */
 export const useProgressStore = defineStore('progress', () => {
+  const tenant = useTenantStore()
   const initial = load()
 
   const nickname = ref(initial.nickname)
-  const avatar = ref(initial.avatar || tenant.avatars[0])
+  const avatar = ref(initial.avatar || tenant.settings.avatars[0])
   const earnedIds = ref<string[]>(initial.earnedIds)
   const redeemed = ref(initial.redeemed)
 
@@ -68,7 +69,7 @@ export const useProgressStore = defineStore('progress', () => {
    */
   const claimCode = computed(() => {
     let hash = 7
-    for (const ch of `${nickname.value}|${tenant.teamName}`) {
+    for (const ch of `${nickname.value}|${tenant.settings.teamName}`) {
       hash = (hash * 31 + ch.charCodeAt(0)) % 10000
     }
     return String(hash).padStart(4, '0')
@@ -87,7 +88,7 @@ export const useProgressStore = defineStore('progress', () => {
 
   function reset(): void {
     nickname.value = ''
-    avatar.value = tenant.avatars[0]
+    avatar.value = tenant.settings.avatars[0]
     earnedIds.value = []
     redeemed.value = false
   }

@@ -15,7 +15,8 @@ zero restructuring.
 - `firebase/` — Firebase Hosting config + Cloud Functions API + emulator scripts
 - `docs/` — Internal documentation (read `docs/animations.md` before touching any
   animation, `docs/i18n.md` before touching any user-facing string,
-  `docs/architecture.md` for how the pieces fit and what is deliberately not built yet)
+  `docs/architecture.md` for how the pieces fit and what is deliberately not built yet,
+  `docs/branding.md` before touching anything brand- or color-related)
 
 ## Current state: domain shell, not the finished product
 
@@ -71,7 +72,10 @@ Do not add these speculatively. Each has a marked seam; see
 This is a product template, not a one-team app. Team identity lives in exactly
 two places:
 
-- `src/assets/css/main.css` — the `--brand-*` CSS custom properties
-- `src/config/tenant.ts` — team name, prize copy keys, badge target count
+- `src/config/tenant.ts` — the DEFAULTS a fresh install starts from
+- `src/stores/tenant.ts` — the LIVE values, editable at `/admin/branding`
+- `src/assets/css/main.css` — the `@theme` block the store overrides at runtime
+
+Read `docs/branding.md` before adding a branded property. count
 
 Never hardcode a team name, color, or logo path anywhere else.

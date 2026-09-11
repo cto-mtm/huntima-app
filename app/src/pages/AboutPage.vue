@@ -56,5 +56,11 @@ onMounted(() => {
         </BaseButton>
       </div>
     </div>
+
+    <div class="mt-4 text-center">
+      <RouterLink :to="{ name: 'admin-branding' }" class="text-sm font-semibold text-brand-600">
+        {{ t('admin.title') }}
+      </RouterLink>
+    </div>
   </section>
 </template>

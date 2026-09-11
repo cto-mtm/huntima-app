@@ -54,6 +54,10 @@ Express, to keep the cold-start dependency surface minimal.
   `http://localhost` because those are the Origins the iOS and Android shells
   send. Deleting them breaks the native apps and nothing else — which is exactly
   why it is easy to delete by accident.
+- **The allow-list is not enforced by the emulator.** The Functions emulator
+  wraps every function in its own permissive CORS middleware that echoes any
+  Origin, so a local curl proves nothing about it. Verify CORS on a deployed
+  function only. See the comment in `functions/src/helpers/cors.ts`.
 
 Routes today: `GET /health`, `GET /missions`, `POST /echo`.
 
@@ -119,7 +123,9 @@ each with a marked seam:
 | Camera capture | `CapturePage.vue` `simulateCapture()` | Replace with `@capacitor/camera`; keep the same `progress.awardBadge()` call |
 | Geofence validation | `CapturePage.vue`, same function | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
 | OCR "spyglass" missions | `mission.kind === 'spyglass'` branch in `CapturePage.vue` | The UI branch exists; the verification call does not |
-| Admin campaign builder & dashboard | Nothing | A separate route tree and a second Hosting target; needs auth first |
+| Tenant branding served from the API | `stores/tenant.ts` `load()`/`persist()` use localStorage | Fetch tenant config alongside the campaign so every fan sees one brand |
+| Auth on `/admin` | Nothing — the route is open | Survivable only while branding is device-local |
+| Admin campaign builder & live dashboard | `/admin/branding` exists; the rest does not | A wider admin route tree, and auth before any of it writes to the API |
 | Auth | Nothing | Fans are anonymous by design; admin is not |
 
 Resist adding these speculatively. Each one drags in a real decision (storage

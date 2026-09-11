@@ -3,13 +3,14 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
-import { tenant } from '../config/tenant'
+import { useTenantStore } from '../stores/tenant'
 import { useProgressStore } from '../stores/progress'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const progress = useProgressStore()
+const tenant = useTenantStore()
 
 const nickname = ref(progress.nickname)
 const avatar = ref(progress.avatar)
@@ -62,7 +63,7 @@ function submit(): void {
         </legend>
         <div class="mt-2 grid grid-cols-6 gap-2">
           <button
-            v-for="option in tenant.avatars"
+            v-for="option in tenant.settings.avatars"
             :key="option"
             type="button"
             class="flex aspect-square items-center justify-center rounded-xl border-2 text-2xl"

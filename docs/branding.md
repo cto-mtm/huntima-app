@@ -1,0 +1,84 @@
+# White-labeling
+
+This is a product template, not a one-team app. Re-skinning for a new club
+should take minutes and touch no component code.
+
+## The two seams
+
+| Seam | File | What it controls |
+|---|---|---|
+| Defaults | [`app/src/config/tenant.ts`](../app/src/config/tenant.ts) | What a **fresh install** looks like |
+| Live values | [`app/src/stores/tenant.ts`](../app/src/stores/tenant.ts) | What **you are looking at** right now |
+
+Edit `config/tenant.ts` to change the shipped defaults. Use **`/admin/branding`**
+to change the running app.
+
+If you find yourself hardcoding a team name, venue, or color anywhere else,
+that's a bug.
+
+## How the re-skin actually works
+
+There is no theme framework here. The whole mechanism is three steps:
+
+1. The `@theme` block in [`main.css`](../app/src/assets/css/main.css) declares
+   `--color-brand-*` and `--color-accent-*`.
+2. Tailwind v4 compiles `bg-brand-600` down to
+   `background-color: var(--color-brand-600)`.
+3. The tenant store writes those custom properties onto `<html>` at runtime.
+
+So overriding one custom property re-skins every utility in the app — no
+rebuild, no reload, no parallel "theme" palette to keep in sync. The admin
+preview renders the *real* components for exactly this reason: if the preview
+looks right, the app looks right.
+
+The store applies the theme synchronously during setup, before first paint. A
+flash of the default palette on every load is the one thing a white-label
+product cannot afford.
+
+## The palette is derived, not hand-picked
+
+The admin picks **one** brand color and **one** accent color.
+[`lib/color.ts`](../app/src/lib/color.ts) derives the full 50→900 ramp from it:
+hue and saturation come from the base color, lightness comes from a fixed
+per-stop table, and saturation eases off at the extremes so the 50 doesn't read
+as a tinted grey and the 900 doesn't go muddy.
+
+Asking a marketing coordinator to hand-pick eight tints is how you get a palette
+with no through-line. If you later need perceptual uniformity, swap the interior
+of `generateRamp` for OKLCH — nothing else changes.
+
+## Contrast is a feature, not a lint rule
+
+The branding screen grades white-on-`brand-600` and white-on-`accent-600`
+against WCAG. This app is used **outdoors, in daylight, on a phone held at arm's
+length, by a child**. A brand color that fails contrast doesn't produce an ugly
+button; it produces a button nobody can find.
+
+The shipped default accent (`#d09a2c`) grades at 3.50:1 — "large text only".
+That is deliberate: it's only ever used behind large badge numerals and the win
+state, never body copy. If you put it behind small text, fix the color.
+
+## Adding a new branded property
+
+1. Add the field to `TenantConfig` and `DEFAULT_TENANT` in `config/tenant.ts`.
+2. If it is a color, add the stop to the `@theme` block in `main.css` and to
+   `BRAND_STOPS` / `ACCENT_STOPS` in `lib/color.ts` so it gets generated.
+3. Add a control to `AdminBrandingPage.vue` and its label/help strings to
+   **both** locales in `i18n/locales/pages/admin.ts`.
+4. Read it via `useTenantStore().settings`, never by importing `config/tenant`.
+
+`stores/tenant.ts` merges saved config over the defaults on load, so a config
+saved by an older build is missing the new field rather than breaking.
+
+## Known limits
+
+- **Persistence is `localStorage`, per device.** Two staff phones can show two
+  different brands, and clearing site data resets it. A real deployment serves
+  tenant config from the API alongside the campaign. Swap `load()`/`persist()`
+  in the store for that fetch; nothing else changes.
+- **`/admin` has no auth.** That is survivable only because branding is
+  device-local today. The moment it writes to the API, it needs a real guard —
+  see `docs/architecture.md` § "Seams left open".
+- **Logos are not handled.** Only colors, names and avatar emoji. Uploading a
+  team mark needs Cloud Storage, which is the same seam the mission clue photos
+  are waiting on.
