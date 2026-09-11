@@ -43,19 +43,22 @@ npm install
 ```bash
 # 2. Start the emulated backend on :5001  (leave this running)
 #    The script compiles the functions first.
-cd firebase && npm run emulators
+npm run emulators
 ```
 
 ```bash
 # 3. In a second terminal: start the web app on :5173
-cd app && cp .env.example .env && npm run dev
+npm run dev
 ```
 
 Open <http://localhost:5173>. Visit `/about` — it calls `GET /health` on the
 emulated function and renders the response, proving the whole app → API path.
 
-> Windows note: `cp` is available in Git Bash. In PowerShell use
-> `Copy-Item .env.example .env`.
+Every command above runs from the repo root. You do **not** need an
+`app/.env` for local dev: `src/lib/api.ts` falls back to the emulator URL in
+dev builds. Copy `app/.env.example` to `app/.env` only when you need to point
+at something else, or before a production build — Vite inlines the value at
+build time.
 
 ### Daily workflow (two terminals)
 
@@ -66,20 +69,20 @@ shared contracts:
 
 ```bash
 # terminal 1
-cd firebase/functions && npm run build:watch
+npm run build:watch -w firebase/functions
 ```
 
 ```bash
 # terminal 2
-cd firebase && npm run emulators:watch
+npm run emulators:watch
 ```
 
 ```bash
 # terminal 3
-cd app && npm run dev
+npm run dev
 ```
 
-`npm run emulators:all` additionally serves the built app from `firebase/app/`
+From `firebase/`, `npm run emulators:all` additionally serves the built app from `firebase/app/`
 on :5000 for a production-like smoke test. Day-to-day dev uses Vite on :5173.
 The Emulator UI is on :4000.
 

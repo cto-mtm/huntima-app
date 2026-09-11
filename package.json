@@ -2,11 +2,16 @@
   "name": "photo-hunt",
   "private": true,
   "description": "White-label digital passport for live sporting events.",
-  "workspaces": ["shared", "app", "firebase/functions"],
+  "workspaces": [
+    "shared",
+    "app",
+    "firebase/functions"
+  ],
   "scripts": {
     "build:shared": "npm run build -w shared",
     "dev": "npm run build:shared && npm run dev -w app",
     "emulators": "npm run build:shared && npm --prefix firebase run emulators",
+    "emulators:watch": "npm run build:shared && npm --prefix firebase run emulators:watch",
     "lint": "npm run lint -w app"
   }
 }
