@@ -33,6 +33,9 @@ const firebaseConfig = {
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ?? 'localhost',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? 'demo-app',
   appId: import.meta.env.VITE_FIREBASE_APP_ID ?? 'demo-app-id',
+  // Required for Storage: without it getStorage() throws
+  // storage/no-default-bucket and every upload fails before it starts.
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? 'demo-app.appspot.com',
 }
 
 /** True when we are talking to the local Auth emulator rather than a project. */

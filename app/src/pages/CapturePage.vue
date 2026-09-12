@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import type { VerifyResult } from 'shared'
 import BaseButton from '../components/BaseButton.vue'
+import AppIcon from '../components/AppIcon.vue'
 import { useReducedMotion } from '../composables/useReducedMotion'
 import { useMissionsStore } from '../stores/missions'
 import { useMissionText } from '../lib/missionText'
@@ -193,7 +194,7 @@ function tryAgain(): void {
         v-if="phase === 'rejected'"
         class="mt-6 rounded-card bg-surface p-5 text-center shadow-sm ring-1 ring-red-200"
       >
-        <p class="text-3xl" aria-hidden="true">🔍</p>
+        <AppIcon name="search" class="mx-auto size-8 text-muted" />
         <h2 class="mt-2 text-lg font-extrabold text-brand-900">{{ t('capture.rejectedTitle') }}</h2>
         <p class="mt-1 text-sm text-muted">{{ rejection ?? t('capture.rejectedBody') }}</p>
 
@@ -215,7 +216,7 @@ function tryAgain(): void {
           class="mx-auto flex size-20 items-center justify-center rounded-2xl text-3xl"
           :style="{ backgroundColor: mission.color, viewTransitionName: `badge-${mission.id}` }"
         >
-          <span aria-hidden="true">🏅</span>
+          <AppIcon name="badge" class="size-9 text-white/90" />
         </div>
         <h2 class="mt-3 text-xl font-extrabold text-brand-900">{{ t('capture.successTitle') }}</h2>
         <p class="mt-1 text-sm text-muted">{{ t('capture.successBody') }}</p>

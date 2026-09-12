@@ -11,6 +11,7 @@ import { computed, defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
+import TeamMark from '../components/TeamMark.vue'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
@@ -59,7 +60,9 @@ const busy = ref(false)
   <section class="mx-auto flex min-h-dvh max-w-md flex-col px-5 py-10">
     <div class="flex flex-1 flex-col justify-center">
       <div class="text-center">
-        <p class="text-4xl" aria-hidden="true">{{ tenant.settings.avatars[0] }}</p>
+        <div class="flex justify-center">
+          <TeamMark size="lg" />
+        </div>
         <h1 class="mt-3 text-3xl font-extrabold text-brand-900">{{ tenant.settings.teamName }}</h1>
         <p class="mt-1 text-sm text-muted">{{ t('entry.subtitle') }}</p>
       </div>

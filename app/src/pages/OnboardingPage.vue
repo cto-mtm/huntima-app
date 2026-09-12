@@ -13,7 +13,12 @@ const progress = useProgressStore()
 const tenant = useTenantStore()
 
 const nickname = ref(progress.nickname)
-const avatar = ref(progress.avatar)
+const avatarId = ref<string | null>(progress.avatarId)
+
+// A fresh install has no uploaded avatars. That is a supported state, not an
+// error: the picker is skipped entirely rather than showing an empty grid,
+// and the fan is identified by their nickname and initial.
+const hasAvatars = computed(() => tenant.settings.avatars.length > 0)
 const touched = ref(false)
 
 const isValid = computed(() => nickname.value.trim().length >= 2)
@@ -23,7 +28,7 @@ function submit(): void {
   touched.value = true
   if (!isValid.value) return
 
-  progress.setProfile(nickname.value, avatar.value)
+  progress.setProfile(nickname.value, avatarId.value)
 
   // The router guard stashes where the fan was headed before we
   // interrupted them — a QR code can drop someone on any route.
@@ -57,21 +62,21 @@ function submit(): void {
         </p>
       </div>
 
-      <fieldset>
+      <fieldset v-if="hasAvatars">
         <legend class="block text-sm font-semibold text-brand-900">
           {{ t('onboarding.avatarLabel') }}
         </legend>
-        <div class="mt-2 grid grid-cols-6 gap-2">
+        <div class="mt-2 grid grid-cols-4 gap-2">
           <button
             v-for="option in tenant.settings.avatars"
-            :key="option"
+            :key="option.id"
             type="button"
-            class="flex aspect-square items-center justify-center rounded-xl border-2 text-2xl"
-            :class="option === avatar ? 'border-brand-500 bg-brand-50' : 'border-brand-100 bg-surface'"
-            :aria-pressed="option === avatar"
-            @click="avatar = option"
+            class="overflow-hidden rounded-xl border-2 p-0.5"
+            :class="option.id === avatarId ? 'border-brand-500 bg-brand-50' : 'border-brand-100 bg-surface'"
+            :aria-pressed="option.id === avatarId"
+            @click="avatarId = option.id"
           >
-            {{ option }}
+            <img :src="option.url" :alt="option.label" class="aspect-square w-full rounded-lg object-cover" />
           </button>
         </div>
       </fieldset>

@@ -9,6 +9,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { uploadImage } from '../../lib/storage'
+import AppIcon from '../AppIcon.vue'
 
 const props = defineProps<{
   campaignId: string
@@ -59,10 +60,10 @@ async function onChosen(event: Event): Promise<void> {
       />
       <div
         v-else
-        class="flex size-24 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-brand-200 text-2xl text-muted"
+        class="flex size-24 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-brand-200 text-muted"
         aria-hidden="true"
       >
-        📷
+        <AppIcon name="camera" class="size-7" />
       </div>
 
       <div class="min-w-0 flex-1">

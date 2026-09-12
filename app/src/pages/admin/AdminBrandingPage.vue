@@ -7,21 +7,11 @@ import PhonePreview from '../../components/admin/PhonePreview.vue'
 import { contrastRatio, gradeContrast, type ContrastGrade } from '../../lib/color'
 import { useTenantStore } from '../../stores/tenant'
 import AdminNav from '../../components/admin/AdminNav.vue'
-import TeamAssetsField from '../../components/admin/TeamAssetsField.vue'
+import TenantImagesField from '../../components/admin/TenantImagesField.vue'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
 
-
-// Avatars edit as a space-separated string — an emoji list is one of the few
-// cases where a text field beats a repeater UI.
-const avatarsText = computed({
-  get: () => tenant.settings.avatars.join(' '),
-  set: (value: string) => {
-    const next = value.trim().length > 0 ? value.trim().split(/\s+/) : []
-    if (next.length > 0) tenant.settings.avatars = next
-  },
-})
 
 const GRADE_KEY: Record<ContrastGrade, string> = {
   aaa: 'admin.gradeAaa',
@@ -183,21 +173,7 @@ function confirmReset(): void {
           </ul>
         </fieldset>
 
-        <fieldset>
-          <legend class="text-sm font-bold uppercase tracking-wide text-brand-900">
-            {{ t('admin.avatarsHeading') }}
-          </legend>
-          <p class="mt-0.5 text-xs text-muted">{{ t('admin.avatarsHelp') }}</p>
-          <label for="avatars" class="sr-only">{{ t('admin.avatarsLabel') }}</label>
-          <input
-            id="avatars"
-            v-model="avatarsText"
-            type="text"
-            class="mt-2 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-lg outline-none focus:border-brand-500"
-          />
-        </fieldset>
-
-        <TeamAssetsField />
+        <TenantImagesField />
 
         <div>
           <BaseButton variant="secondary" :disabled="tenant.isDefault" @click="confirmReset">

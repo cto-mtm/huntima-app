@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useMissionsStore } from '../stores/missions'
 import { useProgressStore } from '../stores/progress'
 import { useMissionText } from '../lib/missionText'
+import AppIcon from './AppIcon.vue'
 
 const { t } = useI18n()
 const { resolve } = useMissionText()
@@ -43,7 +44,7 @@ const slots = computed(() => {
           :style="{ backgroundColor: slot.color, viewTransitionName: `badge-${slot.id}` }"
           :title="resolve(slot.title)"
         >
-          <span aria-hidden="true">🏅</span>
+          <AppIcon name="badge" class="size-5 text-white/90" />
           <span class="sr-only">{{ resolve(slot.title) }}</span>
         </div>
         <div

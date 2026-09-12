@@ -3,6 +3,8 @@ import { useI18n } from 'vue-i18n'
 import { useTenantStore } from '../../stores/tenant'
 import { useMissionsStore } from '../../stores/missions'
 import { useMissionText } from '../../lib/missionText'
+import AppIcon from '../AppIcon.vue'
+import TeamMark from '../TeamMark.vue'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
@@ -21,7 +23,7 @@ const { resolve } = useMissionText()
       <!-- header -->
       <div class="flex items-center justify-between border-b border-brand-100 bg-surface px-3 py-2.5">
         <div class="flex items-center gap-1.5">
-          <span aria-hidden="true">{{ tenant.settings.avatars[0] }}</span>
+          <TeamMark />
           <span class="truncate text-xs font-bold text-brand-900">
             {{ tenant.settings.teamName }}
           </span>
@@ -43,11 +45,11 @@ const { resolve } = useMissionText()
             </span>
           </div>
           <div class="mt-1.5 flex gap-1">
-            <div class="flex aspect-square flex-1 items-center justify-center rounded-md bg-accent-500 text-[10px]">
-              🏅
+            <div class="flex aspect-square flex-1 items-center justify-center rounded-md bg-accent-500">
+              <AppIcon name="badge" class="size-3 text-white/90" />
             </div>
-            <div class="flex aspect-square flex-1 items-center justify-center rounded-md bg-accent-400 text-[10px]">
-              🏅
+            <div class="flex aspect-square flex-1 items-center justify-center rounded-md bg-accent-400">
+              <AppIcon name="badge" class="size-3 text-white/90" />
             </div>
             <div
               v-for="i in 3"

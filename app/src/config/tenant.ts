@@ -42,8 +42,28 @@ export interface TenantConfig {
    * against this, and re-check it server-side (a client can lie).
    */
   geofence: { lat: number; lng: number; radiusMeters: number }
-  /** Avatar options offered at onboarding. */
-  avatars: string[]
+  /**
+   * Team logo, uploaded in the admin dashboard. Null on a fresh install, in
+   * which case the app falls back to a monogram of the team name — never a
+   * placeholder graphic, which looks broken rather than unset.
+   */
+  logoUrl: string | null
+  /**
+   * Avatar options offered at onboarding, uploaded by staff.
+   *
+   * Empty on a fresh install, and that is a supported state: the onboarding
+   * flow skips the picker entirely rather than showing an empty grid, and the
+   * fan is identified by their nickname alone.
+   */
+  avatars: TenantAvatar[]
+}
+
+export interface TenantAvatar {
+  /** Stable across renames; what progress stores, so a re-upload can't silently reassign someone's face. */
+  id: string
+  url: string
+  /** Accessible name. Derived from the file name at upload time. */
+  label: string
 }
 
 export const DEFAULT_TENANT: TenantConfig = {
@@ -54,5 +74,6 @@ export const DEFAULT_TENANT: TenantConfig = {
   brandBase: '#2f5885',
   accentBase: '#d09a2c',
   geofence: { lat: 40.7128, lng: -74.006, radiusMeters: 400 },
-  avatars: ['⚾', '🧢', '🥎', '🦅', '🐻', '🚀'],
+  logoUrl: null,
+  avatars: [],
 }

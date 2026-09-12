@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { ACCENT_STOPS, BRAND_STOPS, generateRamp, isValidHex, normalizeHex } from '../lib/color'
-import { DEFAULT_TENANT, type TenantConfig } from '../config/tenant'
+import { DEFAULT_TENANT, type TenantAvatar, type TenantConfig } from '../config/tenant'
 
 const STORAGE_KEY = 'photo-hunt:tenant'
 
@@ -27,10 +27,16 @@ function load(): TenantConfig {
       ...DEFAULT_TENANT,
       ...parsed,
       geofence: { ...DEFAULT_TENANT.geofence, ...(parsed.geofence ?? {}) },
-      avatars:
-        Array.isArray(parsed.avatars) && parsed.avatars.length > 0
-          ? parsed.avatars.filter((a) => typeof a === 'string')
-          : [...DEFAULT_TENANT.avatars],
+      // Avatars used to be emoji strings. Anything that is not the current
+      // { id, url, label } shape is dropped rather than migrated — there is
+      // no image to migrate an emoji into, and a half-shaped entry would
+      // render as a broken img.
+      avatars: Array.isArray(parsed.avatars)
+        ? (parsed.avatars.filter(
+            (a): a is TenantAvatar =>
+              typeof a === 'object' && a !== null && typeof (a as TenantAvatar).url === 'string',
+          ) as TenantAvatar[])
+        : [],
     }
   } catch {
     return { ...DEFAULT_TENANT }
@@ -104,7 +110,7 @@ export const useTenantStore = defineStore('tenant', () => {
   }
 
   function reset(): void {
-    settings.value = { ...DEFAULT_TENANT, avatars: [...DEFAULT_TENANT.avatars] }
+    settings.value = { ...DEFAULT_TENANT, avatars: [] }
   }
 
   // Apply immediately so the first paint is already branded — a flash of the

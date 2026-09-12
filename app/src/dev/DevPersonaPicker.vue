@@ -31,7 +31,9 @@ function applyFan(persona: DevPersona): void {
 
   // Real mission ids, so the trophy case renders actual badges.
   progress.nickname = persona.nickname
-  progress.avatar = persona.avatar
+  // Personas do not pick an avatar: avatars are staff-uploaded images and a
+  // dev fixture cannot know which ones exist. The monogram fallback applies.
+  progress.avatarId = null
   progress.earnedIds = missionsStore.missions.slice(0, wanted).map((m) => m.id)
   progress.redeemed = persona.redeemed ?? false
 

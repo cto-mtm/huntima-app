@@ -18,7 +18,6 @@ export interface DevPersona {
   label: string
   emoji: string
   nickname: string
-  avatar: string
   /** Badges to grant, given the campaign's target. */
   badgeCount: (target: number) => number
   redeemed?: boolean
@@ -31,7 +30,6 @@ export const DEV_PERSONAS: DevPersona[] = [
     label: 'Fresh arrival',
     emoji: '🆕',
     nickname: 'NewFan01',
-    avatar: '⚾',
     badgeCount: () => 0,
     note: 'Just scanned the QR code. Nothing collected.',
   },
@@ -40,7 +38,6 @@ export const DEV_PERSONAS: DevPersona[] = [
     label: 'Halfway',
     emoji: '🚶',
     nickname: 'MidInning',
-    avatar: '🧢',
     badgeCount: (target) => Math.floor(target / 2),
     note: 'Typical fan in the 4th. Trophy case partly full.',
   },
@@ -49,7 +46,6 @@ export const DEV_PERSONAS: DevPersona[] = [
     label: 'One away',
     emoji: '😤',
     nickname: 'SoClose',
-    avatar: '🦅',
     badgeCount: (target) => Math.max(0, target - 1),
     note: 'The state that decides whether the prize feels reachable.',
   },
@@ -58,7 +54,6 @@ export const DEV_PERSONAS: DevPersona[] = [
     label: 'Winner',
     emoji: '🏆',
     nickname: 'SluggerSam',
-    avatar: '🐻',
     badgeCount: (target) => target,
     note: 'Win state unlocked. /redeem shows the claim code.',
   },
@@ -67,7 +62,6 @@ export const DEV_PERSONAS: DevPersona[] = [
     label: 'Already claimed',
     emoji: '✅',
     nickname: 'PrizeTaken',
-    avatar: '🚀',
     badgeCount: (target) => target,
     redeemed: true,
     note: 'Prize collected at the counter. Must not be claimable twice.',
