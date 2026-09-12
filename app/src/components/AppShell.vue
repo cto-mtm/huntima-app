@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import LocaleSwitcher from './LocaleSwitcher.vue'
 import AppIcon, { type IconName } from './AppIcon.vue'
 import TeamMark from './TeamMark.vue'
+import FanAvatar from './FanAvatar.vue'
 import { useTenantStore } from '../stores/tenant'
 
 const { t } = useI18n()
@@ -41,7 +42,12 @@ function isActive(name: string): boolean {
           <TeamMark />
           <span class="text-sm font-bold text-brand-900" translate="no">{{ tenant.settings.teamName }}</span>
         </RouterLink>
-        <LocaleSwitcher />
+        <div class="flex items-center gap-2">
+          <LocaleSwitcher />
+          <RouterLink :to="{ name: 'profile' }" :aria-label="t('profile.title')">
+            <FanAvatar />
+          </RouterLink>
+        </div>
       </div>
     </header>
 

@@ -2,18 +2,19 @@
 /**
  * The front door. Every session starts here.
  *
- * Two audiences with opposite needs meet on this screen: a family that must
- * be playing within seconds and no friction is acceptable, and stadium staff
- * who must be authenticated because they can change what the whole building
- * sees. Hence guest-first layout with staff sign-in deliberately secondary.
+ * Three audiences with different needs meet on this screen: a family that
+ * must be playing within seconds, a returning fan who wants their name back,
+ * and staff who must authenticate because they can change what the whole
+ * building sees. Guest is the primary path and costs one tap — no name, no
+ * account, nothing to read. Naming yourself happens later, from the profile
+ * screen, once you care.
  */
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import TeamMark from '../components/TeamMark.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
-import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
 import { IS_LOCAL_API } from '../lib/api'
@@ -21,13 +22,8 @@ import { IS_LOCAL_API } from '../lib/api'
 const { t } = useI18n()
 const router = useRouter()
 const session = useSessionStore()
-const progress = useProgressStore()
 const tenant = useTenantStore()
 
-const returning = computed(() => progress.hasProfile)
-
-// Dev persona shortcuts live here rather than in a floating overlay: this is
-// the screen where a person is already deciding who to be.
 const DevPersonaPicker = import.meta.env.DEV
   ? defineAsyncComponent(() => import('../dev/DevPersonaPicker.vue'))
   : null
@@ -37,26 +33,20 @@ const shortDeviceId = computed(() => session.deviceId.slice(0, 8))
 
 function playAsGuest(): void {
   session.continueAsGuest()
-  // A returning fan keeps their badges and goes straight in; a new one picks
-  // a name first.
-  void router.push(returning.value ? { name: 'home' } : { name: 'onboarding' })
+  void router.push({ name: 'home' })
 }
 
-function startOver(): void {
-  progress.reset()
-  session.continueAsGuest()
-  void router.push({ name: 'onboarding' })
+async function withGoogle(): Promise<void> {
+  if (await session.signInWithGoogle()) void router.push({ name: 'home' })
 }
-
-const busy = ref(false)
 </script>
 
 <template>
   <!--
     Layout intent: this screen is seen almost entirely by families, and the
     one thing they must do is obvious and large. Staff sign-in is a quiet
-    footer link on purpose — staff already know to look for it, and giving
-    it equal visual weight suggests to a parent that they might need it.
+    footer link on purpose — staff already know to look for it, and giving it
+    equal visual weight suggests to a parent that they might need it.
   -->
   <section class="mx-auto flex min-h-dvh max-w-md flex-col px-5 py-10">
     <!-- First thing on the page, and first in the tab order: someone who
@@ -82,24 +72,33 @@ const busy = ref(false)
         </h2>
 
         <div class="mt-3">
-          <BaseButton size="lg" :disabled="busy" @click="playAsGuest">
-            {{
-              returning
-                ? t('entry.continueAs', { nickname: progress.nickname })
-                : t('entry.continueAsGuest')
-            }}
+          <BaseButton size="lg" :disabled="session.busy" @click="playAsGuest">
+            {{ t('entry.continueAsGuest') }}
+          </BaseButton>
+        </div>
+        <p class="mt-2 text-center text-xs text-muted">{{ t('entry.guestHint') }}</p>
+      </div>
+
+      <!-- Accounts are optional and secondary: they buy a name that survives
+           between visits, not access. -->
+      <div class="mt-4 rounded-card border border-dashed border-brand-200 p-4">
+        <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
+          {{ t('entry.accountHeading') }}
+        </h2>
+        <p class="mt-1 text-xs text-muted">{{ t('entry.accountHelp') }}</p>
+
+        <div class="mt-3">
+          <BaseButton variant="secondary" size="lg" :disabled="session.busy" @click="withGoogle">
+            {{ t('entry.signInGoogle') }}
           </BaseButton>
         </div>
 
-        <p class="mt-2 text-center text-xs text-muted">{{ t('entry.guestHelp') }}</p>
-
         <button
-          v-if="returning"
           type="button"
-          class="mt-3 w-full text-center text-xs font-semibold text-brand-600"
-          @click="startOver"
+          class="mt-2 w-full text-center text-xs font-semibold text-brand-600"
+          @click="router.push({ name: 'signin' })"
         >
-          {{ t('entry.startOver') }}
+          {{ t('entry.signInEmail') }}
         </button>
       </div>
 

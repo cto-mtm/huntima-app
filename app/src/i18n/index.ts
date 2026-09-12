@@ -8,7 +8,6 @@ import missions from './locales/configs/missions'
 import shell from './locales/components/shell'
 import missionCard from './locales/components/missionCard'
 import trophyCase from './locales/components/trophyCase'
-import onboarding from './locales/pages/onboarding'
 import hub from './locales/pages/hub'
 import mission from './locales/pages/mission'
 import capture from './locales/pages/capture'
@@ -18,6 +17,7 @@ import notFound from './locales/pages/notFound'
 import admin from './locales/pages/admin'
 import entry from './locales/pages/entry'
 import hunts from './locales/pages/hunts'
+import profile from './locales/pages/profile'
 
 export const SUPPORTED_LOCALES = ['en', 'es'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -45,7 +45,6 @@ const messages = {
     shell: shell.en,
     missionCard: missionCard.en,
     trophyCase: trophyCase.en,
-    onboarding: onboarding.en,
     hub: hub.en,
     mission: mission.en,
     capture: capture.en,
@@ -55,6 +54,7 @@ const messages = {
     admin: admin.en,
     entry: entry.en,
     hunts: hunts.en,
+    profile: profile.en,
   },
   es: {
     common: common.es,
@@ -62,7 +62,6 @@ const messages = {
     shell: shell.es,
     missionCard: missionCard.es,
     trophyCase: trophyCase.es,
-    onboarding: onboarding.es,
     hub: hub.es,
     mission: mission.es,
     capture: capture.es,
@@ -72,6 +71,7 @@ const messages = {
     admin: admin.es,
     entry: entry.es,
     hunts: hunts.es,
+    profile: profile.es,
   },
 }
 

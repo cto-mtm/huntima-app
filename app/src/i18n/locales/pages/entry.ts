@@ -4,6 +4,12 @@ const en = {
 
   guestHeading: 'Playing today?',
   continueAsGuest: 'Continue as guest',
+  guestHint: 'Fastest way in. You can add a name later.',
+  signInGoogle: 'Continue with Google',
+  signInEmail: 'Use email instead',
+  haveAccount: 'Already have an account?',
+  accountHeading: 'Save your progress',
+  accountHelp: 'An account keeps your name across visits.',
   guestHelp: 'No account, no password. Your progress stays on this device.',
   continueAs: 'Continue as {nickname}',
   switchUser: 'Switch user',
@@ -12,6 +18,14 @@ const en = {
   staffSignIn: 'Staff sign-in',
 
   deviceLabel: 'Device',
+
+  fanSignInTitle: 'Sign in',
+  fanSignUpTitle: 'Create an account',
+  toggleToSignUp: 'Create one',
+  toggleToSignIn: 'Sign in instead',
+  createAccount: 'Create account',
+  passwordTooShort: 'Use at least 6 characters.',
+  emailInUse: 'That email already has an account.',
 
   loginTitle: 'Staff sign-in',
   loginSubtitle: 'Use your team account.',
@@ -36,6 +50,12 @@ const es: typeof en = {
 
   guestHeading: '¿Juegas hoy?',
   continueAsGuest: 'Entrar como invitado',
+  guestHint: 'La forma más rápida de empezar. Puedes añadir un nombre después.',
+  signInGoogle: 'Continuar con Google',
+  signInEmail: 'Usar correo electrónico',
+  haveAccount: '¿Ya tienes una cuenta?',
+  accountHeading: 'Guarda tu progreso',
+  accountHelp: 'Una cuenta conserva tu nombre entre visitas.',
   guestHelp: 'Sin cuenta ni contraseña. Tu progreso se queda en este dispositivo.',
   continueAs: 'Continuar como {nickname}',
   switchUser: 'Cambiar de usuario',
@@ -44,6 +64,14 @@ const es: typeof en = {
   staffSignIn: 'Acceso para personal',
 
   deviceLabel: 'Dispositivo',
+
+  fanSignInTitle: 'Iniciar sesión',
+  fanSignUpTitle: 'Crear una cuenta',
+  toggleToSignUp: 'Crear una',
+  toggleToSignIn: 'Iniciar sesión',
+  createAccount: 'Crear cuenta',
+  passwordTooShort: 'Usa al menos 6 caracteres.',
+  emailInUse: 'Ese correo ya tiene una cuenta.',
 
   loginTitle: 'Acceso para personal',
   loginSubtitle: 'Usa tu cuenta del equipo.',

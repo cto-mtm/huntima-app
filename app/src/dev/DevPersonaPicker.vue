@@ -110,7 +110,7 @@ async function signInAsStaff(): Promise<void> {
   // Attach the auth listener BEFORE signing in, so the claim is observed.
   await session.ensureAuthReady()
 
-  const ok = await session.signInAsAdmin(seeded.data.email, seeded.data.password)
+  const ok = await session.signInWithEmail(seeded.data.email, seeded.data.password)
   if (!ok || !(await waitForAdmin())) {
     staffState.value = 'failed'
     staffError.value = 'Signed in, but the admin claim never arrived.'

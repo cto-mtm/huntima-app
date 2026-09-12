@@ -1,6 +1,5 @@
 import { nextTick } from 'vue'
 import { createRouter, createWebHistory, START_LOCATION } from 'vue-router'
-import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 
 const router = createRouter({
@@ -16,7 +15,13 @@ const router = createRouter({
       meta: { bare: true },
       component: () => import('../pages/EntryPage.vue'),
     },
-    { path: '/welcome/profile', name: 'onboarding', component: () => import('../pages/OnboardingPage.vue') },
+    {
+      path: '/signin',
+      name: 'signin',
+      meta: { bare: true },
+      component: () => import('../pages/FanSignInPage.vue'),
+    },
+    { path: '/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue') },
     {
       path: '/staff-login',
       name: 'staff-login',
@@ -75,11 +80,10 @@ const router = createRouter({
 // render. The real gate is server-side token verification in
 // functions/src/helpers/auth.ts. A client that forces its way to /admin
 // sees a dashboard whose every privileged call returns 401/403.
-const PUBLIC_ROUTES = new Set(['entry', 'staff-login', 'about', 'not-found'])
+const PUBLIC_ROUTES = new Set(['entry', 'signin', 'staff-login', 'about', 'not-found'])
 
 router.beforeEach(async (to) => {
   const session = useSessionStore()
-  const progress = useProgressStore()
   const name = String(to.name ?? '')
 
   if (to.meta.requiresAdmin) {
@@ -89,16 +93,24 @@ router.beforeEach(async (to) => {
     return session.isAdmin ? true : { name: 'staff-login' }
   }
 
-  if (name === 'staff-login') {
+  if (name === 'signin' || name === 'staff-login') {
     await session.ensureAuthReady()
+    if (name === 'signin') return session.isFan ? { name: 'home' } : true
     return session.isAdmin ? { name: 'admin-branding' } : true
   }
 
   if (PUBLIC_ROUTES.has(name)) return true
 
-  // Fan routes.
-  if (!session.isGuest) return { name: 'entry' }
-  if (!progress.hasProfile && name !== 'onboarding') return { name: 'onboarding' }
+  // Fan routes. A guest and a signed-in fan are equally entitled to play;
+  // there is no longer a profile step to complete first, because naming
+  // yourself is optional and happens from /profile whenever you feel like it.
+  //
+  // A fan's role is NOT restored from storage — it comes from a live Firebase
+  // session — so on a refresh or a deep link this guard would otherwise run
+  // first and bounce them to the entry screen. Wait for auth, but only if an
+  // account has been used here: a guest must never pay for the Auth SDK.
+  if (!session.canPlay && session.hasUsedAccount()) await session.ensureAuthReady()
+  if (!session.canPlay) return { name: 'entry' }
   return true
 })
 

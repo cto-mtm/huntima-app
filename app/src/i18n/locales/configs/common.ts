@@ -2,6 +2,7 @@
 // If a string is only used in one place, it belongs in that feature's module.
 
 const en = {
+  guest: 'Guest',
   back: 'Back',
   next: 'Next',
   cancel: 'Cancel',
@@ -15,6 +16,7 @@ const en = {
 
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
+  guest: 'Invitado',
   back: 'Atrás',
   next: 'Siguiente',
   cancel: 'Cancelar',

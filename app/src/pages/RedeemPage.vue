@@ -3,9 +3,11 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '../components/BaseButton.vue'
 import { useTenantStore } from '../stores/tenant'
 import { useProgressStore } from '../stores/progress'
+import { useFanName } from '../composables/useFanName'
 
 const { t } = useI18n()
 const progress = useProgressStore()
+const { displayName } = useFanName()
 const tenant = useTenantStore()
 </script>
 
@@ -25,7 +27,7 @@ const tenant = useTenantStore()
     <!-- ── Win state ─────────────────────────────────────────────── -->
     <template v-else-if="progress.isComplete">
       <h1 class="text-2xl font-extrabold text-brand-900">
-        {{ t('redeem.wonTitle', { nickname: progress.nickname }) }}
+        {{ t('redeem.wonTitle', { nickname: displayName }) }}
       </h1>
       <p class="mt-2 text-sm text-muted">
         {{ t('redeem.wonBody', { location: tenant.settings.prizeLocation }) }}

@@ -41,8 +41,8 @@ async function signOut(): Promise<void> {
     </nav>
 
     <div class="text-right">
-      <p v-if="session.adminEmail" class="text-xs text-muted">
-        {{ t('entry.signedInAs', { email: session.adminEmail }) }}
+      <p v-if="session.email" class="text-xs text-muted">
+        {{ t('entry.signedInAs', { email: session.email }) }}
       </p>
       <button type="button" class="text-sm font-semibold text-brand-600" @click="signOut">
         {{ t('entry.signOut') }}

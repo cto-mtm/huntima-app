@@ -3,16 +3,16 @@ import { useI18n } from 'vue-i18n'
 import MissionCard from '../components/MissionCard.vue'
 import TrophyCase from '../components/TrophyCase.vue'
 import { useMissionsStore } from '../stores/missions'
-import { useProgressStore } from '../stores/progress'
+import { useFanName } from '../composables/useFanName'
 
 const { t } = useI18n()
 const missionsStore = useMissionsStore()
-const progress = useProgressStore()
+const { displayName } = useFanName()
 </script>
 
 <template>
   <section class="py-5">
-    <p class="text-sm text-muted">{{ t('hub.greeting', { nickname: progress.nickname }) }}</p>
+    <p class="text-sm text-muted">{{ t('hub.greeting', { nickname: displayName }) }}</p>
 
     <TrophyCase class="mt-3" />
 

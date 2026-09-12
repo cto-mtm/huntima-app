@@ -34,12 +34,49 @@ const errorMessage = computed(() => {
   return t('entry.signInFailed')
 })
 
+/**
+ * Waits for the auth listener to settle the role after a successful sign-in.
+ * Signing in is not the same as being staff: fans can sign in now too, and
+ * the claim is what decides.
+ */
+function waitForRole(timeoutMs = 6000): Promise<void> {
+  if (session.isAdmin || session.isFan) return Promise.resolve()
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      stop()
+      resolve()
+    }, timeoutMs)
+    const stop = watch(
+      () => session.role,
+      (role) => {
+        if (role !== 'admin' && role !== 'fan') return
+        clearTimeout(timer)
+        stop()
+        resolve()
+      },
+    )
+  })
+}
+
 async function submit(): Promise<void> {
   submitted.value = true
-  const ok = await session.signInAsAdmin(email.value.trim(), password.value)
-  // Success does not navigate here. The auth watcher has to confirm the
-  // `admin` claim first — signing in is not the same as being staff.
-  if (!ok) password.value = ''
+
+  const ok = await session.signInWithEmail(email.value.trim(), password.value)
+  if (!ok) {
+    password.value = ''
+    return
+  }
+
+  await session.ensureAuthReady()
+  await waitForRole()
+
+  // A real account without the claim is a FAN, and must not be left holding
+  // a half-open staff session just because they used the wrong form.
+  if (!session.isAdmin) {
+    await session.signOutAll()
+    session.authError = NOT_STAFF
+    password.value = ''
+  }
 }
 
 // Navigate only once the verified claim has actually granted the role.
@@ -99,8 +136,8 @@ function fillDemo(demo: { email: string; password: string }): void {
         {{ errorMessage }}
       </p>
 
-      <BaseButton type="submit" size="lg" :disabled="session.signingIn">
-        {{ session.signingIn ? t('entry.signingIn') : t('entry.signIn') }}
+      <BaseButton type="submit" size="lg" :disabled="session.busy">
+        {{ session.busy ? t('entry.signingIn') : t('entry.signIn') }}
       </BaseButton>
     </form>
 

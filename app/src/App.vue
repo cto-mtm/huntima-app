@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import AppShell from './components/AppShell.vue'
 import { useMissionsStore } from './stores/missions'
 import { useTenantStore } from './stores/tenant'
+import { useSessionStore } from './stores/session'
 
 const route = useRoute()
 const missions = useMissionsStore()
@@ -12,6 +13,7 @@ const missions = useMissionsStore()
 // before the first paint — a flash of the default palette is exactly what a
 // white-label product cannot afford.
 const tenant = useTenantStore()
+const session = useSessionStore()
 
 // Screens that exist outside a fan session (entry, staff login, admin)
 // render without the fan shell.
@@ -25,6 +27,10 @@ onMounted(() => {
   // Branding is served by the API so every device shows the same club.
   // The cached brand is already painted; this reconciles it.
   void tenant.load()
+
+  // Only if an account has been used on this device. A guest never loads
+  // the Auth SDK; a returning fan gets their session back.
+  if (session.hasUsedAccount()) void session.ensureAuthReady()
 })
 </script>
 

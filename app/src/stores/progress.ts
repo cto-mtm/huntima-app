@@ -77,7 +77,9 @@ export const useProgressStore = defineStore('progress', () => {
    */
   const claimCode = computed(() => {
     let hash = 7
-    for (const ch of `${session.deviceId}|${nickname.value}`) {
+    // Prefer the account uid when signed in: it is stable across a browser
+    // reinstall, where the device id is not.
+    for (const ch of `${session.user?.uid ?? session.deviceId}`) {
       hash = (hash * 31 + ch.charCodeAt(0)) % 10000
     }
     return String(hash).padStart(4, '0')

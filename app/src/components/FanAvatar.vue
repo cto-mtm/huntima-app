@@ -9,6 +9,7 @@
  */
 import { computed } from 'vue'
 import { useProgressStore } from '../stores/progress'
+import { useFanName } from '../composables/useFanName'
 import { useTenantStore } from '../stores/tenant'
 
 const props = withDefaults(defineProps<{ size?: 'sm' | 'lg' }>(), { size: 'sm' })
@@ -20,7 +21,7 @@ const avatar = computed(
   () => tenant.settings.avatars.find((a) => a.id === progress.avatarId) ?? null,
 )
 
-const initial = computed(() => progress.nickname.trim().charAt(0).toUpperCase() || '?')
+const { initial } = useFanName()
 
 const box = computed(() => (props.size === 'lg' ? 'size-14 text-lg' : 'size-7 text-[11px]'))
 </script>
