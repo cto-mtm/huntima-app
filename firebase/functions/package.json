@@ -11,7 +11,9 @@
     "build:watch": "esbuild src/index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=lib/index.js --external:firebase-functions --external:firebase-admin --watch",
     "typecheck": "tsc --noEmit",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "npm run build && firebase deploy --only functions"
+    "deploy": "npm run build && firebase deploy --only functions",
+    "//grant-admin": "Promote a real staff account to admin in production. Needs Application Default Credentials. Usage: npm run grant-admin -w firebase/functions -- someone@club.com",
+    "grant-admin": "node scripts/grant-admin.mjs"
   },
   "//dependencies": "Only what must exist at RUNTIME in the cloud. Cloud Build installs these from the registry, so nothing here may be a workspace package.",
   "dependencies": {

@@ -8,7 +8,12 @@ service firebase.storage {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    function isImage() {
+    // Raster images plus SVG. SVG's content type is image/svg+xml, which
+    // already matches image/.* — it is listed explicitly here so the intent
+    // is obvious and so tightening it later (SVGs can embed script) has one
+    // clear place to live. Assets are served from a separate storage origin
+    // and rendered as <img>/background, not inlined into the app's DOM.
+    function isAllowedImage() {
       return request.resource.contentType.matches('image/.*');
     }
 
@@ -18,12 +23,12 @@ service firebase.storage {
     // uploaded raw is easily 10 MB and nobody needs that on a concourse.
     match /tenants/{tenantId}/assets/{fileName} {
       allow read: if true;
-      allow write: if isStaff() && isImage() && request.resource.size < 5 * 1024 * 1024;
+      allow write: if isStaff() && isAllowedImage() && request.resource.size < 5 * 1024 * 1024;
     }
 
     match /campaigns/{campaignId}/targets/{fileName} {
       allow read: if true;
-      allow write: if isStaff() && isImage() && request.resource.size < 5 * 1024 * 1024;
+      allow write: if isStaff() && isAllowedImage() && request.resource.size < 5 * 1024 * 1024;
     }
 
     // Fan captures are NEVER written here. They are posted to the verify

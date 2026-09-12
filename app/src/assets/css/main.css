@@ -92,6 +92,16 @@
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* The scroll region's own gutter. `px-safe` alone REPLACES padding with the
+   inset (0 in a browser), so combining it with `px-4` silently zeroed the
+   gutter and let content run to the edge. This takes the LARGER of the base
+   gutter and the notch inset, so it is 1rem on the web and clears the notch in
+   landscape — one property, no override. */
+@utility px-gutter {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
 /* Header height + notch, for the scroll region's top offset. */
 @utility mt-header-safe {
   margin-top: calc(3.5rem + env(safe-area-inset-top, 0px));

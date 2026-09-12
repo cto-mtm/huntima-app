@@ -2,11 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import type { Mission } from 'shared'
+import type { Mission, Prize } from 'shared'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import MissionTargetField from '../../components/admin/MissionTargetField.vue'
 import { useHuntsStore } from '../../stores/hunts'
+import { uploadImage } from '../../lib/storage'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -25,18 +26,82 @@ const draft = ref<Mission[]>([])
 const dirty = ref(false)
 const savedAt = ref<number | null>(null)
 
+// The prize is a campaign-level field, saved via PATCH (hunts.patch), separate
+// from the whole-list mission save — so it gets its own draft and dirty flag.
+const emptyPrize: Prize = { name: '', description: '', imageUrl: null, winnerLimit: 0 }
+const prize = ref<Prize>({ ...emptyPrize })
+const prizeDirty = ref(false)
+const prizeSavedAt = ref<number | null>(null)
+const prizeUploading = ref(false)
+const prizeUploadError = ref(false)
+
+// How many badges win, saved alongside the prize (both campaign-level). Guarded
+// against the mission count so staff can't publish an unwinnable hunt (target 5,
+// two missions) — the bug behind the old 2-mission / 5-badge screenshot.
+const badgeTargetDraft = ref(1)
+const maxTarget = computed(() => Math.max(1, draft.value.length))
+const targetExceedsMissions = computed(() => badgeTargetDraft.value > draft.value.length)
+
 onMounted(async () => {
   await hunts.loadOne(huntId.value)
 })
 
+// Initialize the drafts ONCE per hunt, not on every change to hunts.current.
+// Saving the prize PATCHes the campaign and updates current with unchanged
+// missions; re-syncing here would silently discard unsaved mission edits (and
+// vice versa). Same hunt id → keep the local drafts.
+let loadedFor: string | null = null
 watch(
   () => hunts.current,
   (campaign) => {
-    if (campaign) draft.value = campaign.missions.map((m) => ({ ...m }))
+    if (!campaign || campaign.id === loadedFor) return
+    loadedFor = campaign.id
+    draft.value = campaign.missions.map((m) => ({ ...m }))
+    prize.value = campaign.prize ? { ...campaign.prize } : { ...emptyPrize }
+    badgeTargetDraft.value = campaign.badgeTarget
     dirty.value = false
+    prizeDirty.value = false
   },
   { immediate: true },
 )
+
+function markPrizeDirty(): void {
+  prizeDirty.value = true
+  prizeSavedAt.value = null
+}
+
+async function savePrize(): Promise<void> {
+  // Clamp so a hunt is never saved needing more badges than it has missions.
+  const badgeTarget = Math.max(1, Math.min(badgeTargetDraft.value || 1, maxTarget.value))
+  badgeTargetDraft.value = badgeTarget
+  if (await hunts.patch(huntId.value, { prize: prize.value, badgeTarget })) {
+    prizeDirty.value = false
+    prizeSavedAt.value = Date.now()
+  }
+}
+
+async function onPrizeImage(event: Event): Promise<void> {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  prizeUploading.value = true
+  prizeUploadError.value = false
+  try {
+    // Reuses the campaign target-photo path/rules rather than a new storage
+    // location — it is the same kind of staff-uploaded, world-read image.
+    const { url } = await uploadImage('mission-target', huntId.value, file)
+    prize.value.imageUrl = url
+    markPrizeDirty()
+  } catch {
+    prizeUploadError.value = true
+  } finally {
+    prizeUploading.value = false
+  }
+}
+
+function removePrizeImage(): void {
+  prize.value.imageUrl = null
+  markPrizeDirty()
+}
 
 function markDirty(): void {
   dirty.value = true
@@ -128,6 +193,132 @@ async function save(): Promise<void> {
     <p v-if="hunts.error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
       {{ t('hunts.saveFailed') }} {{ hunts.error }}
     </p>
+
+    <!-- ── Prize ───────────────────────────────────────────────────
+         A campaign-level field with its own save, because it PATCHes the
+         hunt document rather than replacing the mission list. -->
+    <section class="mt-6 rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
+            {{ t('hunts.prizeHeading') }}
+          </h2>
+          <p class="mt-0.5 text-xs text-muted">{{ t('hunts.prizeHelp') }}</p>
+        </div>
+        <div class="text-right">
+          <BaseButton :disabled="!prizeDirty || hunts.saving" @click="savePrize">
+            {{ t('hunts.prizeSave') }}
+          </BaseButton>
+          <p v-if="prizeSavedAt && !prizeDirty" class="mt-1 text-xs font-medium text-green-700">
+            {{ t('hunts.prizeSaved') }}
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-3">
+        <div>
+          <label for="badges-to-win" class="block text-xs font-semibold text-brand-900">
+            {{ t('hunts.badgesToWinLabel') }}
+          </label>
+          <input
+            id="badges-to-win"
+            v-model.number="badgeTargetDraft"
+            type="number"
+            min="1"
+            :max="maxTarget"
+            class="mt-1 w-24 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            @input="markPrizeDirty"
+          />
+          <p
+            class="mt-0.5 text-xs"
+            :class="targetExceedsMissions ? 'font-medium text-red-600' : 'text-muted'"
+          >
+            {{ t('hunts.badgesToWinHelp', { count: draft.length }) }}
+          </p>
+        </div>
+
+        <div>
+          <label for="prize-name" class="block text-xs font-semibold text-brand-900">
+            {{ t('hunts.prizeNameLabel') }}
+          </label>
+          <input
+            id="prize-name"
+            v-model="prize.name"
+            type="text"
+            maxlength="80"
+            :placeholder="t('hunts.prizeNamePlaceholder')"
+            class="mt-1 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            @input="markPrizeDirty"
+          />
+        </div>
+
+        <div>
+          <label for="prize-desc" class="block text-xs font-semibold text-brand-900">
+            {{ t('hunts.prizeDescLabel') }}
+          </label>
+          <textarea
+            id="prize-desc"
+            v-model="prize.description"
+            rows="2"
+            maxlength="500"
+            :placeholder="t('hunts.prizeDescPlaceholder')"
+            class="mt-1 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            @input="markPrizeDirty"
+          />
+        </div>
+
+        <div>
+          <label for="prize-winners" class="block text-xs font-semibold text-brand-900">
+            {{ t('hunts.prizeWinnersLabel') }}
+          </label>
+          <input
+            id="prize-winners"
+            v-model.number="prize.winnerLimit"
+            type="number"
+            min="0"
+            max="1000000"
+            class="mt-1 w-32 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            @input="markPrizeDirty"
+          />
+          <p class="mt-0.5 text-xs text-muted">{{ t('hunts.prizeWinnersHelp') }}</p>
+        </div>
+
+        <div>
+          <p class="text-xs font-semibold text-brand-900">{{ t('hunts.prizeImageLabel') }}</p>
+          <div class="mt-1 flex items-center gap-3">
+            <img
+              v-if="prize.imageUrl"
+              :src="prize.imageUrl"
+              alt=""
+              class="size-16 rounded-lg object-cover ring-1 ring-brand-100"
+            />
+            <label
+              class="cursor-pointer rounded-xl border border-brand-200 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+            >
+              {{ prizeUploading ? t('hunts.prizeUploading') : t('hunts.prizeUpload') }}
+              <input
+                type="file"
+                accept="image/*"
+                class="sr-only"
+                :disabled="prizeUploading"
+                @change="onPrizeImage"
+              />
+            </label>
+            <button
+              v-if="prize.imageUrl"
+              type="button"
+              class="text-xs font-semibold text-red-600"
+              @click="removePrizeImage"
+            >
+              {{ t('hunts.prizeRemoveImage') }}
+            </button>
+          </div>
+          <p v-if="prizeUploadError" class="mt-1 text-xs font-medium text-red-600">
+            {{ t('hunts.prizeUploadFailed') }}
+          </p>
+        </div>
+      </div>
+    </section>
 
     <ul class="mt-6 grid gap-4">
       <li

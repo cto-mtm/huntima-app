@@ -3,7 +3,6 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import {
   campaignSchema,
   missionListSchema,
-  SEED_CAMPAIGN,
   type Campaign,
   type CampaignInput,
   type Mission,
@@ -64,6 +63,29 @@ export async function updateCampaign(
   const ref = db().collection(COLLECTION).doc(id)
   if (!(await ref.get()).exists) return null
   await ref.update(patch)
+
+  // Publishing is EXCLUSIVE. GET /missions serves the single published hunt
+  // (`.limit(1)`), so two live at once makes the served hunt arbitrary — which
+  // is exactly the "my custom hunt isn't showing, the seed one is" symptom.
+  // The moment a hunt goes live, demote every other published hunt. This is the
+  // "publishing replaces the live one" the admin UI already promises.
+  if (patch.status === 'published') {
+    const live = await db().collection(COLLECTION).where('status', '==', 'published').get()
+    const stale = live.docs.filter((doc) => doc.id !== id)
+    if (stale.length > 0) {
+      const batch = db().batch()
+      stale.forEach((doc) => batch.update(doc.ref, { status: 'draft' }))
+      await batch.commit()
+    }
+
+    // Safety net: never publish an unwinnable hunt. The editor guards this too,
+    // but this guarantees it regardless of how the status got flipped.
+    const current = await getCampaign(id)
+    if (current && current.missions.length > 0 && current.badgeTarget > current.missions.length) {
+      await ref.update({ badgeTarget: current.missions.length })
+    }
+  }
+
   return getCampaign(id)
 }
 
@@ -82,32 +104,32 @@ export async function deleteCampaign(id: string): Promise<boolean> {
  * QR code on the jumbotron.
  */
 export async function getPublishedMissionList(): Promise<MissionList> {
-  try {
-    const snap = await db().collection(COLLECTION).where('status', '==', 'published').limit(1).get()
+  const snap = await db().collection(COLLECTION).where('status', '==', 'published').limit(1).get()
 
-    if (!snap.empty) {
-      const doc = snap.docs[0]
-      const parsed = campaignSchema.safeParse({ id: doc.id, ...doc.data() })
-      if (parsed.success && parsed.data.missions.length > 0) {
-        return missionListSchema.parse({
-          campaignId: parsed.data.id,
-          badgeTarget: parsed.data.badgeTarget,
-          missions: sortMissions(parsed.data.missions),
-        })
-      }
+  if (!snap.empty) {
+    const doc = snap.docs[0]
+    const parsed = campaignSchema.safeParse({ id: doc.id, ...doc.data() })
+    if (parsed.success && parsed.data.missions.length > 0) {
+      return missionListSchema.parse({
+        campaignId: parsed.data.id,
+        name: parsed.data.name,
+        badgeTarget: parsed.data.badgeTarget,
+        prize: parsed.data.prize,
+        missions: sortMissions(parsed.data.missions),
+      })
     }
-  } catch {
-    // Firestore unreachable. The seed campaign is a better answer than a 500.
   }
 
-  return SEED_CAMPAIGN
+  // No published hunt. Return an explicit empty list rather than the seed:
+  // the fan hub must reflect the real backend and show its empty state.
+  // A Firestore error is intentionally NOT swallowed here — it propagates so
+  // GET /missions answers 500, and the client shows "couldn't load" rather
+  // than a misleading "nothing published yet".
+  return { campaignId: '', name: '', badgeTarget: 1, missions: [] }
 }
 
-/** Looks a mission up for verification. Checks the seed too, so the demo works. */
+/** Looks a mission up for verification against the stored campaign. */
 export async function findMission(campaignId: string, missionId: string): Promise<Mission | null> {
-  if (campaignId === SEED_CAMPAIGN.campaignId) {
-    return SEED_CAMPAIGN.missions.find((m) => m.id === missionId) ?? null
-  }
   const campaign = await getCampaign(campaignId)
   return campaign?.missions.find((m) => m.id === missionId) ?? null
 }

@@ -109,44 +109,50 @@ async function remove(id: string): Promise<void> {
     </p>
 
     <ul class="mt-6 grid gap-2.5">
+      <!-- Name/status on top, actions on their own wrapping row below. The old
+           single row put four buttons in a shrink-0 group that overflowed a
+           phone; this keeps the hunt title readable and the actions tappable. -->
       <li
         v-for="hunt in hunts.campaigns"
         :key="hunt.id"
-        class="flex flex-wrap items-center gap-3 rounded-card bg-surface p-3.5 shadow-sm ring-1 ring-brand-100"
+        class="rounded-card bg-surface p-3.5 shadow-sm ring-1 ring-brand-100"
       >
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <h3 class="truncate font-semibold text-brand-900">{{ hunt.name }}</h3>
-            <span
-              class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase"
-              :class="
-                hunt.status === 'published'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-brand-50 text-brand-600'
-              "
-            >
-              {{ t(`hunts.status.${hunt.status}`) }}
-            </span>
-          </div>
-          <p class="mt-0.5 text-xs text-muted">
-            {{ t('hunts.missionCount', { count: hunt.missions.length }) }} ·
-            {{ hunt.badgeTarget }}
-          </p>
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="min-w-0 flex-1 truncate font-semibold text-brand-900">{{ hunt.name }}</h3>
+          <span
+            class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold uppercase"
+            :class="
+              hunt.status === 'published'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-brand-50 text-brand-600'
+            "
+          >
+            {{ t(`hunts.status.${hunt.status}`) }}
+          </span>
         </div>
+        <p class="mt-0.5 text-xs text-muted">
+          {{ t('hunts.missionCount', { count: hunt.missions.length }) }} · {{ hunt.badgeTarget }}
+        </p>
 
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="mt-3 flex flex-wrap items-center gap-2">
           <BaseButton
             variant="secondary"
             @click="router.push({ name: 'admin-hunt-edit', params: { id: hunt.id } })"
           >
             {{ t('hunts.edit') }}
           </BaseButton>
+          <BaseButton
+            variant="ghost"
+            @click="router.push({ name: 'admin-hunt-stats', params: { id: hunt.id } })"
+          >
+            {{ t('hunts.stats') }}
+          </BaseButton>
           <BaseButton variant="ghost" @click="togglePublish(hunt.id, hunt.status)">
             {{ hunt.status === 'published' ? t('hunts.unpublish') : t('hunts.publish') }}
           </BaseButton>
           <button
             type="button"
-            class="text-xs font-semibold text-red-600"
+            class="ml-auto text-xs font-semibold text-red-600"
             @click="remove(hunt.id)"
           >
             {{ t('hunts.deleteHunt') }}

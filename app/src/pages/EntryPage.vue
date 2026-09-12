@@ -9,21 +9,28 @@
  * account, nothing to read. Naming yourself happens later, from the profile
  * screen, once you care.
  */
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import GoogleButton from '../components/GoogleButton.vue'
 import TeamMark from '../components/TeamMark.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
+import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
 import { IS_LOCAL_API } from '../lib/api'
 
 const { t } = useI18n()
 const router = useRouter()
+const progress = useProgressStore()
 const session = useSessionStore()
 const tenant = useTenantStore()
+
+// Starts empty, not prefilled from progress.nickname: this screen begins a
+// fresh session, and prefilling would resurface a stale name (e.g. one left
+// by a dev persona) that the fan never chose.
+const guestName = ref('')
 
 const DevPersonaPicker = import.meta.env.DEV
   ? defineAsyncComponent(() => import('../dev/DevPersonaPicker.vue'))
@@ -33,6 +40,11 @@ const showDevTools = import.meta.env.DEV && IS_LOCAL_API
 const shortDeviceId = computed(() => session.deviceId.slice(0, 8))
 
 function playAsGuest(): void {
+  // Name is optional. setProfile trims it, and a blank value clears any
+  // stale nickname so useFanName falls back to the translated "Guest" —
+  // never leaving a previous session's name on this device. Keep whatever
+  // avatar was already chosen.
+  progress.setProfile(guestName.value, progress.avatarId)
   session.continueAsGuest()
   void router.push({ name: 'home' })
 }
@@ -88,6 +100,24 @@ async function withGoogle(): Promise<void> {
           <span class="text-[11px] font-semibold uppercase text-muted">{{ t('entry.or') }}</span>
           <span class="h-px flex-1 bg-brand-100" />
         </div>
+
+        <!-- Guest picks a name here if they want one; it is optional so a
+             family at a turnstile is never blocked behind a field they did
+             not ask for. Blank means "stay a guest". -->
+        <label for="guest-name" class="block text-sm font-semibold text-brand-900">
+          {{ t('entry.guestNameLabel') }}
+        </label>
+        <input
+          id="guest-name"
+          v-model="guestName"
+          type="text"
+          maxlength="20"
+          autocomplete="nickname"
+          :placeholder="t('entry.guestNamePlaceholder')"
+          :disabled="session.busy"
+          class="mb-3 mt-1.5 w-full rounded-xl border border-brand-200 bg-surface px-4 py-3 text-base outline-none focus:border-brand-500"
+          @keyup.enter="playAsGuest"
+        />
 
         <!-- Guest stays one tap away. A family at a turnstile must never be
              blocked behind a sign-in they did not ask for. -->

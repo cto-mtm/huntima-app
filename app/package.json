@@ -6,11 +6,12 @@
     "dev": "vite",
     "dev:remote": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:native": "vue-tsc -b && CAP_BUILD=1 vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "cap:sync": "npm run build && cap sync",
-    "cap:ios": "npm run build && cap sync ios && cap open ios",
-    "cap:android": "npm run build && cap sync android && cap open android",
+    "cap:sync": "npm run build:native && cap sync",
+    "cap:ios": "npm run build:native && cap sync ios && cap open ios",
+    "cap:android": "npm run build:native && cap sync android && cap open android",
     "cap:assets": "capacitor-assets generate"
   },
   "dependencies": {

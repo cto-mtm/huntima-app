@@ -57,6 +57,26 @@ export const missionSchema = z.object({
 
 export type Mission = z.infer<typeof missionSchema>
 
+// ── Prizes ─────────────────────────────────────────────────────────────
+/**
+ * What a fan wins by completing a hunt. Configured per-hunt in the admin
+ * editor and shown on the redeem screen.
+ *
+ * Optional on the campaign so a hunt created before prizes existed still
+ * parses — an absent prize (or an empty `name`) simply means "no prize set".
+ * `winnerLimit` records the intended cap (e.g. "first 10"); live availability
+ * would need server-side redemption, which is still a seam.
+ */
+export const prizeSchema = z.object({
+  name: z.string().max(80),
+  description: z.string().max(500),
+  imageUrl: z.string().url().nullable(),
+  /** Intended number of winners. 0 = no stated limit. */
+  winnerLimit: z.number().int().nonnegative().max(1_000_000),
+})
+
+export type Prize = z.infer<typeof prizeSchema>
+
 // ── Campaigns (a "hunt") ──────────────────────────────────────────────
 export const campaignStatusSchema = z.enum(['draft', 'published'])
 
@@ -66,6 +86,7 @@ export const campaignSchema = z.object({
   /** Only a published hunt is served to fans. */
   status: campaignStatusSchema,
   badgeTarget: z.number().int().positive().max(50),
+  prize: prizeSchema.optional(),
   missions: z.array(missionSchema),
 })
 
@@ -75,7 +96,10 @@ export type CampaignStatus = z.infer<typeof campaignStatusSchema>
 /** What `GET /missions` returns to a fan. */
 export const missionListSchema = z.object({
   campaignId: z.string(),
+  /** The hunt's name, so a completed hunt can be shown as a named trophy. */
+  name: z.string(),
   badgeTarget: z.number().int().positive(),
+  prize: prizeSchema.optional(),
   missions: z.array(missionSchema),
 })
 
@@ -133,28 +157,38 @@ export const verifyResultSchema = z.object({
 
 export type VerifyResult = z.infer<typeof verifyResultSchema>
 
-// ── Seeded demo campaign ──────────────────────────────────────────────
+// ── Per-hunt analytics ─────────────────────────────────────────────────
 /**
- * Used twice on purpose, from one place:
- *  - the API serves it when Firestore holds no published hunt yet
- *  - the app falls back to it when that request fails, because a stadium
- *    concourse is one of the worst RF environments a phone will ever see
+ * Deliberately AGGREGATE only: counters, never a per-person row.
  *
- * Its copy uses i18n KEYS. Staff-authored hunts use literal text instead —
- * see missionTextSchema.
+ * A fan is anonymous to the server (no account, a device id that never leaves
+ * the phone), so there is no trusted identity to attribute a row to — and these
+ * are children at a public venue, whose behaviour we have chosen not to store.
+ * "How many / when" is answerable from sums; "who" is not asked.
+ *
+ * `participants` and `completions` are reported by the client, which fires each
+ * at most once per device per hunt, so they approximate unique people without
+ * the server keeping the device ids that would make them exact. `captures` and
+ * `matches` are counted server-side in `POST /verify-capture`, so they are
+ * exact. `hours` buckets capture activity by UTC hour (key `YYYY-MM-DDTHH`) to
+ * answer "when did they do it" — the client renders it in the club's timezone.
  */
-export const SEED_CAMPAIGN: MissionList = {
-  campaignId: 'demo-campaign',
-  badgeTarget: 5,
-  missions: [
-    { id: 'gate-statue', kind: 'photo', title: { key: 'missions.gateStatue.title' }, hint: { key: 'missions.gateStatue.hint' }, color: '#3b6ea5', targetImageUrl: null, order: 0 },
-    { id: 'west-concourse', kind: 'photo', title: { key: 'missions.westConcourse.title' }, hint: { key: 'missions.westConcourse.hint' }, color: '#c7563f', targetImageUrl: null, order: 1 },
-    { id: 'team-store', kind: 'photo', title: { key: 'missions.teamStore.title' }, hint: { key: 'missions.teamStore.hint' }, color: '#4f8a63', targetImageUrl: null, order: 2 },
-    { id: 'foul-pole', kind: 'photo', title: { key: 'missions.foulPole.title' }, hint: { key: 'missions.foulPole.hint' }, color: '#8b6db3', targetImageUrl: null, order: 3 },
-    { id: 'player-22', kind: 'spyglass', title: { key: 'missions.player22.title' }, hint: { key: 'missions.player22.hint' }, color: '#d09a2c', targetImageUrl: null, order: 4 },
-    { id: 'mascot', kind: 'spyglass', title: { key: 'missions.mascot.title' }, hint: { key: 'missions.mascot.hint' }, color: '#2f8f9d', targetImageUrl: null, order: 5 },
-  ],
-}
+export const campaignEventKindSchema = z.enum(['participant', 'completion'])
+export type CampaignEventKind = z.infer<typeof campaignEventKindSchema>
+
+/** Body of `POST /campaigns/:id/events`. */
+export const campaignEventSchema = z.object({ kind: campaignEventKindSchema })
+export type CampaignEvent = z.infer<typeof campaignEventSchema>
+
+export const campaignStatsSchema = z.object({
+  participants: z.number().int().nonnegative(),
+  completions: z.number().int().nonnegative(),
+  captures: z.number().int().nonnegative(),
+  matches: z.number().int().nonnegative(),
+  /** Capture activity by UTC hour. Key `YYYY-MM-DDTHH`, value a count. */
+  hours: z.record(z.string(), z.number().int().nonnegative()),
+})
+export type CampaignStats = z.infer<typeof campaignStatsSchema>
 
 // ── Tenant branding ───────────────────────────────────────────────────
 /**
@@ -201,6 +235,21 @@ export const FONT_CHOICES = [
 export const fontChoiceSchema = z.enum(FONT_CHOICES)
 export type FontChoice = z.infer<typeof fontChoiceSchema>
 
+/**
+ * Optional stadium geofence, per club. When set, the fan app checks the device
+ * is roughly here before allowing a capture — a SOFT gate (see useGeofence): it
+ * blocks only a confident fix that is clearly outside, never a denied or fuzzy
+ * one, because a concourse is a terrible place for GPS. The fan's location is
+ * checked against this point and never stored. `null` = no restriction.
+ */
+export const venueSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  radiusMeters: z.number().int().positive().max(50_000),
+})
+
+export type Venue = z.infer<typeof venueSchema>
+
 export const tenantConfigSchema = z.object({
   /**
    * The club's name as it should appear. Do NOT append "Team": every surface
@@ -218,6 +267,8 @@ export const tenantConfigSchema = z.object({
   fontFamily: fontChoiceSchema,
   logoUrl: z.string().url().nullable(),
   avatars: z.array(tenantAvatarSchema).max(24),
+  /** Optional stadium geofence. Absent on older tenants → defaults to null. */
+  venue: venueSchema.nullable().default(null),
 })
 
 export type TenantConfig = z.infer<typeof tenantConfigSchema>
@@ -233,6 +284,7 @@ export const SEED_TENANT: TenantConfig = {
   fontFamily: 'system',
   logoUrl: null,
   avatars: [],
+  venue: null,
 }
 
 // ── POST /echo (reference endpoint) ───────────────────────────────────

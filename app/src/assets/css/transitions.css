@@ -80,9 +80,10 @@
 /* ════════════════════════════════════════════════════════════
    Recipe 5 — reward reveal (<Transition name="reward">)
 
-   The badge-unlock moment on CapturePage.vue. Scale + fade only;
-   the "pack tearing open" treatment is art direction that belongs
-   in an asset, not in a keyframe.
+   The badge-unlock moment on CapturePage.vue. The card scales+fades
+   in; inside it the badge itself pops with an overshoot and a ring
+   pulses out behind it (`.badge-pop` / `.badge-ring`). Transform and
+   opacity only — no "pack tearing" bitmap, that belongs in an asset.
    ════════════════════════════════════════════════════════════ */
 .reward-enter-active {
   transition:
@@ -100,6 +101,112 @@
 .reward-leave-to {
   opacity: 0;
   transform: scale(0.85);
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.4) rotate(-10deg);
+  }
+  55% {
+    transform: scale(1.12) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+.badge-pop {
+  animation: badge-pop 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes badge-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.badge-ring {
+  animation: badge-ring 340ms ease-out both;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 7 — capture scan sweep (looping progress indicator)
+
+   Not a state transition, so exempt from the 200–350ms rule the way
+   a spinner is: a bright horizontal band inside a full-box gradient,
+   translated -100%→100% of its own height, sweeps top to bottom
+   while /verify-capture is in flight. Reduced motion drops it.
+   ════════════════════════════════════════════════════════════ */
+@keyframes capture-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.capture-scan {
+  animation: capture-scan 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 8 — retry shake (<Transition name="retry">)
+
+   The "not quite" moment on CapturePage.vue. A short horizontal
+   shake draws the eye without scolding; leaving just scales away.
+   ════════════════════════════════════════════════════════════ */
+@keyframes retry-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+.retry-enter-active {
+  animation: retry-shake 340ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.retry-leave-active {
+  transition:
+    transform 160ms ease-in,
+    opacity 160ms ease-in;
+}
+
+.retry-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
+}
+
+/* Reduced motion: the capture beats are decoration; the state change
+   (badge awarded, retry offered) has already happened without them. */
+@media (prefers-reduced-motion: reduce) {
+  .badge-pop,
+  .badge-ring,
+  .capture-scan,
+  .retry-enter-active {
+    animation: none !important;
+  }
+  .badge-ring {
+    opacity: 0;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════

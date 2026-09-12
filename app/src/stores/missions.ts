@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 // One definition of the wire format, shared with the Cloud Function that
 // serves it. See docs/architecture.md § Shared contracts.
-import { missionListSchema, SEED_CAMPAIGN, type Mission } from 'shared'
+import { missionListSchema, type Mission, type Prize } from 'shared'
 import { apiFetch } from '../lib/api'
 
 // Note: `Mission` is NOT re-exported here. Components import it from
@@ -10,28 +10,35 @@ import { apiFetch } from '../lib/api'
 // subtly different definition later.
 
 export const useMissionsStore = defineStore('missions', () => {
-  // Seeded from the shared demo campaign so the very first paint has
-  // content. A stadium concourse is one of the worst RF environments a
-  // phone will ever see — 30,000 people on one tower — so "the request
-  // failed" has to be a designed state, not an error screen.
-  const missions = ref<Mission[]>([...SEED_CAMPAIGN.missions])
+  // No seed. The hub reflects the real backend: it starts empty, fills from
+  // GET /missions, and shows an empty state when no hunt is published. A
+  // failed request is a distinct `loadError` state, not a silent fallback.
+  const missions = ref<Mission[]>([])
   // Which hunt these missions belong to. Capture verification posts it back,
   // so the server looks the target up in the same campaign the fan is playing.
-  const campaignId = ref(SEED_CAMPAIGN.campaignId)
-  const badgeTarget = ref(SEED_CAMPAIGN.badgeTarget)
+  const campaignId = ref('')
+  /** The hunt's display name, used when a completed hunt becomes a trophy. */
+  const name = ref('')
+  const badgeTarget = ref(0)
+  /** The prize for this hunt, shown on the redeem screen. Null when unset. */
+  const prize = ref<Prize | null>(null)
   const loading = ref(false)
-  /** True when the list on screen is the seed campaign, not the server's. */
-  const usingFallback = ref(true)
+  /** True when GET /missions failed (network/server), as opposed to no hunt. */
+  const loadError = ref(false)
+  /** True once a successful load has completed, so the UI can tell empty
+   *  ("no published hunt") apart from "not loaded yet". */
+  const loaded = ref(false)
 
   const byId = computed(() => (id: string) => missions.value.find((m) => m.id === id) ?? null)
 
   /**
-   * SEAM: `GET /missions` currently serves SEED_CAMPAIGN straight back.
-   * When it becomes a Firestore read, nothing here changes — the contract
-   * is `missionListSchema`, and it lives in one place for both sides.
+   * `GET /missions` reads the published hunt from Firestore and returns an
+   * empty list when none is published. The contract is `missionListSchema`,
+   * shared by both ends, so this parse is the only place the shape is trusted.
    */
   async function load(): Promise<void> {
     loading.value = true
+    loadError.value = false
 
     const result = await apiFetch<unknown>('/missions')
 
@@ -40,34 +47,23 @@ export const useMissionsStore = defineStore('missions', () => {
       if (parsed.success) {
         missions.value = parsed.data.missions
         campaignId.value = parsed.data.campaignId
+        name.value = parsed.data.name
         badgeTarget.value = parsed.data.badgeTarget
-        usingFallback.value = false
+        prize.value = parsed.data.prize ?? null
+        loaded.value = true
         loading.value = false
         return
       }
-      // Server reachable but shape wrong. Now that both ends share one
-      // schema this should only happen on a version skew between a
-      // deployed function and a cached client — keep the seed on screen
-      // and make it findable.
+      // Server reachable but shape wrong — a version skew between a deployed
+      // function and a cached client. Surface it as a load error rather than
+      // pretending there is no hunt.
       console.error('[missions] unexpected /missions payload', parsed.error.issues)
     }
 
-    usingFallback.value = true
+    // Network or server failure: do NOT invent missions. Show the error state.
+    loadError.value = true
     loading.value = false
   }
 
-  /**
-   * Demo of the TransitionGroup FLIP recipe (docs/animations.md, Recipe 4).
-   * Reordering is safe because every card keys off `mission.id`.
-   */
-  function shuffle(): void {
-    const next = [...missions.value]
-    for (let i = next.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[next[i], next[j]] = [next[j], next[i]]
-    }
-    missions.value = next
-  }
-
-  return { missions, campaignId, badgeTarget, loading, usingFallback, byId, load, shuffle }
+  return { missions, campaignId, name, badgeTarget, prize, loading, loadError, loaded, byId, load }
 })

@@ -12,26 +12,36 @@ const tailscalePort = process.env.TAILSCALE_PORT
   : undefined
 
 // The single origin means the phone's browser can only reach THIS server.
-// The functions emulator (127.0.0.1:5001) is another localhost port, so the
+// The functions emulator (127.0.0.1:6001) is another localhost port, so the
 // API path is proxied through the dev server to stay same-origin.
 // The functions emulator serves the API under /<project>/<region>/api; that
 // prefix is globally unique and won't clash with app routes.
-const FUNCTIONS_EMULATOR = 'http://127.0.0.1:5001'
+const FUNCTIONS_EMULATOR = 'http://127.0.0.1:6001'
 // The Auth emulator binds to 127.0.0.1 only, so it is unreachable from any
 // other device. Proxy its two API hosts for the same single-origin reason
 // as the functions emulator — otherwise sign-in fails on a phone with a
 // network error that looks exactly like a wrong password.
-const AUTH_EMULATOR = 'http://127.0.0.1:9099'
+const AUTH_EMULATOR = 'http://127.0.0.1:10099'
 // Storage emulator, proxied for the same reason: its download URLs must be
 // reachable from whatever device is viewing, and from the function that
 // fetches a mission's target image.
-const STORAGE_EMULATOR = 'http://127.0.0.1:9199'
+const STORAGE_EMULATOR = 'http://127.0.0.1:10199'
+// Firestore emulator, proxied so browser code in remote mode can reach it
+// same-origin over the https tunnel (via initializeFirestore host/ssl, not
+// connectFirestoreEmulator). ws: true is required for its streaming RPCs.
+const FIRESTORE_EMULATOR = 'http://127.0.0.1:9080'
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
-  // Capacitor loads the app from capacitor://localhost — relative asset
-  // paths are required or the native build 404s on every chunk.
-  base: './',
+  // Web (Firebase Hosting) needs an ABSOLUTE base: assets are referenced as
+  // /assets/… so a deep-link refresh like /admin/hunts resolves them against
+  // the site root, not against the current path. A relative './' base breaks
+  // every non-root URL on hard load (the browser fetches /admin/assets/…).
+  //
+  // Capacitor is the exception: the native shell loads from
+  // capacitor://localhost and MUST use relative paths or every chunk 404s.
+  // The cap:* scripts set CAP_BUILD=1 to opt into that.
+  base: process.env.CAP_BUILD ? './' : '/',
   build: { outDir: 'dist' },
   // Expose the remote-mode flag to the client (import.meta.env.VITE_TAILSCALE_HOST).
   define: {
@@ -54,6 +64,12 @@ export default defineConfig({
       '/demo-app': FUNCTIONS_EMULATOR,
       '/identitytoolkit.googleapis.com': AUTH_EMULATOR,
       '/securetoken.googleapis.com': AUTH_EMULATOR,
+      '/emulator': AUTH_EMULATOR,
+      // Firestore's gRPC-Web RPCs stream, so the proxy must upgrade to
+      // websockets. Only relevant once browser code talks to Firestore
+      // directly (currently a seam — see stores/missions.ts); wired here so
+      // the same-origin path exists the moment it does.
+      '/google.firestore.v1.Firestore': { target: FIRESTORE_EMULATOR, ws: true },
       '/v0': STORAGE_EMULATOR,
     },
   },

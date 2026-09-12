@@ -14,6 +14,8 @@
     "emulators": "npm run build:shared && npm --prefix firebase run emulators",
     "emulators:watch": "npm run build:shared && npm --prefix firebase run emulators:watch",
     "lint": "npm run lint -w app",
-    "seed": "node firebase/seed.mjs"
+    "seed": "node firebase/seed.mjs",
+    "deploy": "bash scripts/deploy.sh",
+    "grant-admin": "npm run grant-admin -w firebase/functions --"
   }
 }

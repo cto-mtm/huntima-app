@@ -20,8 +20,9 @@ const session = useSessionStore()
 const isBare = computed(() => route.meta.bare === true)
 
 
-// One campaign fetch for the whole session. It degrades to the baked-in
-// fallback campaign, so nothing here needs to handle failure.
+// One campaign fetch for the whole session. The hub reflects the real
+// backend: on success it shows the published hunt or an empty state, and on
+// failure the store surfaces a load error (no baked-in fallback).
 onMounted(() => {
   void missions.load()
   // Branding is served by the API so every device shows the same club.

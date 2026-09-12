@@ -70,10 +70,6 @@ export const useTenantStore = defineStore('tenant', () => {
     ),
   )
 
-  const isDefault = computed(
-    () => JSON.stringify(settings.value) === JSON.stringify(DEFAULT_TENANT),
-  )
-
   function applyTheme(): void {
     applyFont(settings.value.fontFamily)
 
@@ -145,11 +141,6 @@ export const useTenantStore = defineStore('tenant', () => {
     if (isValidHex(hex)) settings.value.accentBase = normalizeHex(hex)
   }
 
-  /** Local revert to defaults. Nothing is published until save(). */
-  function reset(): void {
-    settings.value = { ...DEFAULT_TENANT, avatars: [] }
-  }
-
   // Apply immediately so the first paint is already branded — a flash of the
   // default palette on every load is exactly what a white-label product
   // cannot afford.
@@ -166,12 +157,10 @@ export const useTenantStore = defineStore('tenant', () => {
     dirty,
     brandRamp,
     accentRamp,
-    isDefault,
     applyTheme,
     load,
     save,
     setBrandBase,
     setAccentBase,
-    reset,
   }
 })

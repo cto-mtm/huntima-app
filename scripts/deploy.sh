@@ -61,4 +61,10 @@ echo "==> Deploying"
 cd firebase
 firebase deploy
 
+cd "$REPO_ROOT"
 echo "==> Done."
+echo ""
+echo "Post-deploy checklist:"
+echo "  - GEMINI_API_KEY set as a secret?   firebase functions:secrets:set GEMINI_API_KEY"
+echo "  - First admin promoted?             npm run grant-admin -- someone@your-club.com"
+echo "    (they must sign in once first, then sign out/in after being granted)"

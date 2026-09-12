@@ -1,5 +1,6 @@
 /**
- * REPLACE_ME — swap the two example.com entries for your real domains.
+ * The two hosting entries are your deployed web origins (Firebase Hosting
+ * serves the app at both the .web.app and .firebaseapp.com domains).
  *
  * The last two entries are NOT optional and NOT dead weight:
  *   capacitor://localhost  — the Origin iOS WKWebView sends
@@ -9,8 +10,8 @@
  * build fails every request with an opaque CORS error. Leave them in.
  */
 const ALLOWED_ORIGINS = [
-  'https://example.com',
-  'https://www.example.com',
+  'https://stadium-photo-hunt.web.app',
+  'https://stadium-photo-hunt.firebaseapp.com',
   'http://localhost:5173',
   'capacitor://localhost',
   'http://localhost',
@@ -61,7 +62,7 @@ export function applyCors(req: CorsRequest, res: CorsResponse): boolean {
     res.set('Vary', 'Origin')
   }
 
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.set('Access-Control-Max-Age', '3600')
 

@@ -41,7 +41,9 @@ const router = createRouter({
     // API it needs a real guard.
     {
       path: '/admin',
-      redirect: { name: 'admin-branding' },
+      // Hunts is the working surface staff return to; branding is set once and
+      // rarely revisited. So /admin lands on the hunt list.
+      redirect: { name: 'admin-hunts' },
     },
     {
       path: '/admin/hunts',
@@ -54,6 +56,12 @@ const router = createRouter({
       name: 'admin-hunt-edit',
       meta: { bare: true, requiresAdmin: true },
       component: () => import('../pages/admin/AdminHuntEditPage.vue'),
+    },
+    {
+      path: '/admin/hunts/:id/stats',
+      name: 'admin-hunt-stats',
+      meta: { bare: true, requiresAdmin: true },
+      component: () => import('../pages/admin/AdminHuntStatsPage.vue'),
     },
     {
       path: '/admin/branding',
@@ -96,7 +104,7 @@ router.beforeEach(async (to) => {
   if (name === 'signin' || name === 'staff-login') {
     await session.ensureAuthReady()
     if (name === 'signin') return session.isFan ? { name: 'home' } : true
-    return session.isAdmin ? { name: 'admin-branding' } : true
+    return session.isAdmin ? { name: 'admin-hunts' } : true
   }
 
   if (PUBLIC_ROUTES.has(name)) return true

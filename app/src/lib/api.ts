@@ -4,9 +4,9 @@
  */
 
 // Emulator under the offline `demo-app` project id.
-const DEV_FALLBACK = 'http://127.0.0.1:5001/demo-app/us-central1/api'
-// REPLACE_ME — your deployed function URL.
-const PROD_FALLBACK = 'https://us-central1-REPLACE_ME.cloudfunctions.net/api'
+const DEV_FALLBACK = 'http://127.0.0.1:6001/demo-app/us-central1/api'
+// Deployed function URL (used only if VITE_API_URL is unset in a prod build).
+const PROD_FALLBACK = 'https://us-central1-stadium-photo-hunt.cloudfunctions.net/api'
 
 // Remote (CodePipe / Tailscale) dev: the app is served from ONE https origin
 // and the browser cannot reach other localhost ports. The functions emulator
@@ -37,8 +37,8 @@ export const API_BASE_URL = isRemote
  */
 export const IS_LOCAL_API =
   API_BASE_URL.startsWith('/') ||
-  API_BASE_URL.includes('127.0.0.1:5001') ||
-  API_BASE_URL.includes('localhost:5001')
+  API_BASE_URL.includes('127.0.0.1:6001') ||
+  API_BASE_URL.includes('localhost:6001')
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string }
 

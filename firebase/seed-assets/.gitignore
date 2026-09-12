@@ -1,0 +1,9 @@
+# Your local seed images are not committed — only the folder structure is.
+*
+!.gitignore
+!README.md
+!logo/
+!avatars/
+!targets/
+!prize/
+!*/.gitkeep

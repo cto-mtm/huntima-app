@@ -1,8 +1,9 @@
 const en = {
-  title: 'Game day',
   subtitle: 'Collect badges around the stadium and claim a prize.',
 
   guestHeading: 'Playing today?',
+  guestNameLabel: 'Your name (optional)',
+  guestNamePlaceholder: 'e.g. FastPitch99',
   continueAsGuest: 'Continue as guest',
   guestHint: 'No account needed. Your badges stay on this phone.',
   or: 'or',
@@ -11,10 +12,7 @@ const en = {
   haveAccount: 'Already have an account?',
   accountHeading: 'Save your progress',
   accountHelp: 'An account keeps your name across visits.',
-  guestHelp: 'No account, no password. Your progress stays on this device.',
-  continueAs: 'Continue as {nickname}',
   switchUser: 'Switch user',
-  startOver: 'Start over as someone else',
 
   staffSignIn: 'Staff sign-in',
 
@@ -46,10 +44,11 @@ const en = {
 
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
-  title: 'Día de partido',
   subtitle: 'Consigue insignias por el estadio y reclama un premio.',
 
   guestHeading: '¿Juegas hoy?',
+  guestNameLabel: 'Tu nombre (opcional)',
+  guestNamePlaceholder: 'ej. FastPitch99',
   continueAsGuest: 'Entrar como invitado',
   guestHint: 'Sin cuenta. Tus insignias se quedan en este teléfono.',
   or: 'o',
@@ -58,10 +57,7 @@ const es: typeof en = {
   haveAccount: '¿Ya tienes una cuenta?',
   accountHeading: 'Guarda tu progreso',
   accountHelp: 'Una cuenta conserva tu nombre entre visitas.',
-  guestHelp: 'Sin cuenta ni contraseña. Tu progreso se queda en este dispositivo.',
-  continueAs: 'Continuar como {nickname}',
   switchUser: 'Cambiar de usuario',
-  startOver: 'Empezar de nuevo como otra persona',
 
   staffSignIn: 'Acceso para personal',
 

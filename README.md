@@ -41,7 +41,7 @@ npm install
 ```
 
 ```bash
-# 2. Start the emulated backend on :5001  (leave this running)
+# 2. Start the emulated backend on :6001  (leave this running)
 #    The script compiles the functions first.
 npm run emulators
 ```
@@ -91,8 +91,8 @@ npm run dev
 ```
 
 From `firebase/`, `npm run emulators:all` additionally serves the built app from `firebase/app/`
-on :5000 for a production-like smoke test. Day-to-day dev uses Vite on :5173.
-The Emulator UI is on :4000.
+on :6000 for a production-like smoke test. Day-to-day dev uses Vite on :5173.
+The Emulator UI is on :5000.
 
 ## Signing in
 
@@ -123,7 +123,7 @@ token verification, so forcing your way to `/admin` yields a dashboard whose
 privileged calls return 401/403. Try it:
 
 ```bash
-curl -i http://127.0.0.1:5001/demo-app/us-central1/api/admin/whoami
+curl -i http://127.0.0.1:6001/demo-app/us-central1/api/admin/whoami
 ```
 
 In dev, the entry screen also offers persona shortcuts that jump a fan

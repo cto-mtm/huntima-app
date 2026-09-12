@@ -37,7 +37,7 @@ function isActive(name: string): boolean {
     <header
       class="fixed inset-x-0 top-0 z-20 border-b border-brand-100 bg-surface/90 pt-safe px-safe backdrop-blur"
     >
-      <div class="flex h-14 items-center justify-between px-4">
+      <div class="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4">
         <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2">
           <TeamMark />
           <span class="text-sm font-bold text-brand-900" translate="no">{{ tenant.settings.teamName }}</span>
@@ -52,15 +52,17 @@ function isActive(name: string): boolean {
     </header>
 
     <!-- The single scrolling region. Bottom padding clears the nav bar
-         plus the home indicator. -->
-    <main class="flex-1 px-4 px-safe pb-28 mt-header-safe">
+         plus the home indicator. max-w-md centers the fan content into a
+         phone-width column on a desktop instead of letting it span the whole
+         window — the same framing the pre-session screens use. -->
+    <main class="mx-auto w-full max-w-md flex-1 px-gutter pb-28 mt-header-safe">
       <slot />
     </main>
 
     <nav
       class="fixed inset-x-0 bottom-0 z-20 border-t border-brand-100 bg-surface/95 pb-safe px-safe backdrop-blur"
     >
-      <ul class="flex items-stretch justify-around">
+      <ul class="mx-auto flex max-w-md items-stretch justify-around">
         <li v-for="item in NAV" :key="item.name" class="flex-1">
           <RouterLink
             :to="{ name: item.name }"

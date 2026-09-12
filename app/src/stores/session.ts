@@ -127,7 +127,18 @@ export const useSessionStore = defineStore('session', () => {
     readyPromise = new Promise<void>((resolve) => {
       void (async () => {
         const auth = await getFirebaseAuth()
-        const { onAuthStateChanged } = await import('firebase/auth')
+        const { onAuthStateChanged, getRedirectResult } = await import('firebase/auth')
+
+        // Complete any redirect-based Google sign-in (the COOP fallback in
+        // signInWithGoogle). Safe to call always: it resolves to null when we
+        // did not just come back from a redirect. onAuthStateChanged below
+        // still fires with the user, so this is only about surfacing errors
+        // and forcing the pending redirect to settle before we resolve.
+        try {
+          await getRedirectResult(auth)
+        } catch (err) {
+          captureError(err)
+        }
 
         onAuthStateChanged(auth, async (next) => {
           if (!next) {
@@ -166,9 +177,34 @@ export const useSessionStore = defineStore('session', () => {
     authError.value = null
     try {
       const auth = await getFirebaseAuth()
-      const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth')
-      await signInWithPopup(auth, new GoogleAuthProvider())
-      return true
+      const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = await import(
+        'firebase/auth'
+      )
+      const provider = new GoogleAuthProvider()
+      try {
+        await signInWithPopup(auth, provider)
+        return true
+      } catch (popupErr) {
+        // COOP severs the popup's opener relationship, so the SDK cannot read
+        // the result back or close the window ("Cross-Origin-Opener-Policy
+        // policy would block the window.close call"). It surfaces as one of
+        // these codes. Fall back to the full-page redirect flow, which never
+        // touches window.opener/close. This call navigates away; the result
+        // is picked up by getRedirectResult() in ensureAuthReady() on return.
+        const code = (popupErr as { code?: string } | null)?.code
+        const popupUnusable =
+          code === 'auth/popup-blocked' ||
+          code === 'auth/popup-closed-by-user' ||
+          code === 'auth/cancelled-popup-request' ||
+          code === 'auth/web-storage-unsupported' ||
+          code === 'auth/operation-not-supported-in-this-environment'
+        if (popupUnusable) {
+          await signInWithRedirect(auth, provider)
+          // Redirect navigates away; nothing after this runs in practice.
+          return true
+        }
+        throw popupErr
+      }
     } catch (err) {
       return captureError(err)
     } finally {

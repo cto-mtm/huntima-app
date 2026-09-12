@@ -4,7 +4,6 @@ import { createI18n } from 'vue-i18n'
 // Each module exports { en, es } and registers under its file name.
 // Adding a namespace = one import + one line in each messages block.
 import common from './locales/configs/common'
-import missions from './locales/configs/missions'
 import shell from './locales/components/shell'
 import missionCard from './locales/components/missionCard'
 import trophyCase from './locales/components/trophyCase'
@@ -41,7 +40,6 @@ export const DEFAULT_LOCALE: SupportedLocale = 'en'
 const messages = {
   en: {
     common: common.en,
-    missions: missions.en,
     shell: shell.en,
     missionCard: missionCard.en,
     trophyCase: trophyCase.en,
@@ -58,7 +56,6 @@ const messages = {
   },
   es: {
     common: common.es,
-    missions: missions.es,
     shell: shell.es,
     missionCard: missionCard.es,
     trophyCase: trophyCase.es,

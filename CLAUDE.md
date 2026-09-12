@@ -16,23 +16,41 @@ zero restructuring.
 - `docs/` — Internal documentation (read `docs/animations.md` before touching any
   animation, `docs/i18n.md` before touching any user-facing string,
   `docs/architecture.md` for how the pieces fit and what is deliberately not built yet,
-  `docs/branding.md` before touching anything brand- or color-related)
+  `docs/branding.md` before touching anything brand- or color-related,
+  `docs/hunt-generation.md` for the LLM prompt that drafts a hunt's missions — the basis for a future "Generate missions" button)
 
-## Current state: domain shell, not the finished product
+## Current state
 
-The fan-facing flow (hub → mission → capture → trophy case → redeem) exists as
-real routes, real components, and real i18n copy, driven by **seeded local
-state** in Pinia. The following are deliberately **not** wired up yet:
+The fan-facing flow (hub → mission → capture → trophy case → redeem) and the
+staff admin (branding, hunt builder, per-hunt analytics) are real routes and
+components backed by the Cloud Functions `api` and Firestore. Running against
+the Emulator Suite is the local dev workflow — it is the same code that
+deploys, not a mock.
 
-- Firestore / Cloud Storage (missions and progress live in memory; a page
-  reload resets them)
-- Camera capture, geolocation geofencing, OCR verification (the capture screen
-  is a simulated stub — see `src/stores/progress.ts`)
-- The admin campaign builder and live dashboard
-- Auth of any kind
+Wired up:
 
-Do not add these speculatively. Each has a marked seam; see
-`docs/architecture.md` § "Seams left open".
+- **Firestore** — tenant branding, hunts/campaigns, and the published mission
+  list (`GET /missions`, which returns an empty list when no hunt is
+  published; the fan hub shows an empty state rather than seeded content).
+  **Cloud Storage** holds team assets and mission target photos.
+- **Auth** — Firebase Auth; the verified `admin` custom claim gates staff.
+  Fans sign in with Google/email or play as a guest.
+- **Capture verification** — a real photo (file input, `capture="environment"`)
+  is posted to `POST /verify-capture` and judged server-side by Gemini. The
+  image is never stored.
+- **Per-hunt analytics** — aggregate participation/capture counters in
+  Firestore, surfaced at `/admin/hunts/:id/stats`. Counters only — no
+  per-person row, by design (see `docs/architecture.md`).
+
+Still deliberately open (see `docs/architecture.md` § "Seams left open"):
+
+- Native camera viewfinder, geofencing, and OCR "spyglass" verification
+- Per-fan server-side progress: the badge ledger lives in `localStorage`
+  (`src/stores/progress.ts`) and the claim code is derived, not issued — which
+  is why analytics keeps aggregate counters rather than trusting a fan's count
+
+Do not add the open seams speculatively. Each drags in a real decision
+(PII retention, prize fraud) that belongs in its own change.
 
 ## Development
 

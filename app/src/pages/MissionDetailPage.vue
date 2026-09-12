@@ -26,10 +26,21 @@ const earned = computed(() => progress.hasBadge(missionId.value))
          mechanism — the browser morphs the 64px card square into this
          full-width header on its own. See docs/animations.md § 1. -->
     <div
-      class="flex h-44 items-end rounded-card p-4"
+      class="relative flex h-44 items-end overflow-hidden rounded-card p-4"
       :style="{ backgroundColor: mission.color, viewTransitionName: `mission-${mission.id}` }"
     >
-      <span class="rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-semibold text-white">
+      <!-- The target photo is the clue: show it here (and it morphs from the
+           list card). Missions without one fall back to the color block and
+           lean on the written hint. -->
+      <img
+        v-if="mission.targetImageUrl"
+        :src="mission.targetImageUrl"
+        alt=""
+        class="absolute inset-0 size-full object-cover"
+      />
+      <span
+        class="relative rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-semibold text-white"
+      >
         {{ t(`missionCard.kind.${mission.kind}`) }}
       </span>
     </div>
@@ -42,9 +53,6 @@ const earned = computed(() => progress.hasBadge(missionId.value))
       {{ resolve(mission.title) }}
     </h1>
 
-    <!-- SEAM: when the admin tool can upload clue photos to Cloud Storage,
-         mission.imageUrl becomes a real URL and replaces the color block
-         above. Until then the written hint carries the whole clue. -->
     <p v-if="!mission.targetImageUrl" class="mt-1 text-xs italic text-muted">
       {{ t('mission.targetPhotoMissing') }}
     </p>

@@ -1,5 +1,6 @@
 import type { FirebaseStorage } from 'firebase/storage'
 import { USING_AUTH_EMULATOR } from './firebase'
+import { compressImage, TARGET_MAX_BYTES } from './image'
 
 /**
  * Cloud Storage, used by STAFF only.
@@ -31,10 +32,30 @@ function getStorageInstance(): Promise<FirebaseStorage> {
 
     if (USING_AUTH_EMULATOR) {
       // Routed through the dev-server proxy (see vite.config.ts), not a
-      // direct 127.0.0.1:9199, so it works from a phone on the tailnet and
+      // direct 127.0.0.1:10199, so it works from a phone on the tailnet and
       // avoids mixed content under https. Same reasoning as the Auth
       // emulator — that one cost an afternoon.
-      connectStorageEmulator(storage, window.location.hostname, Number(window.location.port))
+      // window.location.port is "" on a default port (443 under the https
+      // tunnel, 80 plain) and Number("") is 0 — which points the SDK at
+      // host:0 and fails every upload. Fall back to the protocol default so
+      // the same-origin /v0 proxy is hit. Auth sidesteps this by taking a
+      // full origin; connectStorageEmulator only takes host/port.
+      const emulatorPort = window.location.port
+        ? Number(window.location.port)
+        : window.location.protocol === 'https:'
+          ? 443
+          : 80
+      connectStorageEmulator(storage, window.location.hostname, emulatorPort)
+
+      // connectStorageEmulator hardcodes _protocol to 'http' (it only picks
+      // 'https' for a Firebase Studio cloud-workstation host) and, unlike
+      // connectAuthEmulator, takes host/port separately with no way to pass a
+      // scheme. Under the tailnet https tunnel that makes every upload a
+      // blocked mixed-content request. Match the page's protocol instead —
+      // the proxy serves Storage on the same origin, so https page ⇒ https
+      // emulator. _protocol isn't in the public type; this cast is the seam.
+      ;(storage as unknown as { _protocol: string })._protocol =
+        window.location.protocol === 'https:' ? 'https' : 'http'
     }
 
     return storage
@@ -53,6 +74,24 @@ function pathFor(kind: AssetKind, ownerId: string, fileName: string): string {
     : `campaigns/${ownerId}/targets/${stamp}-${safe}`
 }
 
+/** Swaps a file name's extension to match the content type we actually store,
+ *  so a JPEG re-encode of `logo.png` is not saved as `logo.png`. */
+function withExtensionFor(fileName: string, contentType: string): string {
+  const ext =
+    contentType === 'image/jpeg'
+      ? 'jpg'
+      : contentType === 'image/png'
+        ? 'png'
+        : contentType === 'image/webp'
+          ? 'webp'
+          : contentType === 'image/svg+xml'
+            ? 'svg'
+            : null
+  if (!ext) return fileName
+  const base = fileName.replace(/\.[^./\\]+$/, '')
+  return `${base}.${ext}`
+}
+
 export interface UploadResult {
   url: string
   path: string
@@ -60,6 +99,15 @@ export interface UploadResult {
 
 /**
  * Uploads one image and returns its public download URL.
+ *
+ * Raster images are compressed client-side to stay under 1 MB before they
+ * ever leave the phone — a phone photo is easily 4–8 MB, which is slow on a
+ * concourse and wasteful for a logo or a target thumbnail. SVGs are uploaded
+ * as-is: they are vector (tiny already) and rasterizing them through a canvas
+ * would throw away the very scalability that makes them worth using.
+ *
+ * PNGs keep their format so transparency (a logo on no background) survives;
+ * everything else is re-encoded as JPEG, which compresses photos far better.
  *
  * Throws on failure — unlike apiFetch, because every caller here is a staff
  * member looking at a form who needs to be told the upload did not happen.
@@ -72,18 +120,33 @@ export async function uploadImage(
   if (!file.type.startsWith('image/')) {
     throw new Error('That file is not an image.')
   }
-  // Mirrors the 5 MB cap in storage.rules. Checking here too means the staff
-  // member gets a sentence instead of an opaque permission error.
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error('Images must be under 5 MB.')
-  }
 
   const storage = await getStorageInstance()
   const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage')
 
-  const path = pathFor(kind, ownerId, file.name)
+  // Decide what actually gets uploaded.
+  let body: Blob = file
+  let contentType = file.type
+
+  const isSvg = file.type === 'image/svg+xml'
+  if (!isSvg && file.size > TARGET_MAX_BYTES) {
+    // Keep alpha for PNGs; re-encode everything else as JPEG.
+    const outMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+    const compressed = await compressImage(file, {
+      maxBytes: TARGET_MAX_BYTES,
+      mimeType: outMime,
+    })
+    body = compressed.blob
+    contentType = compressed.mimeType
+  } else if (!isSvg && file.size > 5 * 1024 * 1024) {
+    // Only reachable if compression somehow could not run; the rules cap is
+    // 5 MB, so surface a clear sentence rather than an opaque permission error.
+    throw new Error('Images must be under 5 MB.')
+  }
+
+  const path = pathFor(kind, ownerId, withExtensionFor(file.name, contentType))
   const objectRef = ref(storage, path)
 
-  await uploadBytes(objectRef, file, { contentType: file.type })
+  await uploadBytes(objectRef, body, { contentType })
   return { url: await getDownloadURL(objectRef), path }
 }

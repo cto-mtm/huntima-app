@@ -9,8 +9,8 @@ const router = useRouter()
 const session = useSessionStore()
 
 const TABS = [
-  { name: 'admin-branding', labelKey: 'hunts.navBranding' },
   { name: 'admin-hunts', labelKey: 'hunts.navHunts' },
+  { name: 'admin-branding', labelKey: 'hunts.navBranding' },
 ] as const
 
 function isActive(name: string): boolean {

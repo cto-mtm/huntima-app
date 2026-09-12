@@ -15,11 +15,13 @@ import {
 } from './helpers/campaigns'
 import { verifyCapture } from './helpers/vision'
 import { getTenant, putTenant } from './helpers/tenant'
+import { getCampaignStats, recordCapture, recordFanEvent } from './helpers/analytics'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
 import {
   campaignInputSchema,
+  campaignEventSchema,
   echoSchema,
   verifyCaptureSchema,
   verifyResultSchema,
@@ -28,19 +30,22 @@ import {
 } from 'shared'
 
 // ── Secrets ───────────────────────────────────────────────────────────
-// GEMINI_API_KEY is read in helpers/vision.ts. Locally it comes from
-// firebase/functions/.env; in production promote it to a real secret:
+// GEMINI_API_KEY is read in helpers/vision.ts and DECLARED on the function
+// below, so in production Cloud Run injects it from Secret Manager. Create it
+// once before deploying:
 //
 //   firebase functions:secrets:set GEMINI_API_KEY
 //
-// and add `secrets: ['GEMINI_API_KEY']` to the options below. It must never
-// reach the client bundle — a key in a bundle is a key someone else spends.
+// Locally the same name comes from firebase/functions/.env (or .secret.local);
+// with no key set, verification returns the stub verdict. It must never reach
+// the client bundle — a key in a bundle is a key someone else spends.
 
 const VALID_ROUTES = [
   'GET /health',
   'GET /missions',
   'POST /echo',
   'POST /verify-capture',
+  'POST /campaigns/:id/events',
   'GET /tenant',
   'PUT /admin/tenant',
   'GET /admin/whoami',
@@ -50,6 +55,7 @@ const VALID_ROUTES = [
   'PATCH /admin/campaigns/:id',
   'DELETE /admin/campaigns/:id',
   'PUT /admin/campaigns/:id/missions',
+  'GET /admin/campaigns/:id/stats',
 ]
 
 // Demo credentials for the Auth emulator ONLY. These never reach a deployed
@@ -65,7 +71,14 @@ const DEMO_ADMIN_PASSWORD = 'demo1234'
  * a framework.
  */
 export const api = onRequest(
-  { region: 'us-central1', maxInstances: 10, memory: '512MiB', timeoutSeconds: 60 },
+  {
+    region: 'us-central1',
+    maxInstances: 10,
+    memory: '512MiB',
+    timeoutSeconds: 60,
+    // Injected from Secret Manager in production; from .env locally.
+    secrets: ['GEMINI_API_KEY'],
+  },
   async (req, res) => {
     if (applyCors(req, res)) return
 
@@ -147,7 +160,39 @@ export const api = onRequest(
           confidence: result.confidence,
           stubbed: result.stubbed,
         })
+
+        // Aggregate analytics. Only a persisted, published hunt has a real
+        // campaign id; skip the stats write when there is none. A stats write
+        // must never fail the verdict a fan is waiting on — swallow it and let
+        // the badge stand.
+        if (input.campaignId) {
+          try {
+            await recordCapture(input.campaignId, result.match, new Date())
+          } catch (err) {
+            logger.warn('stats write failed', { campaignId: input.campaignId, err })
+          }
+        }
+
         res.status(200).json(result)
+        return
+      }
+
+      // Fan-reported analytics events (started a hunt, finished it). Public
+      // because fans are anonymous — the same reason the claim code is
+      // forgeable today. It only ever increments an aggregate counter, so the
+      // worst an abusive caller does is inflate a number; closing that is part
+      // of the anonymous-auth seam. Only a real, persisted hunt gets stats.
+      if (segments[0] === 'campaigns' && segments[2] === 'events' && req.method === 'POST') {
+        const campaignId = segments[1]
+        const { kind } = campaignEventSchema.parse(req.body)
+        if (campaignId) {
+          try {
+            await recordFanEvent(campaignId, kind)
+          } catch (err) {
+            logger.warn('fan event write failed', { campaignId, kind, err })
+          }
+        }
+        res.status(204).send('')
         return
       }
 
@@ -198,6 +243,14 @@ export const api = onRequest(
               return
             }
             res.status(200).json(updated)
+            return
+          }
+        } else if (segments[3] === 'stats') {
+          // Aggregate counters for this hunt. Returns zeroes for a hunt nobody
+          // has played yet rather than 404 — an empty dashboard is a real
+          // answer, and the stats doc is created lazily on the first event.
+          if (req.method === 'GET') {
+            res.status(200).json(await getCampaignStats(id))
             return
           }
         } else if (!segments[3]) {

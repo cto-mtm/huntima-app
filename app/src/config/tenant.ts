@@ -14,12 +14,7 @@ import { SEED_TENANT, type TenantConfig } from 'shared'
 /** What a brand-new deployment looks like before staff touch anything. */
 export const DEFAULT_TENANT: TenantConfig = SEED_TENANT
 
-/**
- * Stadium geofence. SEAM: currently unused — capture verification is visual
- * only. When @capacitor/geolocation lands, check the device position against
- * this AND re-check it server-side, because a client can lie about where it is.
- *
- * Not part of the tenant contract yet: it needs a map picker in the admin
- * tool to be usable, and a hardcoded constant is honest about that.
- */
-export const VENUE_GEOFENCE = { lat: 38.2564, lng: -85.7444, radiusMeters: 400 }
+// The stadium geofence used to be a hardcoded constant here. It is now part of
+// the tenant contract (`venue` in tenantConfigSchema), editable per club on the
+// Branding tab, and checked client-side by `useGeofence`. Server-side re-check
+// remains a hardening seam — a client can still lie about where it is.

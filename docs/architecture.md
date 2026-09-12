@@ -11,7 +11,7 @@ app/src ──vite build──> app/dist ──┬── scripts/deploy.sh copie
                                                                        (capacitor.config.ts: webDir: 'dist')
                      │
                      └── JSON over HTTPS ──> Cloud Function `api` (us-central1)
-                                              locally: Emulator Suite on :5001
+                                              locally: Emulator Suite on :6001
 ```
 
 `shared/` sits under both arms: the app imports its zod schemas at build time,
@@ -31,8 +31,10 @@ Vue 3 (`<script setup>`, TypeScript strict) + vue-router with `createWebHistory`
   through CSS; the router file never changes per-page. Unsupported browsers and
   `prefers-reduced-motion` users get instant navigation, which is the designed
   fallback, not a bug. See [`animations.md`](animations.md).
-- **State** — `stores/missions.ts` holds the seeded campaign; `stores/progress.ts`
-  holds the fan's nickname, avatar and earned badges. Both are in-memory.
+- **State** — `stores/missions.ts` hydrates the campaign from `GET /missions`
+  (falling back to the seed when the network fails); `stores/progress.ts` holds
+  the fan's nickname, avatar and earned badges, and that one is still
+  device-local (`localStorage`) — see the seam table below.
 - **Strings** — everything user-facing flows through vue-i18n. Seed data stores
   message *keys*, never display text. See [`i18n.md`](i18n.md).
 - **Safe areas** — `AppShell.vue` pads header and bottom nav with
@@ -59,7 +61,12 @@ Express, to keep the cold-start dependency surface minimal.
   Origin, so a local curl proves nothing about it. Verify CORS on a deployed
   function only. See the comment in `functions/src/helpers/cors.ts`.
 
-Routes today: `GET /health`, `GET /missions`, `POST /echo`.
+Routes today: public `GET /health`, `GET /missions`, `GET /tenant`,
+`POST /echo`, `POST /verify-capture`, `POST /campaigns/:id/events`; staff-only
+(admin claim) `PUT /admin/tenant`, `GET /admin/whoami`, the
+`GET|POST|PATCH|DELETE /admin/campaigns[/:id]` CRUD, `PUT
+/admin/campaigns/:id/missions`, and `GET /admin/campaigns/:id/stats`; and the
+emulator-only `POST /dev/seed-admin`.
 
 ## Shared contracts
 
@@ -108,7 +115,7 @@ The Auth SDK is loaded through dynamic imports only. A static import puts
 ~129 KB into the entry chunk that every family would download over stadium
 wifi for a feature only staff can reach.
 
-Locally the Auth emulator runs on :9099 and starts empty. `POST
+Locally the Auth emulator runs on :10099 and starts empty. `POST
 /dev/seed-admin` creates the demo account — gated on `FUNCTIONS_EMULATOR`,
 checked twice, because a route that mints admin claims is not a recoverable
 mistake. In the emulator that route needs no auth of its own: anyone who can
@@ -180,23 +187,20 @@ you forget to copy `.env.example`.
 
 ## Seams left open
 
-This scaffold is the fan-facing shell. The following are intentionally absent,
-each with a marked seam:
+Most of the backend is now wired: Firestore (tenant, hunts, missions), Cloud
+Storage (assets, target photos), Firebase Auth with the `admin` claim, the
+admin hunt builder, server-authoritative capture verification, and aggregate
+per-hunt analytics. What remains deliberately open, each with a marked seam:
 
 | Missing | Seam | Note |
 |---|---|---|
-| Firestore campaign storage | `GET /missions` in `functions/src/api.ts` returns `SEED_CAMPAIGN`; `stores/missions.ts` fetches it | Swap the constant for a Firestore query; `missionListSchema` is the contract and doesn't change |
-| Mission photo uploads | `mission.imageUrl` is `null` in the seed; `MissionCard.vue` renders a colored block when it is | Point it at a Cloud Storage download URL |
-| Camera capture | `CapturePage.vue` `simulateCapture()` | Replace with `@capacitor/camera`; keep the same `progress.awardBadge()` call |
-| Geofence validation | `CapturePage.vue`, same function | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
-| OCR "spyglass" missions | `mission.kind === 'spyglass'` branch in `CapturePage.vue` | The UI branch exists; the verification call does not |
-| Fan progress written server-side | `awardBadge` writes localStorage; the claim code is derived, not issued | Verification is already server-authoritative; the badge ledger is not |
-| Server-trusted fan progress | Device id is local-only; the claim code is derived, not issued | Fans upgrade to Firebase anonymous auth so the server can mint and invalidate claim codes |
-| Admin campaign builder & live dashboard | `/admin/branding` exists; the rest does not | A wider admin route tree, and auth before any of it writes to the API |
-| Auth | Nothing | Fans are anonymous by design; admin is not |
+| Native camera viewfinder | `CapturePage.vue` uses a file input with `capture="environment"` | Works today and degrades to a desktop file picker; `@capacitor/camera` would buy a nicer in-app viewfinder, not a new capability |
+| Geofence validation | `CapturePage.vue` | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
+| OCR "spyglass" verification | `mission.kind === 'spyglass'` | The capture UI distinguishes spyglass missions, but they share the photo verification path — there is no OCR-specific server check yet |
+| Server-trusted fan progress | `stores/progress.ts` writes `localStorage`; `claimCode` is derived, not issued | Fans upgrade to Firebase anonymous auth so the server can own the badge ledger and mint/invalidate claim codes. **Analytics is deliberately aggregate-only** (`campaign_stats/` counters, no per-person row) precisely because there is no trusted per-fan identity yet — and because storing behavioural data on minors is its own decision |
 
-Resist adding these speculatively. Each one drags in a real decision (storage
-rules, PII retention, prize fraud) that belongs in its own change.
+Resist closing these speculatively. Each drags in a real decision (PII
+retention, prize fraud) that belongs in its own change.
 
 ## When you need deep links
 

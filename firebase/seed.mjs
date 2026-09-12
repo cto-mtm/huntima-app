@@ -1,25 +1,38 @@
 #!/usr/bin/env node
 /**
  * Seeds the local emulator with everything needed to click around:
- * a staff account, club branding, and a published hunt.
+ * a staff account, club branding, and a published hunt — now with real images
+ * pulled from ./seed-assets (see that folder's README).
  *
  *   npm run seed          (from the repo root)
  *
- * Idempotent — run it after every emulator restart. The Auth and Firestore
- * emulators start empty and do not persist, so this is the fastest path from
- * a cold start to a working app.
+ * Idempotent — run it after every emulator restart. The Auth, Firestore and
+ * Storage emulators start empty and do not persist, so this is the fastest path
+ * from a cold start to a working app.
  *
  * It drives the REAL admin API with a real ID token rather than writing to
  * Firestore directly, so a broken auth gate or a schema change fails the seed
- * instead of silently producing data the app cannot read.
+ * instead of silently producing data the app cannot read. Images go straight to
+ * the Storage emulator (staff-authenticated, exactly as the admin UI would).
  *
- * Dependency-free on purpose: Node 18+ has fetch, and a seed script that
- * needs its own `npm install` is a seed script people stop running.
+ * Dependency-free on purpose: Node 18+ has fetch, plus the built-in fs/path.
  */
+import { readFile, readdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { dirname, extname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const API = process.env.SEED_API_URL ?? 'http://127.0.0.1:5001/demo-app/us-central1/api'
-const AUTH = process.env.SEED_AUTH_URL ?? 'http://127.0.0.1:9099'
+const API = process.env.SEED_API_URL ?? 'http://127.0.0.1:6001/demo-app/us-central1/api'
+const AUTH = process.env.SEED_AUTH_URL ?? 'http://127.0.0.1:10099'
+const STORAGE = process.env.SEED_STORAGE_URL ?? 'http://127.0.0.1:10199'
+// Base of the stored download URLs. Defaults to the emulator (works on this
+// machine); set to the dev server origin to view images on a phone. See the
+// seed-assets README.
+const PUBLIC_STORAGE = process.env.SEED_STORAGE_PUBLIC_URL ?? STORAGE
+const BUCKET = process.env.SEED_STORAGE_BUCKET ?? 'demo-app.appspot.com'
 const API_KEY = 'demo-api-key'
+
+const ASSETS = join(dirname(fileURLToPath(import.meta.url)), 'seed-assets')
 
 function die(message, hint) {
   console.error(`\n  x ${message}`)
@@ -36,13 +49,77 @@ async function call(path, options = {}) {
       headers: { 'Content-Type': 'application/json', ...options.headers },
     })
   } catch {
-    die(
-      `Could not reach the functions emulator at ${API}`,
-      'Start it first:  npm run emulators',
-    )
+    die(`Could not reach the functions emulator at ${API}`, 'Start it first:  npm run emulators')
   }
   if (!res.ok) die(`${options.method ?? 'GET'} ${path} failed: HTTP ${res.status}`, await res.text())
   return res.status === 204 ? null : res.json()
+}
+
+// ── Storage assets ────────────────────────────────────────────────────
+const MIME = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.gif': 'image/gif',
+}
+
+function mimeOf(file) {
+  return MIME[extname(file).toLowerCase()] ?? null
+}
+
+/** Image files in a seed-assets subfolder, name-sorted, or [] if none/missing. */
+async function imagesIn(folder) {
+  const dir = join(ASSETS, folder)
+  if (!existsSync(dir)) return []
+  const names = await readdir(dir)
+  return names
+    .filter((n) => mimeOf(n))
+    .sort()
+    .map((name) => ({ name, path: join(dir, name) }))
+}
+
+/** "01-buddy-bat.png" → "Buddy Bat". */
+function labelize(fileName) {
+  const base = fileName.replace(extname(fileName), '').replace(/^[\d]+[-_\s]*/, '')
+  const words = base.replace(/[-_]+/g, ' ').trim() || 'Avatar'
+  return words.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 40)
+}
+
+/**
+ * Uploads one image to the Storage emulator as staff and returns its download
+ * URL — or null on any problem, so a bad asset degrades to "no image" rather
+ * than failing the whole seed. Read is public (storage.rules), so the URL works
+ * with just `alt=media`; the token is included when the emulator returns one.
+ */
+async function upload(idToken, file, storagePath) {
+  const mime = mimeOf(file.name)
+  if (!mime) return null
+  let res
+  try {
+    const bytes = await readFile(file.path)
+    if (bytes.length > 5 * 1024 * 1024) {
+      console.warn(`   ! ${file.name} is over 5 MB — skipped (storage.rules cap)`)
+      return null
+    }
+    res = await fetch(`${STORAGE}/v0/b/${BUCKET}/o?name=${encodeURIComponent(storagePath)}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': mime },
+      body: bytes,
+    })
+  } catch {
+    console.warn(`   ! could not reach the Storage emulator at ${STORAGE} — ${file.name} skipped`)
+    return null
+  }
+  if (!res.ok) {
+    console.warn(`   ! upload failed for ${file.name}: HTTP ${res.status}`)
+    return null
+  }
+  const meta = await res.json().catch(() => ({}))
+  const token = (meta.downloadTokens ?? meta.metadata?.firebaseStorageDownloadTokens ?? '').split(',')[0]
+  const url = `${PUBLIC_STORAGE}/v0/b/${BUCKET}/o/${encodeURIComponent(storagePath)}?alt=media`
+  return token ? `${url}&token=${token}` : url
 }
 
 // ── 1. Staff account ──────────────────────────────────────────────────
@@ -54,11 +131,7 @@ const signIn = await fetch(
   {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: admin.email,
-      password: admin.password,
-      returnSecureToken: true,
-    }),
+    body: JSON.stringify({ email: admin.email, password: admin.password, returnSecureToken: true }),
   },
 ).catch(() => die(`Could not reach the Auth emulator at ${AUTH}`, 'Is it running?'))
 
@@ -67,50 +140,104 @@ if (!idToken) die('Signed in but got no ID token.', 'Is the Auth emulator health
 
 const auth = { Authorization: `Bearer ${idToken}` }
 
-// ── 2. Club branding ──────────────────────────────────────────────────
-// Colors are placeholders chosen to read well and pass contrast, not an
-// attempt to reproduce any club's official brand. Set the real values in
-// the Branding tab.
+// ── 2. Images from ./seed-assets ──────────────────────────────────────
+console.log('  Uploading images from seed-assets…')
+
+const [logoFiles, avatarFiles] = await Promise.all([imagesIn('logo'), imagesIn('avatars')])
+
+const logoUrl = logoFiles.length
+  ? await upload(idToken, logoFiles[0], `tenants/default/assets/seed-${logoFiles[0].name}`)
+  : null
+
+const avatars = []
+for (const file of avatarFiles.slice(0, 24)) {
+  const url = await upload(idToken, file, `tenants/default/assets/seed-${file.name}`)
+  if (url) {
+    avatars.push({
+      id: `seed-${file.name.replace(extname(file.name), '')}`.slice(0, 60),
+      url,
+      label: labelize(file.name),
+    })
+  }
+}
+
+// ── 3. Club branding ──────────────────────────────────────────────────
+// Louisville Bats — Triple-A affiliate of the Cincinnati Reds, playing at
+// Louisville Slugger Field. Since their 2015/16 rebrand the club uses a
+// red / navy / white scheme: brandBase is the navy, accentBase the red.
 const tenant = await call('/admin/tenant', {
   method: 'PUT',
   headers: auth,
   body: JSON.stringify({
     teamName: 'Louisville Bats',
-    prizeLocation: 'the Main Team Store',
-    badgeTarget: 5,
+    prizeLocation: 'the Bats Team Store',
+    badgeTarget: 8,
     timezone: 'America/New_York',
     brandBase: '#14284b',
     accentBase: '#c8102e',
-    // System stack by default: a webfont is a render-blocking round trip on
-    // stadium wifi. Pick a typeface in the Branding tab if the club needs one.
     fontFamily: 'system',
-    logoUrl: null,
-    avatars: [],
+    logoUrl,
+    avatars,
   }),
 })
 
-// ── 3. A published hunt ───────────────────────────────────────────────
-// Staff-authored copy is literal text, never i18n keys — it is
-// user-generated content. See docs/i18n.md.
+// ── 4. A published hunt ───────────────────────────────────────────────
+// Staff-authored copy is literal text, never i18n keys — it is user-generated
+// content. Ten ballpark things to photograph around Slugger Field. Tweak the
+// wording to your real landmarks; the target photo you drop in seed-assets is
+// what actually gets matched.
 const MISSIONS = [
-  ['Bronze at the Gate', 'Find the statue outside the main gate and frame the face.', 'photo', '#14284b'],
-  ['Big Cup Energy', 'The oversized soda cup at the concourse stand. You cannot miss it.', 'photo', '#c8102e'],
-  ['Jersey Wall', 'Inside the team store, find the wall of hanging jerseys.', 'photo', '#4f8a63'],
-  ['Down the Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', '#8b6db3'],
-  ['Spot Number 22', 'Zoom in on the field and frame the number 22 on a jersey.', 'spyglass', '#d09a2c'],
-  ['Mascot Hunt', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', '#2f8f9d'],
+  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', '#14284b'],
+  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', '#c8102e'],
+  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', '#4f8a63'],
+  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', '#8b6db3'],
+  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', '#a8763e'],
+  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', '#2f8f9d'],
+  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', '#d09a2c'],
+  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', '#3b6ea5'],
+  ['Meet Buddy Bat', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', '#c7563f'],
+  ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', '#6d8b3a'],
 ]
 
 const existing = await call('/admin/campaigns', { headers: auth })
-const SEED_NAME = 'Opening Night Safari'
+const SEED_NAME = 'Slugger Field Safari'
 let hunt = existing.campaigns.find((c) => c.name === SEED_NAME)
 
 if (!hunt) {
   hunt = await call('/admin/campaigns', {
     method: 'POST',
     headers: auth,
-    body: JSON.stringify({ name: SEED_NAME, status: 'draft', badgeTarget: 5 }),
+    body: JSON.stringify({ name: SEED_NAME, status: 'draft', badgeTarget: 8 }),
   })
+}
+
+// Prize, shown on the redeem screen when a fan wins. Its image (if any) reuses
+// the campaign target-photo path, exactly like the admin prize upload.
+const prizeFiles = await imagesIn('prize')
+const prizeImageUrl = prizeFiles.length
+  ? await upload(idToken, prizeFiles[0], `campaigns/${hunt.id}/targets/seed-prize-${prizeFiles[0].name}`)
+  : null
+
+await call(`/admin/campaigns/${hunt.id}`, {
+  method: 'PATCH',
+  headers: auth,
+  body: JSON.stringify({
+    prize: {
+      name: 'Louisville Bats prize pack',
+      description: 'A team cap and a voucher for the Bats Team Store. Collect at the counter.',
+      imageUrl: prizeImageUrl,
+      winnerLimit: 50,
+    },
+  }),
+})
+
+// Target photos map to missions in file-name order; missing ones stay null.
+console.log('  Uploading mission target photos…')
+const targetFiles = await imagesIn('targets')
+const targetUrls = []
+for (let i = 0; i < MISSIONS.length; i++) {
+  const file = targetFiles[i]
+  targetUrls.push(file ? await upload(idToken, file, `campaigns/${hunt.id}/targets/seed-${file.name}`) : null)
 }
 
 await call(`/admin/campaigns/${hunt.id}/missions`, {
@@ -123,26 +250,35 @@ await call(`/admin/campaigns/${hunt.id}/missions`, {
       title: { text: title },
       hint: { text: hint },
       color,
-      targetImageUrl: null,
+      targetImageUrl: targetUrls[order],
       order,
     })),
   }),
 })
 
-await call(`/admin/campaigns/${hunt.id}`, {
-  method: 'PATCH',
-  headers: auth,
-  body: JSON.stringify({ status: 'published' }),
-})
+// Publishing is exclusive server-side: making one hunt live demotes the rest.
+// So only publish the demo hunt when nothing else already is — otherwise
+// re-running the seed (e.g. to reset the staff account) would yank the live
+// slot away from a custom hunt you are in the middle of testing.
+const otherLive = existing.campaigns.find((c) => c.status === 'published' && c.id !== hunt.id)
+const published = !otherLive
+if (published) {
+  await call(`/admin/campaigns/${hunt.id}`, {
+    method: 'PATCH',
+    headers: auth,
+    body: JSON.stringify({ status: 'published' }),
+  })
+}
 
 // ── Done ──────────────────────────────────────────────────────────────
+const targetCount = targetUrls.filter(Boolean).length
 console.log(`
   Seeded.
 
     staff     ${admin.email} / ${admin.password}
-    club      ${tenant.teamName}
-    hunt      ${SEED_NAME} (published, ${MISSIONS.length} missions)
+    club      ${tenant.teamName}  (logo: ${logoUrl ? 'yes' : 'none'}, avatars: ${avatars.length})
+    hunt      ${SEED_NAME} (${published ? 'published' : 'left as draft — another hunt is already live'}, ${MISSIONS.length} missions, ${targetCount} target photos)
 
+  Drop images in firebase/seed-assets/{logo,avatars,targets} and re-run to enrich this.
   Open the app and tap "Continue as guest", or sign in at /staff-login.
-  No target photos are seeded — upload them per mission under Hunts.
 `)

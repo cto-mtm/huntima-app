@@ -83,7 +83,7 @@ async function submit(): Promise<void> {
 watch(
   () => session.isAdmin,
   (isAdmin) => {
-    if (isAdmin) void router.push({ name: 'admin-branding' })
+    if (isAdmin) void router.push({ name: 'admin-hunts' })
   },
   { immediate: true },
 )

@@ -27,9 +27,10 @@ const missionsStore = useMissionsStore()
 const session = useSessionStore()
 
 /**
- * Which persona (if any) the current session matches. Without this the entry
- * screen says "Continue as MidInning" with nothing on screen explaining where
- * that name came from.
+ * Which persona (if any) the current session matches, so the list can mark it
+ * "active". Matched on the trio that a persona actually sets — nickname, badge
+ * count, redeemed — rather than on any persisted id, because a session can also
+ * be reached by hand.
  */
 const activePersonaId = computed(() => {
   const target = missionsStore.badgeTarget
@@ -45,14 +46,24 @@ const activePersonaId = computed(() => {
 
 function applyFan(persona: DevPersona): void {
   const wanted = persona.badgeCount(missionsStore.badgeTarget)
+  const cid = missionsStore.campaignId
 
-  // Real mission ids, so the trophy case renders actual badges.
   progress.nickname = persona.nickname
   // Personas do not pick an avatar: avatars are staff-uploaded images and a
   // dev fixture cannot know which ones exist. The monogram fallback applies.
   progress.avatarId = null
-  progress.earnedIds = missionsStore.missions.slice(0, wanted).map((m) => m.id)
-  progress.redeemed = persona.redeemed ?? false
+  // Written keyed by campaign id, matching the store's per-hunt shape. Real
+  // mission ids, so the trophy case renders actual badges.
+  progress.earned = { [cid]: missionsStore.missions.slice(0, wanted).map((m) => m.id) }
+  progress.claimed = { [cid]: persona.redeemed ?? false }
+  // Winner / claimed personas have finished the hunt, so seed a trophy for it
+  // (dated a bit in the past) — the completion watcher only fires on a live
+  // false→true flip, which setting the badge set directly does not guarantee.
+  if (wanted >= missionsStore.badgeTarget && missionsStore.loaded && missionsStore.campaignId) {
+    progress.wonHunts = [{ campaignId: cid, name: missionsStore.name, wonAt: Date.now() - 86_400_000 }]
+  } else {
+    progress.wonHunts = []
+  }
 
   session.continueAsGuest()
   void router.push({ name: 'home' })
@@ -118,7 +129,7 @@ async function signInAsStaff(): Promise<void> {
   }
 
   staffState.value = 'idle'
-  void router.push({ name: 'admin-branding' })
+  void router.push({ name: 'admin-hunts' })
 }
 </script>
 
@@ -172,7 +183,7 @@ async function signInAsStaff(): Promise<void> {
       {{ staffError }}
     </p>
     <p v-else class="mt-1.5 px-2 text-[10px] text-slate-500">
-      Seeds the account, signs in, opens Branding.
+      Seeds the account, signs in, opens the dashboard.
     </p>
   </div>
 </template>

@@ -11,7 +11,6 @@ const en = {
   loading: 'Loading…',
   retry: 'Try again',
   error: 'Something went wrong.',
-  offline: 'Offline — showing saved missions.',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -25,7 +24,6 @@ const es: typeof en = {
   loading: 'Cargando…',
   retry: 'Reintentar',
   error: 'Algo salió mal.',
-  offline: 'Sin conexión: mostrando misiones guardadas.',
 }
 
 export default { en, es }

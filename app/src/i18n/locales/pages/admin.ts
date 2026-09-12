@@ -11,6 +11,18 @@ const en = {
   badgeTargetLabel: 'Default badge target',
   badgeTargetHelp: 'Prefills the target for new hunts. Each hunt then keeps its own.',
 
+  venueHeading: 'Location check',
+  venueHelp: 'Optionally require fans to be at the stadium to capture a photo.',
+  venueEnableLabel: 'Only allow captures at the stadium',
+  venueLatLabel: 'Latitude',
+  venueLngLabel: 'Longitude',
+  venueRadiusLabel: 'Radius (m)',
+  venueUseLocation: 'Use my current location',
+  venueLocating: 'Getting location…',
+  venueLocationFailed: "Couldn't get your location.",
+  venuePrivacyNote:
+    "A fan's location is only compared to this point on their own device — never stored or sent anywhere.",
+
   typefaceHeading: 'Typeface',
   typefaceHelp: 'Applies across the app. "System default" loads nothing extra, which is fastest on stadium wifi.',
   typefaceLabel: 'Font',
@@ -49,13 +61,18 @@ const en = {
   previewHeading: 'Live preview',
   previewHelp: 'The real components, re-skinned as you type.',
 
-  reset: 'Reset to defaults',
-  resetConfirm: 'Reset branding to the built-in defaults?',
   saveBranding: 'Publish branding',
   saving: 'Publishing…',
   savedNote: 'Published. Every device shows this brand.',
   unsavedNote: 'Unpublished changes — you are previewing them.',
   saveFailed: 'Could not publish.',
+
+  diagHeading: 'System',
+  diagNote: 'Checks GET /health on the Cloud Function. On a fresh clone it proves the emulator wiring works end to end.',
+  diagOk: 'API reachable — responded at {ts}',
+  diagFail: 'API unreachable: {reason}',
+  diagCheck: 'Check again',
+  diagBuildLabel: 'Build',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -71,6 +88,18 @@ const es: typeof en = {
   prizeLocationHelp: 'Dónde se reclama el premio. Aparece en la pantalla de canje.',
   badgeTargetLabel: 'Insignias necesarias (por defecto)',
   badgeTargetHelp: 'Prerrellena el objetivo de las nuevas búsquedas. Cada una guarda el suyo.',
+
+  venueHeading: 'Comprobación de ubicación',
+  venueHelp: 'Opcionalmente, exige que los aficionados estén en el estadio para capturar una foto.',
+  venueEnableLabel: 'Permitir capturas solo en el estadio',
+  venueLatLabel: 'Latitud',
+  venueLngLabel: 'Longitud',
+  venueRadiusLabel: 'Radio (m)',
+  venueUseLocation: 'Usar mi ubicación actual',
+  venueLocating: 'Obteniendo ubicación…',
+  venueLocationFailed: 'No pudimos obtener tu ubicación.',
+  venuePrivacyNote:
+    'La ubicación del aficionado solo se compara con este punto en su propio dispositivo: nunca se almacena ni se envía a ningún sitio.',
 
   typefaceHeading: 'Tipografía',
   typefaceHelp: 'Se aplica a toda la app. «Predeterminada del sistema» no descarga nada, lo más rápido en el wifi del estadio.',
@@ -110,13 +139,18 @@ const es: typeof en = {
   previewHeading: 'Vista previa',
   previewHelp: 'Los componentes reales, con la nueva marca mientras escribes.',
 
-  reset: 'Restablecer valores por defecto',
-  resetConfirm: '¿Restablecer la marca a los valores por defecto?',
   saveBranding: 'Publicar marca',
   saving: 'Publicando…',
   savedNote: 'Publicado. Todos los dispositivos ven esta marca.',
   unsavedNote: 'Cambios sin publicar: estás viendo una vista previa.',
   saveFailed: 'No se pudo publicar.',
+
+  diagHeading: 'Sistema',
+  diagNote: 'Comprueba GET /health en la Cloud Function. En una copia nueva demuestra que el emulador está bien conectado.',
+  diagOk: 'API accesible: respondió a las {ts}',
+  diagFail: 'API inaccesible: {reason}',
+  diagCheck: 'Comprobar de nuevo',
+  diagBuildLabel: 'Compilación',
 }
 
 export default { en, es }

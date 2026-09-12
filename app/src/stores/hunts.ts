@@ -2,9 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   campaignSchema,
+  campaignStatsSchema,
   missionListPayloadSchema,
   type Campaign,
   type CampaignInput,
+  type CampaignStats,
   type Mission,
 } from 'shared'
 import { apiFetch } from '../lib/api'
@@ -156,6 +158,21 @@ export const useHuntsStore = defineStore('hunts', () => {
     return true
   }
 
+  /**
+   * Aggregate analytics for one hunt. The server returns zeroes (not a 404)
+   * for a hunt nobody has played, so a successful fetch always carries a
+   * renderable shape.
+   */
+  async function loadStats(id: string): Promise<CampaignStats | null> {
+    const result = await authed<unknown>(`/admin/campaigns/${id}/stats`)
+    if (!result.ok) {
+      error.value = result.error
+      return null
+    }
+    const parsed = campaignStatsSchema.safeParse(result.data)
+    return parsed.success ? parsed.data : null
+  }
+
   async function remove(id: string): Promise<boolean> {
     const result = await authed<unknown>(`/admin/campaigns/${id}`, { method: 'DELETE' })
     if (!result.ok) {
@@ -166,5 +183,5 @@ export const useHuntsStore = defineStore('hunts', () => {
     return true
   }
 
-  return { campaigns, current, loading, saving, error, loadAll, loadOne, create, patch, saveMissions, remove }
+  return { campaigns, current, loading, saving, error, loadAll, loadOne, create, patch, saveMissions, loadStats, remove }
 })

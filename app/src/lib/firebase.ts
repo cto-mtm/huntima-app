@@ -59,7 +59,7 @@ export function getFirebaseAuth(): Promise<Auth> {
 
     if (USING_AUTH_EMULATOR) {
       // Same-origin, through the dev-server proxy (see vite.config.ts).
-      // NOT a direct http://127.0.0.1:9099 connection: the Auth emulator
+      // NOT a direct http://127.0.0.1:10099 connection: the Auth emulator
       // binds to localhost, so a direct URL resolves to the VIEWER's own
       // machine and fails on any device but this one — and it would be
       // mixed content under an https tunnel. One origin avoids both.

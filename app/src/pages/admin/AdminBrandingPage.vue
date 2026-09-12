@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '../../components/BaseButton.vue'
 import ColorField from '../../components/admin/ColorField.vue'
@@ -10,6 +10,7 @@ import { FONTS } from '../../lib/fonts'
 import { FONT_CHOICES } from 'shared'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import TenantImagesField from '../../components/admin/TenantImagesField.vue'
+import AdminDiagnostics from '../../components/admin/AdminDiagnostics.vue'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
@@ -49,8 +50,38 @@ function gradeClass(grade: ContrastGrade): string {
   return GRADE_CLASS[grade]
 }
 
-function confirmReset(): void {
-  if (window.confirm(t('admin.resetConfirm'))) tenant.reset()
+// ── Stadium geofence ────────────────────────────────────────────────
+const venueLocating = ref(false)
+const venueError = ref(false)
+
+/** Materialize an editable venue when turned on; null (no restriction) off. */
+function toggleVenue(on: boolean): void {
+  tenant.settings.venue = on ? { lat: 0, lng: 0, radiusMeters: 300 } : null
+}
+
+/** Fill lat/lng from the admin's device — staff stand at the stadium and tap. */
+function useMyLocation(): void {
+  if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+    venueError.value = true
+    return
+  }
+  venueLocating.value = true
+  venueError.value = false
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      tenant.settings.venue = {
+        lat: Number(pos.coords.latitude.toFixed(6)),
+        lng: Number(pos.coords.longitude.toFixed(6)),
+        radiusMeters: tenant.settings.venue?.radiusMeters ?? 300,
+      }
+      venueLocating.value = false
+    },
+    () => {
+      venueLocating.value = false
+      venueError.value = true
+    },
+    { enableHighAccuracy: true, timeout: 8000 },
+  )
 }
 </script>
 
@@ -128,6 +159,76 @@ function confirmReset(): void {
               max="20"
               class="mt-2 w-28 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
             />
+          </div>
+        </fieldset>
+
+        <fieldset class="space-y-3">
+          <legend class="text-sm font-bold uppercase tracking-wide text-brand-900">
+            {{ t('admin.venueHeading') }}
+          </legend>
+          <p class="text-xs text-muted">{{ t('admin.venueHelp') }}</p>
+
+          <label class="flex items-center gap-2 text-sm font-semibold text-brand-900">
+            <input
+              type="checkbox"
+              class="size-4 rounded border-brand-300 text-brand-600"
+              :checked="!!tenant.settings.venue"
+              @change="toggleVenue(($event.target as HTMLInputElement).checked)"
+            />
+            {{ t('admin.venueEnableLabel') }}
+          </label>
+
+          <div v-if="tenant.settings.venue" class="space-y-3">
+            <div class="flex flex-wrap gap-3">
+              <div>
+                <label for="venue-lat" class="block text-xs font-semibold text-brand-900">
+                  {{ t('admin.venueLatLabel') }}
+                </label>
+                <input
+                  id="venue-lat"
+                  v-model.number="tenant.settings.venue.lat"
+                  type="number"
+                  step="0.000001"
+                  class="mt-1 w-40 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label for="venue-lng" class="block text-xs font-semibold text-brand-900">
+                  {{ t('admin.venueLngLabel') }}
+                </label>
+                <input
+                  id="venue-lng"
+                  v-model.number="tenant.settings.venue.lng"
+                  type="number"
+                  step="0.000001"
+                  class="mt-1 w-40 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label for="venue-radius" class="block text-xs font-semibold text-brand-900">
+                  {{ t('admin.venueRadiusLabel') }}
+                </label>
+                <input
+                  id="venue-radius"
+                  v-model.number="tenant.settings.venue.radiusMeters"
+                  type="number"
+                  min="1"
+                  max="50000"
+                  class="mt-1 w-28 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <BaseButton variant="secondary" :disabled="venueLocating" @click="useMyLocation">
+                {{ venueLocating ? t('admin.venueLocating') : t('admin.venueUseLocation') }}
+              </BaseButton>
+              <p v-if="venueError" class="text-xs font-medium text-red-600">
+                {{ t('admin.venueLocationFailed') }}
+              </p>
+            </div>
+
+            <p class="text-xs text-muted">{{ t('admin.venuePrivacyNote') }}</p>
           </div>
         </fieldset>
 
@@ -214,12 +315,6 @@ function confirmReset(): void {
         </fieldset>
 
         <TenantImagesField />
-
-        <div>
-          <BaseButton variant="secondary" :disabled="tenant.isDefault" @click="confirmReset">
-            {{ t('admin.reset') }}
-          </BaseButton>
-        </div>
       </div>
 
       <!-- ── Live preview ──────────────────────────────────────── -->
@@ -231,5 +326,7 @@ function confirmReset(): void {
         <PhonePreview />
       </aside>
     </div>
+
+    <AdminDiagnostics class="mt-8" />
   </section>
 </template>
