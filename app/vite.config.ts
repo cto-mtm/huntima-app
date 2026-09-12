@@ -17,6 +17,11 @@ const tailscalePort = process.env.TAILSCALE_PORT
 // The functions emulator serves the API under /<project>/<region>/api; that
 // prefix is globally unique and won't clash with app routes.
 const FUNCTIONS_EMULATOR = 'http://127.0.0.1:5001'
+// The Auth emulator binds to 127.0.0.1 only, so it is unreachable from any
+// other device. Proxy its two API hosts for the same single-origin reason
+// as the functions emulator — otherwise sign-in fails on a phone with a
+// network error that looks exactly like a wrong password.
+const AUTH_EMULATOR = 'http://127.0.0.1:9099'
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
@@ -43,6 +48,8 @@ export default defineConfig({
     // Keep the functions-emulator API same-origin when accessed remotely.
     proxy: {
       '/demo-app': FUNCTIONS_EMULATOR,
+      '/identitytoolkit.googleapis.com': AUTH_EMULATOR,
+      '/securetoken.googleapis.com': AUTH_EMULATOR,
     },
   },
 })

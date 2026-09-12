@@ -1,5 +1,5 @@
 import type { Auth } from 'firebase/auth'
-import { IS_LOCAL_API } from './api'
+import { API_BASE_URL, IS_LOCAL_API } from './api'
 
 /**
  * Firebase Auth, used for STAFF only.
@@ -38,6 +38,10 @@ const firebaseConfig = {
 /** True when we are talking to the local Auth emulator rather than a project. */
 export const USING_AUTH_EMULATOR = import.meta.env.DEV && IS_LOCAL_API
 
+// Referenced so the emulator decision and the API base stay visibly coupled:
+// both must point at the same place or sign-in and data disagree.
+export const API_TARGET = API_BASE_URL
+
 let authPromise: Promise<Auth> | null = null
 
 /** Loads the Auth SDK on first use and returns the shared instance. */
@@ -51,10 +55,12 @@ export function getFirebaseAuth(): Promise<Auth> {
     const auth = getAuth(initializeApp(firebaseConfig))
 
     if (USING_AUTH_EMULATOR) {
-      // Direct localhost connection: works on this machine, but NOT from a
-      // phone reaching the dev server over a tailnet. Proxying the Auth
-      // emulator would be the fix if that becomes a need.
-      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+      // Same-origin, through the dev-server proxy (see vite.config.ts).
+      // NOT a direct http://127.0.0.1:9099 connection: the Auth emulator
+      // binds to localhost, so a direct URL resolves to the VIEWER's own
+      // machine and fails on any device but this one — and it would be
+      // mixed content under an https tunnel. One origin avoids both.
+      connectAuthEmulator(auth, window.location.origin, { disableWarnings: true })
     }
 
     return auth

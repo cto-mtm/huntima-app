@@ -20,6 +20,7 @@ const en = {
   signIn: 'Sign in',
   signingIn: 'Signing in…',
   signInFailed: 'Those credentials did not work.',
+  signInUnavailable: 'Could not reach the sign-in service. Check the emulator is running.',
   notStaff: 'That account is not a staff account.',
   backToEntry: 'Back',
 
@@ -51,6 +52,7 @@ const es: typeof en = {
   signIn: 'Entrar',
   signingIn: 'Entrando…',
   signInFailed: 'Esas credenciales no funcionaron.',
+  signInUnavailable: 'No se pudo contactar con el servicio de acceso. Comprueba que el emulador esté funcionando.',
   notStaff: 'Esa cuenta no es una cuenta del personal.',
   backToEntry: 'Volver',
 

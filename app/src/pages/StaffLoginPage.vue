@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
-import { useSessionStore } from '../stores/session'
+import { NOT_STAFF, useSessionStore } from '../stores/session'
 import { IS_LOCAL_API } from '../lib/api'
 
 const { t } = useI18n()
@@ -24,10 +24,13 @@ const showDevTools = import.meta.env.DEV && IS_LOCAL_API
 // real. The exception is the not-staff case, which is a different problem and
 // would otherwise read as a typo'd password.
 const errorMessage = computed(() => {
-  if (!session.authError) return null
-  return session.authError.includes('not a staff account')
-    ? t('entry.notStaff')
-    : t('entry.signInFailed')
+  const code = session.authError
+  if (!code) return null
+  if (code === NOT_STAFF) return t('entry.notStaff')
+  // A network failure is not a credential failure. Saying so saves someone
+  // retyping a correct password while the emulator is simply unreachable.
+  if (code === 'auth/network-request-failed') return t('entry.signInUnavailable')
+  return t('entry.signInFailed')
 })
 
 async function submit(): Promise<void> {

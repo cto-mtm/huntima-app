@@ -9,6 +9,9 @@ const ROLE_KEY = 'photo-hunt:role'
 
 export type Role = 'anonymous' | 'guest' | 'admin'
 
+/** Sentinel for "authenticated, but no admin claim". Not user-facing copy. */
+export const NOT_STAFF = 'app/not-staff'
+
 /**
  * Stable per-device identifier for guests.
  *
@@ -112,7 +115,7 @@ export const useSessionStore = defineStore('session', () => {
             // Signed in, but not staff. Refuse rather than silently
             // downgrading to guest, which would read as a wrong password.
             adminUser.value = null
-            authError.value = 'This account is not a staff account.'
+            authError.value = NOT_STAFF
             role.value = 'anonymous'
             await signOut(auth)
           }
@@ -135,9 +138,13 @@ export const useSessionStore = defineStore('session', () => {
       await signInWithEmailAndPassword(auth, email, password)
       return true
     } catch (err) {
-      // Firebase error codes are not user-facing copy; the page maps this to
-      // a single generic message so we never reveal whether an account exists.
-      authError.value = err instanceof Error ? err.message : 'Sign-in failed'
+      // Keep the Firebase error CODE, not the prose: the page needs to tell
+      // "unreachable" apart from "wrong password" (reporting a network
+      // failure as bad credentials sends people hunting for a typo that is
+      // not there) while still collapsing every credential-ish failure into
+      // one message, so we never reveal which emails exist.
+      const code = (err as { code?: string } | null)?.code
+      authError.value = code ?? (err instanceof Error ? err.message : 'Sign-in failed')
       return false
     } finally {
       signingIn.value = false
