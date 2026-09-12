@@ -22,6 +22,10 @@ const FUNCTIONS_EMULATOR = 'http://127.0.0.1:5001'
 // as the functions emulator — otherwise sign-in fails on a phone with a
 // network error that looks exactly like a wrong password.
 const AUTH_EMULATOR = 'http://127.0.0.1:9099'
+// Storage emulator, proxied for the same reason: its download URLs must be
+// reachable from whatever device is viewing, and from the function that
+// fetches a mission's target image.
+const STORAGE_EMULATOR = 'http://127.0.0.1:9199'
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
@@ -50,6 +54,7 @@ export default defineConfig({
       '/demo-app': FUNCTIONS_EMULATOR,
       '/identitytoolkit.googleapis.com': AUTH_EMULATOR,
       '/securetoken.googleapis.com': AUTH_EMULATOR,
+      '/v0': STORAGE_EMULATOR,
     },
   },
 })

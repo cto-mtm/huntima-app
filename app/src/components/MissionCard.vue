@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { Mission } from '../stores/missions'
+import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
 
 const props = defineProps<{ mission: Mission }>()
 
 const { t } = useI18n()
+const { resolve } = useMissionText()
 const progress = useProgressStore()
 </script>
 
@@ -34,7 +36,7 @@ const progress = useProgressStore()
         class="truncate font-semibold text-brand-900"
         :style="{ viewTransitionName: `mission-title-${props.mission.id}` }"
       >
-        {{ t(props.mission.titleKey) }}
+        {{ resolve(props.mission.title) }}
       </h3>
       <p class="mt-0.5 text-xs text-muted">
         {{ t(`missionCard.kind.${props.mission.kind}`) }}

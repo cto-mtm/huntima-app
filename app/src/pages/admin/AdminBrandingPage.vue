@@ -6,18 +6,12 @@ import ColorField from '../../components/admin/ColorField.vue'
 import PhonePreview from '../../components/admin/PhonePreview.vue'
 import { contrastRatio, gradeContrast, type ContrastGrade } from '../../lib/color'
 import { useTenantStore } from '../../stores/tenant'
-import { useSessionStore } from '../../stores/session'
-import { useRouter } from 'vue-router'
+import AdminNav from '../../components/admin/AdminNav.vue'
+import TeamAssetsField from '../../components/admin/TeamAssetsField.vue'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
-const session = useSessionStore()
-const router = useRouter()
 
-async function signOut(): Promise<void> {
-  await session.signOutAll()
-  void router.push({ name: 'entry' })
-}
 
 // Avatars edit as a space-separated string — an emoji list is one of the few
 // cases where a text field beats a repeater UI.
@@ -70,18 +64,12 @@ function confirmReset(): void {
 
 <template>
   <section class="py-5">
-    <header class="flex flex-wrap items-start justify-between gap-3">
+    <AdminNav />
+
+    <header class="mt-5">
       <div>
         <h1 class="text-2xl font-extrabold text-brand-900">{{ t('admin.title') }}</h1>
         <p class="mt-1 text-sm text-muted">{{ t('admin.subtitle') }}</p>
-      </div>
-      <div class="text-right">
-        <p v-if="session.adminEmail" class="text-xs text-muted">
-          {{ t('entry.signedInAs', { email: session.adminEmail }) }}
-        </p>
-        <button type="button" class="mt-1 text-sm font-semibold text-brand-600" @click="signOut">
-          {{ t('entry.signOut') }}
-        </button>
       </div>
     </header>
 
@@ -208,6 +196,8 @@ function confirmReset(): void {
             class="mt-2 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-lg outline-none focus:border-brand-500"
           />
         </fieldset>
+
+        <TeamAssetsField />
 
         <div>
           <BaseButton variant="secondary" :disabled="tenant.isDefault" @click="confirmReset">

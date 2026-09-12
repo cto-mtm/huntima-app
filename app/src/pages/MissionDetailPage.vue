@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import { useMissionsStore } from '../stores/missions'
+import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
 
 const { t } = useI18n()
+const { resolve } = useMissionText()
 const route = useRoute()
 const missionsStore = useMissionsStore()
 const progress = useProgressStore()
@@ -37,13 +39,13 @@ const earned = computed(() => progress.hasBadge(missionId.value))
       class="mt-4 text-2xl font-extrabold text-brand-900"
       :style="{ viewTransitionName: `mission-title-${mission.id}` }"
     >
-      {{ t(mission.titleKey) }}
+      {{ resolve(mission.title) }}
     </h1>
 
     <!-- SEAM: when the admin tool can upload clue photos to Cloud Storage,
          mission.imageUrl becomes a real URL and replaces the color block
          above. Until then the written hint carries the whole clue. -->
-    <p v-if="!mission.imageUrl" class="mt-1 text-xs italic text-muted">
+    <p v-if="!mission.targetImageUrl" class="mt-1 text-xs italic text-muted">
       {{ t('mission.targetPhotoMissing') }}
     </p>
 
@@ -51,7 +53,7 @@ const earned = computed(() => progress.hasBadge(missionId.value))
       <h2 class="text-xs font-bold uppercase tracking-wide text-muted">
         {{ t('mission.hintLabel') }}
       </h2>
-      <p class="mt-1 text-base text-brand-900">{{ t(mission.hintKey) }}</p>
+      <p class="mt-1 text-base text-brand-900">{{ resolve(mission.hint) }}</p>
     </div>
 
     <p v-if="earned" class="mt-5 text-center text-sm font-semibold text-accent-600">

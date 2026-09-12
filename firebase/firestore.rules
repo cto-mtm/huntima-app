@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Campaign data is world-readable and staff-writable.
+//
+// Fans are anonymous by product design — there is no sign-in to gate reads
+// behind, and a hunt is public information printed on a jumbotron. Writes are
+// a different matter: a campaign edit changes what an entire stadium sees.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The `admin` custom claim is the authority. Never an email address or a
+    // domain: anyone who can register that address would otherwise inherit it.
+    function isStaff() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow write: if isStaff();
+
+      match /missions/{missionId} {
+        allow read: if true;
+        allow write: if isStaff();
+      }
+    }
+
+    // Fan progress is deliberately NOT here yet. It lives on the device, so
+    // the claim code is still forgeable — see docs/architecture.md § Seams.
+    // When it lands it must be server-written only: a fan who can write their
+    // own badge count can write themselves a prize.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -3,8 +3,10 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMissionsStore } from '../stores/missions'
 import { useProgressStore } from '../stores/progress'
+import { useMissionText } from '../lib/missionText'
 
 const { t } = useI18n()
+const { resolve } = useMissionText()
 const missionsStore = useMissionsStore()
 const progress = useProgressStore()
 
@@ -39,10 +41,10 @@ const slots = computed(() => {
           v-if="slot"
           class="flex aspect-square items-center justify-center rounded-xl text-lg"
           :style="{ backgroundColor: slot.color, viewTransitionName: `badge-${slot.id}` }"
-          :title="t(slot.titleKey)"
+          :title="resolve(slot.title)"
         >
           <span aria-hidden="true">🏅</span>
-          <span class="sr-only">{{ t(slot.titleKey) }}</span>
+          <span class="sr-only">{{ resolve(slot.title) }}</span>
         </div>
         <div
           v-else

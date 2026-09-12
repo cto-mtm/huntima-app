@@ -39,6 +39,18 @@ const router = createRouter({
       redirect: { name: 'admin-branding' },
     },
     {
+      path: '/admin/hunts',
+      name: 'admin-hunts',
+      meta: { bare: true, requiresAdmin: true },
+      component: () => import('../pages/admin/AdminHuntsPage.vue'),
+    },
+    {
+      path: '/admin/hunts/:id',
+      name: 'admin-hunt-edit',
+      meta: { bare: true, requiresAdmin: true },
+      component: () => import('../pages/admin/AdminHuntEditPage.vue'),
+    },
+    {
       path: '/admin/branding',
       name: 'admin-branding',
       meta: { bare: true, requiresAdmin: true },
@@ -125,7 +137,7 @@ router.beforeResolve((_to, from) => {
   finishTransition?.()
 
   return new Promise<boolean>((allowNavigation) => {
-    start(() => {
+    const transition = start(() => {
       // Releasing the guard here lets vue-router commit the route *inside*
       // the transition callback, which is what the API requires: old page
       // snapshotted, route swapped, new page snapshotted, browser morphs.
@@ -134,6 +146,13 @@ router.beforeResolve((_to, from) => {
         finishTransition = done
       })
     })
+
+    // `finished` REJECTS when a transition is skipped or superseded — a
+    // second tap during an animation, or a hidden tab. That is normal here,
+    // and the navigation has already been allowed above, so the only thing
+    // an unhandled rejection buys is InvalidStateError noise in the console
+    // of anyone debugging something else.
+    transition.finished.catch(() => {})
   })
 })
 

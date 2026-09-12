@@ -13,6 +13,9 @@ export const useMissionsStore = defineStore('missions', () => {
   // phone will ever see — 30,000 people on one tower — so "the request
   // failed" has to be a designed state, not an error screen.
   const missions = ref<Mission[]>([...SEED_CAMPAIGN.missions])
+  // Which hunt these missions belong to. Capture verification posts it back,
+  // so the server looks the target up in the same campaign the fan is playing.
+  const campaignId = ref(SEED_CAMPAIGN.campaignId)
   const badgeTarget = ref(SEED_CAMPAIGN.badgeTarget)
   const loading = ref(false)
   /** True when the list on screen is the seed campaign, not the server's. */
@@ -34,6 +37,7 @@ export const useMissionsStore = defineStore('missions', () => {
       const parsed = missionListSchema.safeParse(result.data)
       if (parsed.success) {
         missions.value = parsed.data.missions
+        campaignId.value = parsed.data.campaignId
         badgeTarget.value = parsed.data.badgeTarget
         usingFallback.value = false
         loading.value = false
@@ -63,5 +67,5 @@ export const useMissionsStore = defineStore('missions', () => {
     missions.value = next
   }
 
-  return { missions, badgeTarget, loading, usingFallback, byId, load, shuffle }
+  return { missions, campaignId, badgeTarget, loading, usingFallback, byId, load, shuffle }
 })

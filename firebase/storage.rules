@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Two kinds of object, with opposite rules.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isStaff() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Team assets (logos, marks) and mission target photos are public: every
+    // fan's app has to render them, and fans are anonymous so there is nobody
+    // to authenticate. Staff-only writes, capped at 5 MB — a phone photo
+    // uploaded raw is easily 10 MB and nobody needs that on a concourse.
+    match /tenants/{tenantId}/assets/{fileName} {
+      allow read: if true;
+      allow write: if isStaff() && isImage() && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    match /campaigns/{campaignId}/targets/{fileName} {
+      allow read: if true;
+      allow write: if isStaff() && isImage() && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Fan captures are NEVER written here. They are posted to the verify
+    // function, forwarded to the model, and discarded. Photographs taken by
+    // children in a public venue are not something to accumulate: what you do
+    // not store cannot leak, and there is no deletion request to service.
+    // If that policy ever changes, it needs a retention rule and a privacy
+    // policy before a single byte lands — not a rule edit here.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

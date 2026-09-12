@@ -2,12 +2,17 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import type { VerifyResult } from 'shared'
 import BaseButton from '../components/BaseButton.vue'
 import { useReducedMotion } from '../composables/useReducedMotion'
 import { useMissionsStore } from '../stores/missions'
+import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
+import { prepareCapture, type PreparedImage } from '../lib/image'
+import { apiPost } from '../lib/api'
 
 const { t } = useI18n()
+const { resolve } = useMissionText()
 const route = useRoute()
 const missionsStore = useMissionsStore()
 const progress = useProgressStore()
@@ -16,60 +21,119 @@ const reducedMotion = useReducedMotion()
 const missionId = computed(() => String(route.params.id))
 const mission = computed(() => missionsStore.byId(missionId.value))
 
-type Phase = 'framing' | 'scanning' | 'reward'
+type Phase = 'framing' | 'scanning' | 'reward' | 'rejected'
 const phase = ref<Phase>('framing')
+
+const capture = ref<PreparedImage | null>(null)
+const rejection = ref<string | null>(null)
+const stubbed = ref(false)
 
 /** Spyglass missions get a digital zoom; concourse missions don't need one. */
 const zoom = ref(1)
 const isSpyglass = computed(() => mission.value?.kind === 'spyglass')
 
+const fileInput = ref<HTMLInputElement | null>(null)
+
+function pickPhoto(): void {
+  fileInput.value?.click()
+}
+
 /**
- * SEAM — this is the whole capture pipeline, stubbed.
- *
- * The real implementation replaces the timer with, in order:
- *   1. @capacitor/camera to take the photo
- *   2. @capacitor/geolocation checked against tenant.geofence
- *   3. for spyglass missions, an OCR call on the cropped target box
- *   4. server-side verification before awarding — a client that awards
- *      its own badges is a client that can mint its own prizes
- *
- * The contract to preserve is the tail of this function: award the badge,
- * then show the reward. Everything above it is replaceable.
+ * A plain file input with `capture="environment"` opens the rear camera on
+ * iOS and Android and returns a real photo — no Capacitor plugin, and it
+ * degrades to a file picker on desktop. @capacitor/camera would buy a nicer
+ * in-app viewfinder, not a new capability.
  */
-function simulateCapture(): void {
-  if (!mission.value) return
+async function onFileChosen(event: Event): Promise<void> {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file || !mission.value) return
 
   phase.value = 'scanning'
+  rejection.value = null
 
-  // Reduced-motion users get the result immediately; the "Scanning…" beat
-  // is atmosphere, not information.
-  const delay = reducedMotion.value ? 0 : 900
+  try {
+    capture.value = await prepareCapture(file)
+  } catch {
+    phase.value = 'framing'
+    rejection.value = t('capture.imageUnreadable')
+    return
+  }
 
+  // The verdict is the SERVER's. The client used to award its own badges,
+  // which is the same as letting it mint prizes.
+  const result = await apiPost<VerifyResult>('/verify-capture', {
+    campaignId: missionsStore.campaignId,
+    missionId: missionId.value,
+    imageBase64: capture.value.base64,
+    mimeType: capture.value.mimeType,
+  })
+
+  if (!result.ok) {
+    // Our failure, not the fan's: never spend their attempt on our outage.
+    phase.value = 'framing'
+    rejection.value = t('capture.verifyUnavailable')
+    return
+  }
+
+  stubbed.value = result.data.stubbed
+
+  if (!result.data.match) {
+    phase.value = 'rejected'
+    rejection.value = result.data.reason
+    return
+  }
+
+  // The celebratory beat is atmosphere, not information — reduced-motion
+  // users get the reward immediately.
+  const delay = reducedMotion.value ? 0 : 600
   window.setTimeout(() => {
     progress.awardBadge(missionId.value)
     phase.value = 'reward'
   }, delay)
 }
+
+function tryAgain(): void {
+  capture.value = null
+  rejection.value = null
+  phase.value = 'framing'
+  if (fileInput.value) fileInput.value.value = ''
+}
 </script>
 
 <template>
   <section v-if="mission" class="py-5">
-    <h1 class="text-lg font-extrabold text-brand-900">{{ t(mission.titleKey) }}</h1>
+    <h1 class="text-lg font-extrabold text-brand-900">{{ resolve(mission.title) }}</h1>
     <p class="mt-1 text-sm text-muted">
       {{ isSpyglass ? t('capture.frameSpyglass') : t('capture.framePhoto') }}
     </p>
 
-    <!-- Viewfinder stand-in. When @capacitor/camera lands, the live preview
-         renders here and this block becomes the overlay on top of it. -->
+    <!-- The staff-uploaded target, shown right above the viewfinder because
+         the fan is matching against it, not remembering it. -->
+    <div v-if="mission.targetImageUrl" class="mt-3">
+      <p class="text-xs font-bold uppercase tracking-wide text-muted">
+        {{ t('capture.targetLabel') }}
+      </p>
+      <img
+        :src="mission.targetImageUrl"
+        alt=""
+        class="mt-1 h-32 w-full rounded-card object-cover ring-1 ring-brand-100"
+      />
+    </div>
+
     <div class="relative mt-4 aspect-[3/4] overflow-hidden rounded-card bg-brand-900">
+      <img
+        v-if="capture"
+        :src="capture.previewUrl"
+        alt=""
+        class="absolute inset-0 size-full object-cover"
+      />
       <div
+        v-else
         class="absolute inset-0 opacity-40 transition-transform duration-200"
         :style="{ backgroundColor: mission.color, transform: `scale(${zoom})` }"
         aria-hidden="true"
       />
 
-      <!-- Targeting box: the "spyglass" framing guide. For spyglass
-           missions this rectangle is also the OCR crop region. -->
       <div
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-white/90"
         :class="isSpyglass ? 'size-40' : 'size-56'"
@@ -84,7 +148,7 @@ function simulateCapture(): void {
       </p>
     </div>
 
-    <div v-if="isSpyglass" class="mt-4">
+    <div v-if="isSpyglass && phase === 'framing'" class="mt-4">
       <label for="zoom" class="block text-xs font-semibold text-muted">
         {{ t('capture.zoomLabel') }}
       </label>
@@ -99,19 +163,49 @@ function simulateCapture(): void {
       />
     </div>
 
-    <p class="mt-4 rounded-lg bg-accent-500/10 px-3 py-2 text-xs font-medium text-accent-600">
+    <p
+      v-if="stubbed && phase !== 'framing'"
+      class="mt-4 rounded-lg bg-accent-500/10 px-3 py-2 text-xs font-medium text-accent-600"
+    >
       {{ t('capture.stubNotice') }}
     </p>
 
-    <div class="mt-4">
-      <BaseButton size="lg" :disabled="phase !== 'framing'" @click="simulateCapture">
-        {{ t('capture.capture') }}
-      </BaseButton>
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/*"
+      capture="environment"
+      class="sr-only"
+      @change="onFileChosen"
+    />
+
+    <div v-if="phase === 'framing'" class="mt-4">
+      <BaseButton size="lg" @click="pickPhoto">{{ t('capture.capture') }}</BaseButton>
+      <p v-if="rejection" class="mt-2 text-center text-sm font-medium text-red-600">
+        {{ rejection }}
+      </p>
     </div>
 
-    <!-- Recipe 5 (docs/animations.md): scale + fade only. This is a
-         within-page state change, so it uses Vue's <Transition>, not a
-         view transition — those are strictly page-to-page. -->
+    <!-- Strict gate: no match, no badge. The wording carries the whole burden
+         of not making a child feel accused of cheating. -->
+    <Transition name="reward">
+      <div
+        v-if="phase === 'rejected'"
+        class="mt-6 rounded-card bg-surface p-5 text-center shadow-sm ring-1 ring-red-200"
+      >
+        <p class="text-3xl" aria-hidden="true">🔍</p>
+        <h2 class="mt-2 text-lg font-extrabold text-brand-900">{{ t('capture.rejectedTitle') }}</h2>
+        <p class="mt-1 text-sm text-muted">{{ rejection ?? t('capture.rejectedBody') }}</p>
+
+        <div class="mt-4 grid gap-2">
+          <BaseButton size="lg" @click="tryAgain">{{ t('capture.tryAgain') }}</BaseButton>
+          <BaseButton size="lg" variant="secondary" @click="$router.push({ name: 'home' })">
+            {{ t('capture.keepGoing') }}
+          </BaseButton>
+        </div>
+      </div>
+    </Transition>
+
     <Transition name="reward">
       <div
         v-if="phase === 'reward'"

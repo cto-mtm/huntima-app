@@ -1,101 +1,211 @@
 import { onRequest } from 'firebase-functions/v2/https'
 import * as logger from 'firebase-functions/logger'
-import { ZodError } from 'zod'
+import { z, ZodError } from 'zod'
 
 import { applyCors } from './helpers/cors'
+import { isEmulator, seedDemoAdmin, verifyRequest, type AuthedUser } from './helpers/auth'
+import {
+  createCampaign,
+  deleteCampaign,
+  findMission,
+  getCampaign,
+  getPublishedMissionList,
+  listCampaigns,
+  updateCampaign,
+} from './helpers/campaigns'
+import { verifyCapture } from './helpers/vision'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
-import { echoSchema, missionListSchema, SEED_CAMPAIGN } from 'shared'
-import { isEmulator, seedDemoAdmin, verifyRequest } from './helpers/auth'
+import {
+  campaignInputSchema,
+  echoSchema,
+  missionSchema,
+  verifyCaptureSchema,
+} from 'shared'
 
 // ── Secrets ───────────────────────────────────────────────────────────
-// When you need a third-party key (an OCR provider, an SMS gateway),
-// declare it as a secret rather than an env var so it never lands in a
-// config file. Example, intentionally left commented out:
+// GEMINI_API_KEY is read in helpers/vision.ts. Locally it comes from
+// firebase/functions/.env; in production promote it to a real secret:
 //
-//   import { defineSecret } from 'firebase-functions/params'
-//   const OCR_API_KEY = defineSecret('OCR_API_KEY')
-//   ...then add `secrets: [OCR_API_KEY]` to the onRequest options below
-//   and read it at call time with `OCR_API_KEY.value()`.
+//   firebase functions:secrets:set GEMINI_API_KEY
 //
-// Set it once with: firebase functions:secrets:set OCR_API_KEY
+// and add `secrets: ['GEMINI_API_KEY']` to the options below. It must never
+// reach the client bundle — a key in a bundle is a key someone else spends.
 
-const VALID_ROUTES = ['GET /health', 'GET /missions', 'POST /echo', 'GET /admin/whoami']
+const VALID_ROUTES = [
+  'GET /health',
+  'GET /missions',
+  'POST /echo',
+  'POST /verify-capture',
+  'GET /admin/whoami',
+  'GET /admin/campaigns',
+  'POST /admin/campaigns',
+  'GET /admin/campaigns/:id',
+  'PATCH /admin/campaigns/:id',
+  'DELETE /admin/campaigns/:id',
+  'PUT /admin/campaigns/:id/missions',
+]
 
-// Demo credentials for the Auth emulator ONLY. These never reach a
-// deployed function: the seed route is gated on isEmulator.
+// Demo credentials for the Auth emulator ONLY. These never reach a deployed
+// function: the seed route is gated on isEmulator.
 const DEMO_ADMIN_EMAIL = 'admin@demo.local'
 const DEMO_ADMIN_PASSWORD = 'demo1234'
+
+const missionListPayloadSchema = z.object({ missions: z.array(missionSchema).max(50) })
 
 /**
  * The entire HTTP API, as one v2 function with hand-rolled routing.
  *
- * No Express on purpose: every dependency here is parsed on every cold
- * start, and the routing table is small enough that a switch is clearer
- * than a framework.
+ * No Express on purpose: every dependency here is parsed on every cold start,
+ * and the routing table is small enough that segment matching is clearer than
+ * a framework.
  */
 export const api = onRequest(
-  { region: 'us-central1', maxInstances: 10 },
+  { region: 'us-central1', maxInstances: 10, memory: '512MiB', timeoutSeconds: 60 },
   async (req, res) => {
     if (applyCors(req, res)) return
 
-    // Normalize: "/health", "/health/" and "" all resolve the same way.
     const path = (req.path || '/').replace(/\/+$/, '') || '/'
+    const segments = path.split('/').filter(Boolean)
     const route = `${req.method} ${path}`
 
     logger.info('request', { method: req.method, path })
 
+    /**
+     * Resolves the caller and enforces the `admin` custom claim.
+     *
+     * This is the REAL gate. The router guard in the app only decides what UI
+     * to draw; a client that forces its way to /admin gets a dashboard whose
+     * every privileged call lands here and is refused.
+     */
+    async function requireStaff(): Promise<AuthedUser | null> {
+      const user = await verifyRequest(req.headers.authorization)
+      if (!user) {
+        res.status(401).json({ error: 'Unauthenticated' })
+        return null
+      }
+      if (!user.isAdmin) {
+        res.status(403).json({ error: 'Not an admin' })
+        return null
+      }
+      return user
+    }
+
     try {
-      // ── GET /health ───────────────────────────────────────────────
-      // Liveness probe. AboutPage.vue calls this to prove the whole
-      // app -> emulator path works on a fresh clone.
+      // ── Public ────────────────────────────────────────────────────
       if (route === 'GET /health') {
         res.status(200).json({ ok: true, ts: new Date().toISOString() })
         return
       }
 
-      // ── GET /missions ─────────────────────────────────────────────
-      // SEAM: returns the seeded campaign from the shared package.
-      // Replace with a Firestore read; `missionListSchema` is the
-      // contract and should not change.
+      // Served from Firestore, falling back to the built-in demo campaign so
+      // a fresh install never shows an empty app to a family that just
+      // scanned a QR code.
       if (route === 'GET /missions') {
-        const payload = missionListSchema.parse(SEED_CAMPAIGN)
-        res.status(200).json(payload)
+        res.status(200).json(await getPublishedMissionList())
         return
       }
 
-      // ── POST /echo ────────────────────────────────────────────────
-      // Reference endpoint for request validation.
       if (route === 'POST /echo') {
-        const parsed = echoSchema.parse(req.body)
-        res.status(200).json({ success: true, echoed: parsed })
+        res.status(200).json({ success: true, echoed: echoSchema.parse(req.body) })
         return
       }
 
-      // ── GET /admin/whoami ─────────────────────────────────────────
-      // The reference protected endpoint. Proves the gate is real: the
-      // ID token is verified server-side and the `admin` custom claim is
-      // what grants access. A client that simply *claims* to be an admin
-      // gets 401/403 here no matter what its UI shows.
+      // ── Capture verification ──────────────────────────────────────
+      // The verdict is server-authoritative on purpose: the client used to
+      // award its own badges, which is the same as letting it mint prizes.
+      // The image is never persisted — see storage.rules.
+      if (route === 'POST /verify-capture') {
+        const input = verifyCaptureSchema.parse(req.body)
+        const mission = await findMission(input.campaignId, input.missionId)
+
+        if (!mission) {
+          res.status(404).json({ error: 'Unknown mission' })
+          return
+        }
+
+        const result = await verifyCapture(mission, input.imageBase64, input.mimeType)
+        logger.info('capture verified', {
+          missionId: mission.id,
+          match: result.match,
+          confidence: result.confidence,
+          stubbed: result.stubbed,
+        })
+        res.status(200).json(result)
+        return
+      }
+
+      // ── Staff ─────────────────────────────────────────────────────
       if (route === 'GET /admin/whoami') {
-        const user = await verifyRequest(req.headers.authorization)
-        if (!user) {
-          res.status(401).json({ error: 'Unauthenticated' })
-          return
-        }
-        if (!user.isAdmin) {
-          res.status(403).json({ error: 'Not an admin' })
-          return
-        }
+        const user = await requireStaff()
+        if (!user) return
         res.status(200).json({ uid: user.uid, email: user.email, isAdmin: true })
         return
       }
 
-      // ── POST /dev/seed-admin ──────────────────────────────────────
-      // EMULATOR ONLY. The Auth emulator starts empty and custom claims
-      // cannot be set from the client SDK, so without this a fresh clone
-      // has no route into the admin dashboard at all.
+      if (segments[0] === 'admin' && segments[1] === 'campaigns') {
+        const user = await requireStaff()
+        if (!user) return
+
+        const id = segments[2]
+
+        if (!id) {
+          if (req.method === 'GET') {
+            res.status(200).json({ campaigns: await listCampaigns() })
+            return
+          }
+          if (req.method === 'POST') {
+            const created = await createCampaign(campaignInputSchema.parse(req.body))
+            res.status(201).json(created)
+            return
+          }
+        } else if (segments[3] === 'missions') {
+          // Whole-list replace rather than per-mission routes: the editor
+          // reorders and edits together, and a hunt a fan might be mid-way
+          // through must never be half-updated.
+          if (req.method === 'PUT') {
+            const { missions } = missionListPayloadSchema.parse(req.body)
+            const updated = await updateCampaign(id, { missions })
+            if (!updated) {
+              res.status(404).json({ error: 'Unknown campaign' })
+              return
+            }
+            res.status(200).json(updated)
+            return
+          }
+        } else if (!segments[3]) {
+          if (req.method === 'GET') {
+            const campaign = await getCampaign(id)
+            if (!campaign) {
+              res.status(404).json({ error: 'Unknown campaign' })
+              return
+            }
+            res.status(200).json(campaign)
+            return
+          }
+          if (req.method === 'PATCH') {
+            const patch = campaignInputSchema.partial().parse(req.body)
+            const updated = await updateCampaign(id, patch)
+            if (!updated) {
+              res.status(404).json({ error: 'Unknown campaign' })
+              return
+            }
+            res.status(200).json(updated)
+            return
+          }
+          if (req.method === 'DELETE') {
+            const ok = await deleteCampaign(id)
+            res.status(ok ? 204 : 404).send('')
+            return
+          }
+        }
+      }
+
+      // ── Emulator only ─────────────────────────────────────────────
+      // The Auth emulator starts empty and custom claims cannot be set from
+      // the client SDK, so without this a fresh clone has no route into the
+      // admin dashboard at all.
       if (route === 'POST /dev/seed-admin') {
         if (!isEmulator) {
           logger.warn('seed-admin attempted outside the emulator')
@@ -103,25 +213,14 @@ export const api = onRequest(
           return
         }
         const seeded = await seedDemoAdmin(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD)
-        res.status(200).json({
-          ...seeded,
-          email: DEMO_ADMIN_EMAIL,
-          password: DEMO_ADMIN_PASSWORD,
-        })
+        res.status(200).json({ ...seeded, email: DEMO_ADMIN_EMAIL, password: DEMO_ADMIN_PASSWORD })
         return
       }
 
-      // ── 404 ───────────────────────────────────────────────────────
       logger.warn('unknown route', { route })
-      res.status(404).json({
-        error: 'Not found',
-        route,
-        validRoutes: VALID_ROUTES,
-      })
+      res.status(404).json({ error: 'Not found', route, validRoutes: VALID_ROUTES })
     } catch (err) {
       if (err instanceof ZodError) {
-        // flatten() gives the client field-level errors it can render
-        // next to the offending input.
         logger.warn('validation failed', { route, issues: err.issues })
         res.status(400).json({ error: 'Validation failed', details: err.flatten() })
         return

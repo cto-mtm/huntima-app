@@ -2,10 +2,12 @@
 import { useI18n } from 'vue-i18n'
 import { useTenantStore } from '../../stores/tenant'
 import { useMissionsStore } from '../../stores/missions'
+import { useMissionText } from '../../lib/missionText'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
 const missionsStore = useMissionsStore()
+const { resolve } = useMissionText()
 
 // A deliberately small slice of the real hub. It renders the SAME utility
 // classes as the app (bg-brand-*, text-accent-*), so it re-skins through the
@@ -64,7 +66,7 @@ const missionsStore = useMissionsStore()
           <div class="size-9 shrink-0 rounded-lg" :style="{ backgroundColor: mission.color }" />
           <div class="min-w-0 flex-1">
             <p class="truncate text-[11px] font-semibold text-brand-900">
-              {{ t(mission.titleKey) }}
+              {{ resolve(mission.title) }}
             </p>
             <p class="text-[9px] text-muted">{{ t(`missionCard.kind.${mission.kind}`) }}</p>
           </div>
