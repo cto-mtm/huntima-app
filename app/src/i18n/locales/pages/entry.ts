@@ -4,7 +4,8 @@ const en = {
 
   guestHeading: 'Playing today?',
   continueAsGuest: 'Continue as guest',
-  guestHint: 'Fastest way in. You can add a name later.',
+  guestHint: 'No account needed. Your badges stay on this phone.',
+  or: 'or',
   signInGoogle: 'Continue with Google',
   signInEmail: 'Use email instead',
   haveAccount: 'Already have an account?',
@@ -50,7 +51,8 @@ const es: typeof en = {
 
   guestHeading: '¿Juegas hoy?',
   continueAsGuest: 'Entrar como invitado',
-  guestHint: 'La forma más rápida de empezar. Puedes añadir un nombre después.',
+  guestHint: 'Sin cuenta. Tus insignias se quedan en este teléfono.',
+  or: 'o',
   signInGoogle: 'Continuar con Google',
   signInEmail: 'Usar correo electrónico',
   haveAccount: '¿Ya tienes una cuenta?',

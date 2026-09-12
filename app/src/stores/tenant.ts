@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { tenantConfigSchema, type TenantConfig } from 'shared'
 import { ACCENT_STOPS, BRAND_STOPS, generateRamp, isValidHex, normalizeHex } from '../lib/color'
 import { DEFAULT_TENANT } from '../config/tenant'
+import { applyFont } from '../lib/fonts'
 import { apiFetch } from '../lib/api'
 import { useSessionStore } from './session'
 
@@ -74,6 +75,8 @@ export const useTenantStore = defineStore('tenant', () => {
   )
 
   function applyTheme(): void {
+    applyFont(settings.value.fontFamily)
+
     const root = document.documentElement
     for (const [stop, hex] of Object.entries(brandRamp.value)) {
       root.style.setProperty(`--color-brand-${stop}`, hex)

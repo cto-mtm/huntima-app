@@ -6,6 +6,8 @@ import ColorField from '../../components/admin/ColorField.vue'
 import PhonePreview from '../../components/admin/PhonePreview.vue'
 import { contrastRatio, gradeContrast, type ContrastGrade } from '../../lib/color'
 import { useTenantStore } from '../../stores/tenant'
+import { FONTS } from '../../lib/fonts'
+import { FONT_CHOICES } from 'shared'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import TenantImagesField from '../../components/admin/TenantImagesField.vue'
 
@@ -127,6 +129,32 @@ function confirmReset(): void {
               class="mt-2 w-28 rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
             />
           </div>
+        </fieldset>
+
+        <fieldset>
+          <legend class="text-sm font-bold uppercase tracking-wide text-brand-900">
+            {{ t('admin.typefaceHeading') }}
+          </legend>
+          <p class="mt-0.5 text-xs text-muted">{{ t('admin.typefaceHelp') }}</p>
+
+          <label for="font-family" class="mt-2 block text-sm font-semibold text-brand-900">
+            {{ t('admin.typefaceLabel') }}
+          </label>
+          <select
+            id="font-family"
+            v-model="tenant.settings.fontFamily"
+            class="mt-1 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+          >
+            <option v-for="choice in FONT_CHOICES" :key="choice" :value="choice">
+              {{ FONTS[choice].label }}
+            </option>
+          </select>
+
+          <!-- The preview uses the live font because the store applies it on
+               change, so what you read here is what fans get. -->
+          <p class="mt-3 rounded-xl bg-surface p-3 text-lg text-brand-900 ring-1 ring-brand-100">
+            {{ t('admin.typefacePreview') }}
+          </p>
         </fieldset>
 
         <fieldset class="space-y-5">

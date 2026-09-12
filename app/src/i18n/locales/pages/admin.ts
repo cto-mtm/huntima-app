@@ -11,6 +11,11 @@ const en = {
   badgeTargetLabel: 'Default badge target',
   badgeTargetHelp: 'Prefills the target for new hunts. Each hunt then keeps its own.',
 
+  typefaceHeading: 'Typeface',
+  typefaceHelp: 'Applies across the app. "System default" loads nothing extra, which is fastest on stadium wifi.',
+  typefaceLabel: 'Font',
+  typefacePreview: 'The quick brown fox jumps over the lazy dog',
+
   paletteHeading: 'Palette',
   brandLabel: 'Brand color',
   brandHelp: 'The full 50–900 ramp is derived from this one color.',
@@ -66,6 +71,11 @@ const es: typeof en = {
   prizeLocationHelp: 'Dónde se reclama el premio. Aparece en la pantalla de canje.',
   badgeTargetLabel: 'Insignias necesarias (por defecto)',
   badgeTargetHelp: 'Prerrellena el objetivo de las nuevas búsquedas. Cada una guarda el suyo.',
+
+  typefaceHeading: 'Tipografía',
+  typefaceHelp: 'Se aplica a toda la app. «Predeterminada del sistema» no descarga nada, lo más rápido en el wifi del estadio.',
+  typefaceLabel: 'Fuente',
+  typefacePreview: 'El veloz murciélago hindú comía feliz cardillo y kiwi',
 
   paletteHeading: 'Paleta',
   brandLabel: 'Color de marca',

@@ -81,6 +81,9 @@ const tenant = await call('/admin/tenant', {
     timezone: 'America/New_York',
     brandBase: '#14284b',
     accentBase: '#c8102e',
+    // System stack by default: a webfont is a render-blocking round trip on
+    // stadium wifi. Pick a typeface in the Branding tab if the club needs one.
+    fontFamily: 'system',
     logoUrl: null,
     avatars: [],
   }),

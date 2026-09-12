@@ -176,6 +176,31 @@ export const tenantAvatarSchema = z.object({
 
 export type TenantAvatar = z.infer<typeof tenantAvatarSchema>
 
+/**
+ * Typeface, chosen from a fixed catalogue rather than typed freely.
+ *
+ * A key, never a font name: the value ends up in a Google Fonts URL, and an
+ * arbitrary string from an admin form has no business being interpolated into
+ * one. A closed set also means the app can ship the matching CSS stack and
+ * weights, so a font either works properly or is not offered.
+ *
+ * `system` loads NOTHING. It is the default on purpose — a webfont is a
+ * render-blocking round trip on stadium wifi, and most clubs will not miss it.
+ */
+export const FONT_CHOICES = [
+  'system',
+  'inter',
+  'roboto',
+  'open-sans',
+  'montserrat',
+  'oswald',
+  'rubik',
+  'barlow',
+] as const
+
+export const fontChoiceSchema = z.enum(FONT_CHOICES)
+export type FontChoice = z.infer<typeof fontChoiceSchema>
+
 export const tenantConfigSchema = z.object({
   /**
    * The club's name as it should appear. Do NOT append "Team": every surface
@@ -190,6 +215,7 @@ export const tenantConfigSchema = z.object({
   /** The full 50-900 ramp is derived from this one hex client-side. */
   brandBase: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   accentBase: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  fontFamily: fontChoiceSchema,
   logoUrl: z.string().url().nullable(),
   avatars: z.array(tenantAvatarSchema).max(24),
 })
@@ -204,6 +230,7 @@ export const SEED_TENANT: TenantConfig = {
   timezone: 'America/New_York',
   brandBase: '#14284b',
   accentBase: '#c8102e',
+  fontFamily: 'system',
   logoUrl: null,
   avatars: [],
 }

@@ -13,6 +13,7 @@ import { computed, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
+import GoogleButton from '../components/GoogleButton.vue'
 import TeamMark from '../components/TeamMark.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { useSessionStore } from '../stores/session'
@@ -71,31 +72,33 @@ async function withGoogle(): Promise<void> {
           {{ t('entry.guestHeading') }}
         </h2>
 
+        <!-- Google first: an account is what keeps a name and (in time) a
+             trophy case across visits, so it is the option worth taking. -->
         <div class="mt-3">
-          <BaseButton size="lg" :disabled="session.busy" @click="playAsGuest">
-            {{ t('entry.continueAsGuest') }}
-          </BaseButton>
+          <GoogleButton
+            :label="t('entry.signInGoogle')"
+            :disabled="session.busy"
+            @click="withGoogle"
+          />
         </div>
+        <p class="mt-2 text-center text-xs text-muted">{{ t('entry.accountHelp') }}</p>
+
+        <div class="my-4 flex items-center gap-3" aria-hidden="true">
+          <span class="h-px flex-1 bg-brand-100" />
+          <span class="text-[11px] font-semibold uppercase text-muted">{{ t('entry.or') }}</span>
+          <span class="h-px flex-1 bg-brand-100" />
+        </div>
+
+        <!-- Guest stays one tap away. A family at a turnstile must never be
+             blocked behind a sign-in they did not ask for. -->
+        <BaseButton variant="secondary" size="lg" :disabled="session.busy" @click="playAsGuest">
+          {{ t('entry.continueAsGuest') }}
+        </BaseButton>
         <p class="mt-2 text-center text-xs text-muted">{{ t('entry.guestHint') }}</p>
-      </div>
-
-      <!-- Accounts are optional and secondary: they buy a name that survives
-           between visits, not access. -->
-      <div class="mt-4 rounded-card border border-dashed border-brand-200 p-4">
-        <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
-          {{ t('entry.accountHeading') }}
-        </h2>
-        <p class="mt-1 text-xs text-muted">{{ t('entry.accountHelp') }}</p>
-
-        <div class="mt-3">
-          <BaseButton variant="secondary" size="lg" :disabled="session.busy" @click="withGoogle">
-            {{ t('entry.signInGoogle') }}
-          </BaseButton>
-        </div>
 
         <button
           type="button"
-          class="mt-2 w-full text-center text-xs font-semibold text-brand-600"
+          class="mt-3 w-full text-center text-xs font-semibold text-brand-600"
           @click="router.push({ name: 'signin' })"
         >
           {{ t('entry.signInEmail') }}

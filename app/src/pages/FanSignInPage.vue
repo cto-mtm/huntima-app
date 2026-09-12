@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
+import GoogleButton from '../components/GoogleButton.vue'
 import { useSessionStore } from '../stores/session'
 
 const { t } = useI18n()
@@ -76,9 +77,7 @@ watch(
     <p class="mt-1 text-sm text-muted">{{ t('entry.accountHelp') }}</p>
 
     <div class="mt-6">
-      <BaseButton size="lg" variant="secondary" :disabled="session.busy" @click="google">
-        {{ t('entry.signInGoogle') }}
-      </BaseButton>
+      <GoogleButton :label="t('entry.signInGoogle')" :disabled="session.busy" @click="google" />
     </div>
 
     <form class="mt-5 space-y-4" @submit.prevent="submit">

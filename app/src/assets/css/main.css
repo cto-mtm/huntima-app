@@ -46,12 +46,17 @@
     margin: 0;
     color: var(--color-ink);
     background-color: var(--color-canvas);
-    font-family:
+    /* Set at runtime by lib/fonts.ts from the tenant's choice. The fallback
+       is the system stack, so the app is readable before any webfont
+       resolves — and stays readable if one never does. */
+    font-family: var(
+      --font-brand,
       system-ui,
       -apple-system,
       'Segoe UI',
       Roboto,
-      sans-serif;
+      sans-serif
+    );
     /* The app is a fixed shell with one scrolling region (<main>), which
        is what makes safe-area padding behave the same on web and native. */
     overscroll-behavior-y: none;
