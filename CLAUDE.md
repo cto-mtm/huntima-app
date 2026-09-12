@@ -67,6 +67,28 @@ Do not add these speculatively. Each has a marked seam; see
 - Every animation must degrade gracefully: reduced-motion and unsupported
   browsers get instant navigation.
 
+## Dev tooling
+
+`src/dev/` holds test affordances, not product. Today that is the quick-login
+switcher: a floating panel that jumps the fan session between progress
+personas (fresh / halfway / one away / winner / already claimed).
+
+Rules for anything added there:
+
+- It must be gated on `import.meta.env.DEV`, which Vite replaces with the
+  literal `false` in a production build. Resolve the component through a
+  `defineAsyncComponent(() => import(...))` **inside** that branch, so Rollup
+  drops the import too — hidden is not the same as absent.
+- Verify after any change: `npm run build && grep -r "Quick login" app/dist`
+  must return nothing, and no dev chunk may appear in `dist/assets/`.
+- **The i18n rule does not apply in `src/dev/`.** Strings there are never
+  shown to a fan and never shipped, so translating them would add two locales
+  of copy nobody can read. This is the only exemption; everywhere else the
+  no-hardcoded-strings rule is absolute.
+- Dev tooling may write store refs directly rather than going through actions.
+  Keeping the affordance in `src/dev/` is better than adding a
+  `applyDevState()` to product code that only dev tooling would call.
+
 ## White-label rules
 
 This is a product template, not a one-team app. Team identity lives in exactly
