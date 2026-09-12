@@ -39,7 +39,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 8455,
+    port: 8445,
     // Safe on a tailnet: only devices on your tailnet can reach this server.
     allowedHosts: true,
     hmr: tailscaleHost
