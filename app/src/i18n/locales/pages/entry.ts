@@ -28,12 +28,6 @@ const en = {
   signOut: 'Sign out',
   signedInAs: 'Signed in as {email}',
 
-  devHeading: 'Dev shortcuts',
-  devHelp: 'Emulator only. Jump straight to a fan progress state.',
-  seedAdmin: 'Create demo admin',
-  seedingAdmin: 'Creating…',
-  seedAdminDone: 'Demo admin ready — credentials filled in below.',
-  seedAdminFailed: 'Could not reach the emulator. Is it running?',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -67,12 +61,6 @@ const es: typeof en = {
   signOut: 'Cerrar sesión',
   signedInAs: 'Sesión iniciada como {email}',
 
-  devHeading: 'Atajos de desarrollo',
-  devHelp: 'Solo en el emulador. Salta directamente a un estado de progreso.',
-  seedAdmin: 'Crear admin de prueba',
-  seedingAdmin: 'Creando…',
-  seedAdminDone: 'Admin de prueba listo: credenciales rellenadas abajo.',
-  seedAdminFailed: 'No se pudo contactar con el emulador. ¿Está funcionando?',
 }
 
 export default { en, es }

@@ -5,7 +5,7 @@ const en = {
 
   identityHeading: 'Identity',
   teamNameLabel: 'Team name',
-  teamNameHelp: 'Shown in the app header and used in the claim code.',
+  teamNameHelp: 'Shown in the app header and on the entry screen.',
   prizeLocationLabel: 'Prize pickup location',
   prizeLocationHelp: 'Where a winner goes to claim. Appears on the redeem screen.',
   badgeTargetLabel: 'Default badge target',
@@ -49,7 +49,7 @@ const es: typeof en = {
 
   identityHeading: 'Identidad',
   teamNameLabel: 'Nombre del equipo',
-  teamNameHelp: 'Aparece en la cabecera y se usa en el código de canje.',
+  teamNameHelp: 'Aparece en la cabecera y en la pantalla de inicio.',
   prizeLocationLabel: 'Lugar de entrega del premio',
   prizeLocationHelp: 'Dónde se reclama el premio. Aparece en la pantalla de canje.',
   badgeTargetLabel: 'Insignias necesarias (por defecto)',
