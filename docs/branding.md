@@ -67,8 +67,10 @@ state, never body copy. If you put it behind small text, fix the color.
    **both** locales in `i18n/locales/pages/admin.ts`.
 4. Read it via `useTenantStore().settings`, never by importing `config/tenant`.
 
-`stores/tenant.ts` merges saved config over the defaults on load, so a config
-saved by an older build is missing the new field rather than breaking.
+`stores/tenant.ts` parses the cached config against `tenantConfigSchema` and
+discards it wholesale if it no longer fits — a half-shaped brand renders as
+broken images and wrong colors, which is worse than falling back to defaults
+for the moment it takes the API to answer.
 
 ## Known limits
 
@@ -78,9 +80,10 @@ saved by an older build is missing the new field rather than breaking.
 - **`localStorage` is a cache, not the truth.** It exists so the first paint
   is already branded before the network answers, and so the app still looks
   like the club with no signal. The API is authoritative.
-- **`/admin` has no auth.** That is survivable only because branding is
-  device-local today. The moment it writes to the API, it needs a real guard —
-  see `docs/architecture.md` § "Seams left open".
-- **Logos are not handled.** Only colors, names and avatar emoji. Uploading a
-  team mark needs Cloud Storage, which is the same seam the mission clue photos
-  are waiting on.
+- **Single tenant.** One deployment serves one club, so there is exactly one
+  `tenants/default` document. Hosting several means a tenant id and a
+  membership check in the rules instead of a bare admin claim.
+- **No image cleanup.** Removing a logo or avatar drops the reference, not the
+  object in Storage. Orphans accumulate; a lifecycle rule is the fix.
+- **The venue geofence is still a constant** in `config/tenant.ts`. It needs a
+  map picker in the admin tool before it can be tenant data.
