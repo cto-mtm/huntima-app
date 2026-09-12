@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import type { Mission } from '../stores/missions'
+import type { Mission } from 'shared'
 import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
 

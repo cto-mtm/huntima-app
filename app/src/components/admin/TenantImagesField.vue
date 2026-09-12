@@ -10,6 +10,7 @@
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { TenantAvatar } from 'shared'
 import { uploadImage } from '../../lib/storage'
 import { useTenantStore } from '../../stores/tenant'
 
@@ -53,10 +54,12 @@ async function onAvatar(event: Event): Promise<void> {
   try {
     for (const file of files) {
       const { url } = await uploadImage('team-asset', TENANT_ID, file)
-      tenant.settings.avatars = [
-        ...tenant.settings.avatars,
-        { id: crypto.randomUUID(), url, label: labelFromFile(file.name) },
-      ]
+      const avatar: TenantAvatar = {
+        id: crypto.randomUUID(),
+        url,
+        label: labelFromFile(file.name),
+      }
+      tenant.settings.avatars = [...tenant.settings.avatars, avatar]
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('admin.uploadFailed')

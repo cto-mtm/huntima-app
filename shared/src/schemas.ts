@@ -83,10 +83,20 @@ export type MissionList = z.infer<typeof missionListSchema>
 
 // ── Admin write payloads ──────────────────────────────────────────────
 export const campaignInputSchema = campaignSchema.omit({ id: true, missions: true })
-export const missionInputSchema = missionSchema.omit({ id: true })
+
+/**
+ * Body of `PUT /admin/campaigns/:id/missions`.
+ *
+ * Whole-list replace: the editor reorders and edits together, and a hunt a
+ * fan might be mid-way through must never be half-updated. Missions arrive
+ * with client-generated ids, which is why there is no id-less input variant.
+ */
+export const missionListPayloadSchema = z.object({
+  missions: z.array(missionSchema).max(50),
+})
 
 export type CampaignInput = z.infer<typeof campaignInputSchema>
-export type MissionInput = z.infer<typeof missionInputSchema>
+export type MissionListPayload = z.infer<typeof missionListPayloadSchema>
 
 // ── Capture verification ──────────────────────────────────────────────
 /**

@@ -5,7 +5,9 @@ import { computed, ref } from 'vue'
 import { missionListSchema, SEED_CAMPAIGN, type Mission } from 'shared'
 import { apiFetch } from '../lib/api'
 
-export type { Mission }
+// Note: `Mission` is NOT re-exported here. Components import it from
+// 'shared' directly — routing a shared type through a store invites a second,
+// subtly different definition later.
 
 export const useMissionsStore = defineStore('missions', () => {
   // Seeded from the shared demo campaign so the very first paint has

@@ -146,7 +146,11 @@ export async function verifyCapture(
     if (!raw) return { match: true, confidence: 0, reason: null, stubbed: true }
 
     const verdict = JSON.parse(raw) as Partial<GeminiVerdict>
-    const confidence = typeof verdict.confidence === 'number' ? verdict.confidence : 0
+
+    // Clamp: this is model output, and verifyResultSchema requires 0-1. A
+    // model that answers 1.5 must not turn into a 500 for the fan.
+    const raw_confidence = typeof verdict.confidence === 'number' ? verdict.confidence : 0
+    const confidence = Math.min(1, Math.max(0, raw_confidence))
     const match = verdict.match === true && confidence >= MATCH_THRESHOLD
 
     return {

@@ -1,6 +1,6 @@
 import { onRequest } from 'firebase-functions/v2/https'
 import * as logger from 'firebase-functions/logger'
-import { z, ZodError } from 'zod'
+import { ZodError } from 'zod'
 
 import { applyCors } from './helpers/cors'
 import { isEmulator, seedDemoAdmin, verifyRequest, type AuthedUser } from './helpers/auth'
@@ -21,8 +21,9 @@ import { getTenant, putTenant } from './helpers/tenant'
 import {
   campaignInputSchema,
   echoSchema,
-  missionSchema,
   verifyCaptureSchema,
+  verifyResultSchema,
+  missionListPayloadSchema,
   tenantConfigSchema,
 } from 'shared'
 
@@ -55,8 +56,6 @@ const VALID_ROUTES = [
 // function: the seed route is gated on isEmulator.
 const DEMO_ADMIN_EMAIL = 'admin@demo.local'
 const DEMO_ADMIN_PASSWORD = 'demo1234'
-
-const missionListPayloadSchema = z.object({ missions: z.array(missionSchema).max(50) })
 
 /**
  * The entire HTTP API, as one v2 function with hand-rolled routing.
@@ -136,7 +135,12 @@ export const api = onRequest(
           return
         }
 
-        const result = await verifyCapture(mission, input.imageBase64, input.mimeType)
+        // Parse what we are about to SEND, not just what we received. The
+        // verdict decides whether a prize is handed over, and it is assembled
+        // from a model response we do not control.
+        const result = verifyResultSchema.parse(
+          await verifyCapture(mission, input.imageBase64, input.mimeType),
+        )
         logger.info('capture verified', {
           missionId: mission.id,
           match: result.match,

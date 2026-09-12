@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
+import type { CampaignStatus } from 'shared'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
 
@@ -36,7 +37,7 @@ async function createHunt(): Promise<void> {
   }
 }
 
-async function togglePublish(id: string, status: 'draft' | 'published'): Promise<void> {
+async function togglePublish(id: string, status: CampaignStatus): Promise<void> {
   await hunts.patch(id, { status: status === 'published' ? 'draft' : 'published' })
   await hunts.loadAll()
 }

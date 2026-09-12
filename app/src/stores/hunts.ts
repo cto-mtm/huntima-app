@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { campaignSchema, type Campaign, type CampaignInput, type Mission } from 'shared'
+import {
+  campaignSchema,
+  missionListPayloadSchema,
+  type Campaign,
+  type CampaignInput,
+  type Mission,
+} from 'shared'
 import { apiFetch } from '../lib/api'
 import { useSessionStore } from './session'
 
@@ -120,10 +126,22 @@ export const useHuntsStore = defineStore('hunts', () => {
     saving.value = true
     error.value = null
 
-    const ordered = missions.map((m, index) => ({ ...m, order: index }))
+    // Validate against the SAME schema the function parses it with, so a
+    // malformed draft surfaces here as a named field rather than as a 400
+    // carrying server-side zod output.
+    const payload = missionListPayloadSchema.safeParse({
+      missions: missions.map((m, index) => ({ ...m, order: index })),
+    })
+
+    if (!payload.success) {
+      saving.value = false
+      error.value = payload.error.issues[0]?.message ?? 'Invalid mission'
+      return false
+    }
+
     const result = await authed<unknown>(`/admin/campaigns/${id}/missions`, {
       method: 'PUT',
-      body: JSON.stringify({ missions: ordered }),
+      body: JSON.stringify(payload.data),
     })
 
     saving.value = false

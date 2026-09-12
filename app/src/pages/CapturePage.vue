@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import type { VerifyResult } from 'shared'
+import { verifyResultSchema } from 'shared'
 import BaseButton from '../components/BaseButton.vue'
 import AppIcon from '../components/AppIcon.vue'
 import { useReducedMotion } from '../composables/useReducedMotion'
@@ -62,7 +62,7 @@ async function onFileChosen(event: Event): Promise<void> {
 
   // The verdict is the SERVER's. The client used to award its own badges,
   // which is the same as letting it mint prizes.
-  const result = await apiPost<VerifyResult>('/verify-capture', {
+  const result = await apiPost<unknown>('/verify-capture', {
     campaignId: missionsStore.campaignId,
     missionId: missionId.value,
     imageBase64: capture.value.base64,
@@ -76,11 +76,22 @@ async function onFileChosen(event: Event): Promise<void> {
     return
   }
 
-  stubbed.value = result.data.stubbed
+  // Parse, don't cast. This is the response that decides whether a badge is
+  // awarded, so a server that starts returning a different shape must fail
+  // loudly here rather than award badges off `undefined`.
+  const verdict = verifyResultSchema.safeParse(result.data)
+  if (!verdict.success) {
+    console.error('[capture] unexpected /verify-capture payload', verdict.error.issues)
+    phase.value = 'framing'
+    rejection.value = t('capture.verifyUnavailable')
+    return
+  }
 
-  if (!result.data.match) {
+  stubbed.value = verdict.data.stubbed
+
+  if (!verdict.data.match) {
     phase.value = 'rejected'
-    rejection.value = result.data.reason
+    rejection.value = verdict.data.reason
     return
   }
 
