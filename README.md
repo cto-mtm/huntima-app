@@ -94,9 +94,16 @@ Every session starts at the entry screen.
 id generated on-device (so it works with no signal) plus a nickname. *Switch
 user* is on the About tab.
 
-**Staff** tap *Staff sign-in*, which is real Firebase Auth. The Auth emulator
-starts empty, so on the login screen use the dev shortcut **Create demo
-admin** — it seeds an account and fills the form:
+**Staff** use the quiet *Staff sign-in* link at the foot of the entry screen —
+deliberately understated, since almost everyone on that screen is a family.
+It is real Firebase Auth. The Auth emulator
+starts empty, so seed the account first — either from a terminal:
+
+```bash
+npm run seed
+```
+
+or with the **Create demo admin** button on the login screen. Both create:
 
 ```
 admin@demo.local / demo1234

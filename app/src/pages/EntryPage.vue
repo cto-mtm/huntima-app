@@ -50,57 +50,60 @@ const busy = ref(false)
 </script>
 
 <template>
-  <section class="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-    <div class="text-center">
-      <p class="text-4xl" aria-hidden="true">{{ tenant.settings.avatars[0] }}</p>
-      <h1 class="mt-3 text-3xl font-extrabold text-brand-900">{{ tenant.settings.teamName }}</h1>
-      <p class="mt-1 text-sm text-muted">{{ t('entry.subtitle') }}</p>
-    </div>
-
-    <!-- ── Guest: the primary path ───────────────────────────────── -->
-    <div class="mt-10 rounded-card bg-surface p-5 shadow-sm ring-1 ring-brand-100">
-      <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
-        {{ t('entry.guestHeading') }}
-      </h2>
-
-      <div class="mt-3">
-        <BaseButton size="lg" :disabled="busy" @click="playAsGuest">
-          {{
-            returning ? t('entry.continueAs', { nickname: progress.nickname }) : t('entry.continueAsGuest')
-          }}
-        </BaseButton>
+  <!--
+    Layout intent: this screen is seen almost entirely by families, and the
+    one thing they must do is obvious and large. Staff sign-in is a quiet
+    footer link on purpose — staff already know to look for it, and giving
+    it equal visual weight suggests to a parent that they might need it.
+  -->
+  <section class="mx-auto flex min-h-dvh max-w-md flex-col px-5 py-10">
+    <div class="flex flex-1 flex-col justify-center">
+      <div class="text-center">
+        <p class="text-4xl" aria-hidden="true">{{ tenant.settings.avatars[0] }}</p>
+        <h1 class="mt-3 text-3xl font-extrabold text-brand-900">{{ tenant.settings.teamName }}</h1>
+        <p class="mt-1 text-sm text-muted">{{ t('entry.subtitle') }}</p>
       </div>
 
-      <p class="mt-2 text-center text-xs text-muted">{{ t('entry.guestHelp') }}</p>
+      <div class="mt-10 rounded-card bg-surface p-5 shadow-sm ring-1 ring-brand-100">
+        <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
+          {{ t('entry.guestHeading') }}
+        </h2>
 
-      <button
-        v-if="returning"
-        type="button"
-        class="mt-3 w-full text-center text-xs font-semibold text-brand-600"
-        @click="startOver"
+        <div class="mt-3">
+          <BaseButton size="lg" :disabled="busy" @click="playAsGuest">
+            {{
+              returning
+                ? t('entry.continueAs', { nickname: progress.nickname })
+                : t('entry.continueAsGuest')
+            }}
+          </BaseButton>
+        </div>
+
+        <p class="mt-2 text-center text-xs text-muted">{{ t('entry.guestHelp') }}</p>
+
+        <button
+          v-if="returning"
+          type="button"
+          class="mt-3 w-full text-center text-xs font-semibold text-brand-600"
+          @click="startOver"
+        >
+          {{ t('entry.startOver') }}
+        </button>
+      </div>
+
+      <component :is="DevPersonaPicker" v-if="showDevTools && DevPersonaPicker" class="mt-4" />
+    </div>
+
+    <footer class="pt-10 text-center">
+      <RouterLink
+        :to="{ name: 'staff-login' }"
+        class="text-xs text-muted underline-offset-4 hover:underline"
       >
-        {{ t('entry.startOver') }}
-      </button>
-    </div>
-
-    <!-- ── Staff: deliberately secondary ─────────────────────────── -->
-    <div class="mt-4 rounded-card border border-dashed border-brand-200 p-4">
-      <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
-        {{ t('entry.staffHeading') }}
-      </h2>
-      <p class="mt-1 text-xs text-muted">{{ t('entry.staffHelp') }}</p>
-
-      <div class="mt-3">
-        <BaseButton variant="secondary" size="lg" @click="router.push({ name: 'staff-login' })">
-          {{ t('entry.staffSignIn') }}
-        </BaseButton>
-      </div>
-    </div>
-
-    <component :is="DevPersonaPicker" v-if="showDevTools && DevPersonaPicker" class="mt-4" />
-
-    <p class="mt-6 text-center font-mono text-[10px] text-muted">
-      {{ t('entry.deviceLabel') }} {{ shortDeviceId }}
-    </p>
+        {{ t('entry.staffSignIn') }}
+      </RouterLink>
+      <p class="mt-2 font-mono text-[10px] text-muted/60">
+        {{ t('entry.deviceLabel') }} {{ shortDeviceId }}
+      </p>
+    </footer>
   </section>
 </template>

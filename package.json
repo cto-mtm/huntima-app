@@ -10,8 +10,10 @@
   "scripts": {
     "build:shared": "npm run build -w shared",
     "dev": "npm run build:shared && npm run dev -w app",
+    "dev:remote": "npm run build:shared && set TAILSCALE_HOST=ks-mini.tail0293ef.ts.net&& set TAILSCALE_PORT=8445&& npm run dev:remote -w app",
     "emulators": "npm run build:shared && npm --prefix firebase run emulators",
     "emulators:watch": "npm run build:shared && npm --prefix firebase run emulators:watch",
-    "lint": "npm run lint -w app"
+    "lint": "npm run lint -w app",
+    "seed": "node firebase/seed.mjs"
   }
 }

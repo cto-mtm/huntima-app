@@ -9,9 +9,7 @@ const en = {
   switchUser: 'Switch user',
   startOver: 'Start over as someone else',
 
-  staffHeading: 'Stadium staff',
   staffSignIn: 'Staff sign-in',
-  staffHelp: 'Team accounts only. Opens the campaign and branding dashboard.',
 
   deviceLabel: 'Device',
 
@@ -42,9 +40,7 @@ const es: typeof en = {
   switchUser: 'Cambiar de usuario',
   startOver: 'Empezar de nuevo como otra persona',
 
-  staffHeading: 'Personal del estadio',
   staffSignIn: 'Acceso para personal',
-  staffHelp: 'Solo cuentas del equipo. Abre el panel de campañas y marca.',
 
   deviceLabel: 'Dispositivo',
 
