@@ -56,5 +56,14 @@ onMounted(() => {
         </BaseButton>
       </div>
     </div>
+
+    <div class="mt-4 flex flex-col items-center gap-3">
+      <RouterLink :to="{ name: 'entry' }" class="text-sm font-semibold text-brand-600">
+        {{ t('entry.switchUser') }}
+      </RouterLink>
+      <RouterLink :to="{ name: 'staff-login' }" class="text-xs font-semibold text-muted">
+        {{ t('entry.staffSignIn') }}
+      </RouterLink>
+    </div>
   </section>
 </template>

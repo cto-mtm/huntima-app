@@ -15,7 +15,8 @@ zero restructuring.
 - `firebase/` — Firebase Hosting config + Cloud Functions API + emulator scripts
 - `docs/` — Internal documentation (read `docs/animations.md` before touching any
   animation, `docs/i18n.md` before touching any user-facing string,
-  `docs/architecture.md` for how the pieces fit and what is deliberately not built yet)
+  `docs/architecture.md` for how the pieces fit and what is deliberately not built yet,
+  `docs/branding.md` before touching anything brand- or color-related)
 
 ## Current state: domain shell, not the finished product
 
@@ -66,12 +67,40 @@ Do not add these speculatively. Each has a marked seam; see
 - Every animation must degrade gracefully: reduced-motion and unsupported
   browsers get instant navigation.
 
+## Dev tooling
+
+`src/dev/` holds test affordances, not product:
+
+- `DevPersonaPicker.vue` — on the entry screen, signs in as a fan at a given
+  progress state (fresh / halfway / one away / winner / already claimed)
+- `DevAdminSeeder.vue` — on the staff login screen, creates the demo staff
+  account in the Auth emulator, which starts empty
+
+Rules for anything added there:
+
+- It must be gated on `import.meta.env.DEV`, which Vite replaces with the
+  literal `false` in a production build. Resolve the component through a
+  `defineAsyncComponent(() => import(...))` **inside** that branch, so Rollup
+  drops the import too — hidden is not the same as absent.
+- Verify after any change: `npm run build && grep -r "Dev shortcut" app/dist`
+  must return nothing, and no dev chunk may appear in `dist/assets/`.
+- **The i18n rule does not apply in `src/dev/`.** Strings there are never
+  shown to a fan and never shipped, so translating them would add two locales
+  of copy nobody can read. This is the only exemption; everywhere else the
+  no-hardcoded-strings rule is absolute.
+- Dev tooling may write store refs directly rather than going through actions.
+  Keeping the affordance in `src/dev/` is better than adding a
+  `applyDevState()` to product code that only dev tooling would call.
+
 ## White-label rules
 
 This is a product template, not a one-team app. Team identity lives in exactly
 two places:
 
-- `src/assets/css/main.css` — the `--brand-*` CSS custom properties
-- `src/config/tenant.ts` — team name, prize copy keys, badge target count
+- `src/config/tenant.ts` — the DEFAULTS a fresh install starts from
+- `src/stores/tenant.ts` — the LIVE values, editable at `/admin/branding`
+- `src/assets/css/main.css` — the `@theme` block the store overrides at runtime
+
+Read `docs/branding.md` before adding a branded property. count
 
 Never hardcode a team name, color, or logo path anywhere else.

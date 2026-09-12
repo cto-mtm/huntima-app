@@ -43,19 +43,30 @@ npm install
 ```bash
 # 2. Start the emulated backend on :5001  (leave this running)
 #    The script compiles the functions first.
-cd firebase && npm run emulators
+npm run emulators
 ```
 
 ```bash
-# 3. In a second terminal: start the web app on :5173
-cd app && cp .env.example .env && npm run dev
+# 3. Seed a staff account, club branding and a published hunt
+npm run seed
 ```
 
-Open <http://localhost:5173>. Visit `/about` — it calls `GET /health` on the
+```bash
+# 4. In a second terminal: start the web app
+npm run dev
+```
+
+Open the app (the dev server prints the URL). Visit `/about` — it calls `GET /health` on the
 emulated function and renders the response, proving the whole app → API path.
 
-> Windows note: `cp` is available in Git Bash. In PowerShell use
-> `Copy-Item .env.example .env`.
+The seed is idempotent — re-run it after every emulator restart, since the
+Auth and Firestore emulators start empty.
+
+Every command above runs from the repo root. You do **not** need an
+`app/.env` for local dev: `src/lib/api.ts` falls back to the emulator URL in
+dev builds. Copy `app/.env.example` to `app/.env` only when you need to point
+at something else, or before a production build — Vite inlines the value at
+build time.
 
 ### Daily workflow (two terminals)
 
@@ -66,22 +77,58 @@ shared contracts:
 
 ```bash
 # terminal 1
-cd firebase/functions && npm run build:watch
+npm run build:watch -w firebase/functions
 ```
 
 ```bash
 # terminal 2
-cd firebase && npm run emulators:watch
+npm run emulators:watch
 ```
 
 ```bash
 # terminal 3
-cd app && npm run dev
+npm run dev
 ```
 
-`npm run emulators:all` additionally serves the built app from `firebase/app/`
+From `firebase/`, `npm run emulators:all` additionally serves the built app from `firebase/app/`
 on :5000 for a production-like smoke test. Day-to-day dev uses Vite on :5173.
 The Emulator UI is on :4000.
+
+## Signing in
+
+Every session starts at the entry screen.
+
+**Fans** tap *Continue as guest*. No account, no password — they get a device
+id generated on-device (so it works with no signal) plus a nickname. *Switch
+user* is on the About tab.
+
+**Staff** use the quiet *Staff sign-in* link at the foot of the entry screen —
+deliberately understated, since almost everyone on that screen is a family.
+It is real Firebase Auth. The Auth emulator
+starts empty, so seed the account first — either from a terminal:
+
+```bash
+npm run seed
+```
+
+or with the **Create demo admin** button on the login screen. Both create:
+
+```
+admin@demo.local / demo1234
+```
+
+Access is granted by the `admin` **custom claim**, never the email address.
+The router guard only decides what UI to draw; the real gate is server-side
+token verification, so forcing your way to `/admin` yields a dashboard whose
+privileged calls return 401/403. Try it:
+
+```bash
+curl -i http://127.0.0.1:5001/demo-app/us-central1/api/admin/whoami
+```
+
+In dev, the entry screen also offers persona shortcuts that jump a fan
+straight to a progress state (winner, already claimed, and so on) — reaching
+the prize screen otherwise means capturing five missions by hand.
 
 ## How to add a hero transition
 
@@ -162,13 +209,16 @@ says `REPLACE_ME` or while `.env` points at localhost.
 
 ## White-labeling for a new team
 
-Team identity is confined to two files on purpose:
+Run the app and open **`/admin/branding`**. Set the team name, prize location,
+brand color and accent color; the whole app re-skins live, with a WCAG contrast
+check on the two color pairings that actually carry text.
 
-- `app/src/assets/css/main.css` — the `--brand-*` custom properties
-- `app/src/config/tenant.ts` — team name, badge target, prize location copy key
+The full ramp is derived from one hex, so there are no eight-tint palettes to
+hand-maintain. To change what a *fresh install* looks like, edit
+`app/src/config/tenant.ts`. Details and limits: [`docs/branding.md`](docs/branding.md).
 
-Change those two and the whole app re-skins. If you find yourself hardcoding a
-team name or color anywhere else, that's a bug.
+> Branding currently saves to `localStorage`, per device, and `/admin` has no
+> auth. Both are called out in `docs/branding.md` § Known limits.
 
 ## Keeping dependencies fresh
 

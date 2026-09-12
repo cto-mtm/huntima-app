@@ -15,6 +15,9 @@ import capture from './locales/pages/capture'
 import redeem from './locales/pages/redeem'
 import about from './locales/pages/about'
 import notFound from './locales/pages/notFound'
+import admin from './locales/pages/admin'
+import entry from './locales/pages/entry'
+import hunts from './locales/pages/hunts'
 
 export const SUPPORTED_LOCALES = ['en', 'es'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -36,6 +39,9 @@ const messages = {
     redeem: redeem.en,
     about: about.en,
     notFound: notFound.en,
+    admin: admin.en,
+    entry: entry.en,
+    hunts: hunts.en,
   },
   es: {
     common: common.es,
@@ -50,6 +56,9 @@ const messages = {
     redeem: redeem.es,
     about: about.es,
     notFound: notFound.es,
+    admin: admin.es,
+    entry: entry.es,
+    hunts: hunts.es,
   },
 }
 

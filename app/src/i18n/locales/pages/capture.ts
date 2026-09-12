@@ -1,5 +1,11 @@
 const en = {
-  stubNotice: 'Camera not wired up yet — this button simulates a capture.',
+  stubNotice: 'Checked without the image model — no API key configured, so every photo passes.',
+  targetLabel: 'Match this',
+  rejectedTitle: 'Not quite!',
+  rejectedBody: "That doesn't look like the target yet. Get a bit closer and try again.",
+  tryAgain: 'Take another photo',
+  imageUnreadable: "We couldn't read that photo. Try again.",
+  verifyUnavailable: "Couldn't check that photo — no signal. Try again in a moment.",
   framePhoto: 'Frame the object and capture.',
   frameSpyglass: 'Zoom in until the target fills the box, then capture.',
   zoomLabel: 'Zoom',
@@ -13,7 +19,13 @@ const en = {
 
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
-  stubNotice: 'La cámara aún no está conectada: este botón simula una captura.',
+  stubNotice: 'Comprobado sin el modelo de imagen: no hay clave de API, así que toda foto se acepta.',
+  targetLabel: 'Encuentra esto',
+  rejectedTitle: '¡Casi!',
+  rejectedBody: 'Todavía no se parece al objetivo. Acércate un poco y vuelve a intentarlo.',
+  tryAgain: 'Hacer otra foto',
+  imageUnreadable: 'No pudimos leer esa foto. Inténtalo de nuevo.',
+  verifyUnavailable: 'No pudimos comprobar la foto: sin señal. Inténtalo en un momento.',
   framePhoto: 'Encuadra el objeto y captura.',
   frameSpyglass: 'Haz zoom hasta llenar el recuadro y captura.',
   zoomLabel: 'Zoom',

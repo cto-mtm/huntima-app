@@ -2,20 +2,21 @@
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import LocaleSwitcher from './LocaleSwitcher.vue'
-import { tenant } from '../config/tenant'
-import { useProgressStore } from '../stores/progress'
+import AppIcon, { type IconName } from './AppIcon.vue'
+import TeamMark from './TeamMark.vue'
+import { useTenantStore } from '../stores/tenant'
 
 const { t } = useI18n()
 const route = useRoute()
-const progress = useProgressStore()
+const tenant = useTenantStore()
 
 // Order matters: this is thumb-reach order on a phone, most-used first.
-const NAV = [
-  { name: 'home', labelKey: 'shell.navMissions', icon: '🎯' },
-  { name: 'trophies', labelKey: 'shell.navTrophies', icon: '🏆' },
-  { name: 'redeem', labelKey: 'shell.navPrize', icon: '🎁' },
-  { name: 'about', labelKey: 'shell.navAbout', icon: 'ℹ️' },
-] as const
+const NAV: { name: string; labelKey: string; icon: IconName }[] = [
+  { name: 'home', labelKey: 'shell.navMissions', icon: 'missions' },
+  { name: 'trophies', labelKey: 'shell.navTrophies', icon: 'trophies' },
+  { name: 'redeem', labelKey: 'shell.navPrize', icon: 'prize' },
+  { name: 'about', labelKey: 'shell.navAbout', icon: 'about' },
+]
 
 // RouterLink's own active-class can't be used for the "home" tab: its path
 // is "/", which prefix-matches every route, so every tab would light up.
@@ -37,8 +38,8 @@ function isActive(name: string): boolean {
     >
       <div class="flex h-14 items-center justify-between px-4">
         <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2">
-          <span aria-hidden="true" class="text-xl">{{ progress.avatar }}</span>
-          <span class="text-sm font-bold text-brand-900">{{ tenant.teamName }}</span>
+          <TeamMark />
+          <span class="text-sm font-bold text-brand-900">{{ tenant.settings.teamName }}</span>
         </RouterLink>
         <LocaleSwitcher />
       </div>
@@ -61,7 +62,7 @@ function isActive(name: string): boolean {
             :class="isActive(item.name) ? 'text-brand-600' : 'text-muted'"
             :aria-current="isActive(item.name) ? 'page' : undefined"
           >
-            <span aria-hidden="true" class="text-lg leading-none">{{ item.icon }}</span>
+            <AppIcon :name="item.icon" class="size-5" />
             {{ t(item.labelKey) }}
           </RouterLink>
         </li>

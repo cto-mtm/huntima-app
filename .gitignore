@@ -49,3 +49,11 @@ app/android/
 
 # Built output of the shared contracts package.
 shared/dist/
+
+# Cloud Functions local env (GEMINI_API_KEY etc). Never committed.
+firebase/functions/.env
+firebase/functions/.env.*
+!firebase/functions/.env.example
+
+# Emulator export data
+firebase/.emulator-data/

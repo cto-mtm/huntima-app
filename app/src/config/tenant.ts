@@ -1,41 +1,23 @@
-/**
- * Tenant (team) configuration — one of the two white-label seams.
- *
- * The other is the `--brand-*` custom properties in assets/css/main.css.
- * Between them they are the entire re-skin. If you find yourself hardcoding
- * a team name, venue, or color anywhere else in the app, that's a bug.
- *
- * Note what is NOT here: user-facing sentences. Those are i18n keys. What
- * lives here is brand DATA — proper nouns that are passed through verbatim
- * in every language, exactly like a fan's nickname.
- */
-export interface TenantConfig {
-  /** Proper noun. Not translated — interpolated into i18n messages. */
-  teamName: string
-  /** Where a winner physically goes to claim. Proper noun, not translated. */
-  prizeLocation: string
-  /**
-   * Default badge target, used only until GET /missions returns. The
-   * campaign is authoritative once loaded — see stores/progress.ts.
-   */
-  badgeTarget: number
-  /** Venue timezone, used for rendering timestamps. */
-  timezone: string
-  /**
-   * Stadium geofence. SEAM: currently unused — CapturePage.vue simulates
-   * validation. When @capacitor/geolocation lands, check the device position
-   * against this, and re-check it server-side (a client can lie).
-   */
-  geofence: { lat: number; lng: number; radiusMeters: number }
-  /** Avatar options offered at onboarding. Ids are i18n-free by design. */
-  avatars: readonly string[]
-}
+import { SEED_TENANT, type TenantConfig } from 'shared'
 
-export const tenant: TenantConfig = {
-  teamName: 'REPLACE_ME Team',
-  prizeLocation: 'the Main Team Store',
-  badgeTarget: 5,
-  timezone: 'America/New_York',
-  geofence: { lat: 40.7128, lng: -74.006, radiusMeters: 400 },
-  avatars: ['⚾', '🧢', '🥎', '🦅', '🐻', '🚀'],
-}
+/**
+ * Tenant defaults and venue constants.
+ *
+ * The tenant CONFIG itself now lives in `shared` and is served by the API, so
+ * every device in the building shows the same brand. This file holds only the
+ * fallback and the things that are not yet part of that contract.
+ */
+export type { TenantConfig, TenantAvatar } from 'shared'
+
+/** What a brand-new deployment looks like before staff touch anything. */
+export const DEFAULT_TENANT: TenantConfig = SEED_TENANT
+
+/**
+ * Stadium geofence. SEAM: currently unused — capture verification is visual
+ * only. When @capacitor/geolocation lands, check the device position against
+ * this AND re-check it server-side, because a client can lie about where it is.
+ *
+ * Not part of the tenant contract yet: it needs a map picker in the admin
+ * tool to be usable, and a hardcoded constant is honest about that.
+ */
+export const VENUE_GEOFENCE = { lat: 38.2564, lng: -85.7444, radiusMeters: 400 }

@@ -1,26 +1,29 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { tenant } from '../config/tenant'
+import { useSessionStore } from './session'
 import { useMissionsStore } from './missions'
 
 const STORAGE_KEY = 'photo-hunt:progress'
 
 interface PersistedProgress {
   nickname: string
-  avatar: string
+  /** Avatar ID, not a URL: a re-upload must not reassign someone's face. */
+  avatarId: string | null
   earnedIds: string[]
   redeemed: boolean
 }
 
 function load(): PersistedProgress {
-  const empty: PersistedProgress = { nickname: '', avatar: '', earnedIds: [], redeemed: false }
+  const empty: PersistedProgress = { nickname: '', avatarId: null, earnedIds: [], redeemed: false }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return empty
     const parsed = JSON.parse(raw) as Partial<PersistedProgress>
     return {
       nickname: typeof parsed.nickname === 'string' ? parsed.nickname : '',
-      avatar: typeof parsed.avatar === 'string' ? parsed.avatar : '',
+      // Avatars used to be emoji. An old value is not an ID of anything,
+      // so it resolves to the monogram rather than a broken image.
+      avatarId: typeof parsed.avatarId === 'string' ? parsed.avatarId : null,
       earnedIds: Array.isArray(parsed.earnedIds) ? parsed.earnedIds.filter((x) => typeof x === 'string') : [],
       redeemed: parsed.redeemed === true,
     }
@@ -39,10 +42,11 @@ function load(): PersistedProgress {
  * a real prize — server-side sessions are a prerequisite for redemption.
  */
 export const useProgressStore = defineStore('progress', () => {
+  const session = useSessionStore()
   const initial = load()
 
   const nickname = ref(initial.nickname)
-  const avatar = ref(initial.avatar || tenant.avatars[0])
+  const avatarId = ref<string | null>(initial.avatarId)
   const earnedIds = ref<string[]>(initial.earnedIds)
   const redeemed = ref(initial.redeemed)
 
@@ -60,23 +64,28 @@ export const useProgressStore = defineStore('progress', () => {
   const hasBadge = computed(() => (id: string) => earnedIds.value.includes(id))
 
   /**
-   * Four-digit claim code, derived from the nickname so it is stable across
-   * reloads without needing a server round trip.
+   * Four-digit claim code, derived from the DEVICE ID so it is stable
+   * across reloads without needing a server round trip.
+   *
+   * It deliberately does not depend on the team name. It used to, which
+   * meant an admin renaming the club in the dashboard silently reissued
+   * every outstanding code — a fan holding 7291 at the counter would watch
+   * it become something else while a staff member was editing branding.
    *
    * SEAM: derived, not issued — anyone can compute another fan's code. A real
    * deployment must have the server mint and invalidate these.
    */
   const claimCode = computed(() => {
     let hash = 7
-    for (const ch of `${nickname.value}|${tenant.teamName}`) {
+    for (const ch of `${session.deviceId}|${nickname.value}`) {
       hash = (hash * 31 + ch.charCodeAt(0)) % 10000
     }
     return String(hash).padStart(4, '0')
   })
 
-  function setProfile(name: string, avatarId: string): void {
+  function setProfile(name: string, nextAvatarId: string | null): void {
     nickname.value = name.trim()
-    avatar.value = avatarId
+    avatarId.value = nextAvatarId
   }
 
   /** Idempotent: re-capturing a mission must not inflate the badge count. */
@@ -87,17 +96,17 @@ export const useProgressStore = defineStore('progress', () => {
 
   function reset(): void {
     nickname.value = ''
-    avatar.value = tenant.avatars[0]
+    avatarId.value = null
     earnedIds.value = []
     redeemed.value = false
   }
 
   watch(
-    [nickname, avatar, earnedIds, redeemed],
+    [nickname, avatarId, earnedIds, redeemed],
     () => {
       const payload: PersistedProgress = {
         nickname: nickname.value,
-        avatar: avatar.value,
+        avatarId: avatarId.value,
         earnedIds: earnedIds.value,
         redeemed: redeemed.value,
       }
@@ -112,7 +121,7 @@ export const useProgressStore = defineStore('progress', () => {
 
   return {
     nickname,
-    avatar,
+    avatarId,
     earnedIds,
     redeemed,
     hasProfile,

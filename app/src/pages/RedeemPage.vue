@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import BaseButton from '../components/BaseButton.vue'
-import { tenant } from '../config/tenant'
+import { useTenantStore } from '../stores/tenant'
 import { useProgressStore } from '../stores/progress'
 
 const { t } = useI18n()
 const progress = useProgressStore()
+const tenant = useTenantStore()
 </script>
 
 <template>
@@ -27,7 +28,7 @@ const progress = useProgressStore()
         {{ t('redeem.wonTitle', { nickname: progress.nickname }) }}
       </h1>
       <p class="mt-2 text-sm text-muted">
-        {{ t('redeem.wonBody', { location: tenant.prizeLocation }) }}
+        {{ t('redeem.wonBody', { location: tenant.settings.prizeLocation }) }}
       </p>
 
       <div class="mt-6 rounded-card bg-surface p-6 text-center shadow-sm ring-2 ring-accent-400">
