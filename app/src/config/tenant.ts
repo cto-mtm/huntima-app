@@ -11,7 +11,14 @@
  * language, exactly like a fan's nickname.
  */
 export interface TenantConfig {
-  /** Proper noun. Not translated — interpolated into i18n messages. */
+  /**
+   * The club's name as it should appear, e.g. "Riverdogs" — set in the
+   * admin dashboard. Do NOT append "Team": every surface that shows it
+   * already reads as a team name, and "Riverdogs Team" is how a template
+   * announces itself as a template.
+   *
+   * Proper noun. Not translated — interpolated into i18n messages.
+   */
   teamName: string
   /** Where a winner physically goes to claim. Proper noun, not translated. */
   prizeLocation: string
@@ -40,7 +47,7 @@ export interface TenantConfig {
 }
 
 export const DEFAULT_TENANT: TenantConfig = {
-  teamName: 'REPLACE_ME Team',
+  teamName: 'REPLACE_ME',
   prizeLocation: 'the Main Team Store',
   badgeTarget: 5,
   timezone: 'America/New_York',

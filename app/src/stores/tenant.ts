@@ -5,11 +5,22 @@ import { DEFAULT_TENANT, type TenantConfig } from '../config/tenant'
 
 const STORAGE_KEY = 'photo-hunt:tenant'
 
+/**
+ * Values that were once shipped as defaults. A browser still holding one of
+ * these never chose it, so it is migrated rather than preserved — otherwise
+ * changing a placeholder only affects people who have never opened the app.
+ */
+const LEGACY_DEFAULT_TEAM_NAMES = ['REPLACE_ME Team']
+
 function load(): TenantConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { ...DEFAULT_TENANT }
     const parsed = JSON.parse(raw) as Partial<TenantConfig>
+
+    if (parsed.teamName && LEGACY_DEFAULT_TEAM_NAMES.includes(parsed.teamName)) {
+      parsed.teamName = DEFAULT_TENANT.teamName
+    }
     // Merge rather than replace: a config saved by an older build is missing
     // any field added since, and a half-populated theme is worse than none.
     return {
@@ -100,6 +111,11 @@ export const useTenantStore = defineStore('tenant', () => {
   // default palette on every load is exactly what a white-label product
   // cannot afford.
   applyTheme()
+
+  // Write once at startup so a migrated legacy value is actually replaced in
+  // storage. Without this the migration re-runs on every load and the stale
+  // value resurfaces the day LEGACY_DEFAULT_TEAM_NAMES is pruned.
+  persist()
 
   watch(
     settings,

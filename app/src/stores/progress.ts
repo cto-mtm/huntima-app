@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useTenantStore } from './tenant'
+import { useSessionStore } from './session'
 import { useMissionsStore } from './missions'
 
 const STORAGE_KEY = 'photo-hunt:progress'
@@ -40,6 +41,7 @@ function load(): PersistedProgress {
  */
 export const useProgressStore = defineStore('progress', () => {
   const tenant = useTenantStore()
+  const session = useSessionStore()
   const initial = load()
 
   const nickname = ref(initial.nickname)
@@ -61,15 +63,20 @@ export const useProgressStore = defineStore('progress', () => {
   const hasBadge = computed(() => (id: string) => earnedIds.value.includes(id))
 
   /**
-   * Four-digit claim code, derived from the nickname so it is stable across
-   * reloads without needing a server round trip.
+   * Four-digit claim code, derived from the DEVICE ID so it is stable
+   * across reloads without needing a server round trip.
+   *
+   * It deliberately does not depend on the team name. It used to, which
+   * meant an admin renaming the club in the dashboard silently reissued
+   * every outstanding code — a fan holding 7291 at the counter would watch
+   * it become something else while a staff member was editing branding.
    *
    * SEAM: derived, not issued — anyone can compute another fan's code. A real
    * deployment must have the server mint and invalidate these.
    */
   const claimCode = computed(() => {
     let hash = 7
-    for (const ch of `${nickname.value}|${tenant.settings.teamName}`) {
+    for (const ch of `${session.deviceId}|${nickname.value}`) {
       hash = (hash * 31 + ch.charCodeAt(0)) % 10000
     }
     return String(hash).padStart(4, '0')
