@@ -22,6 +22,19 @@ import hunts from './locales/pages/hunts'
 export const SUPPORTED_LOCALES = ['en', 'es'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 
+/**
+ * Language names, written in their OWN language.
+ *
+ * Deliberately not i18n keys. A Spanish speaker scanning for their language
+ * looks for "Español", not for the Spanish word for "Spanish" — and certainly
+ * not for "Spanish" rendered in an English UI they cannot read. Autonyms are
+ * the same in every locale, which is exactly why they are a constant.
+ */
+export const LOCALE_LABELS: Record<SupportedLocale, string> = {
+  en: 'English',
+  es: 'Español',
+}
+
 /** `en` is the authored source of truth; `es` is typed against it per module. */
 export const DEFAULT_LOCALE: SupportedLocale = 'en'
 

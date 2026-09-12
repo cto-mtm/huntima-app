@@ -12,6 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import TeamMark from '../components/TeamMark.vue'
+import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
@@ -58,6 +59,12 @@ const busy = ref(false)
     it equal visual weight suggests to a parent that they might need it.
   -->
   <section class="mx-auto flex min-h-dvh max-w-md flex-col px-5 py-10">
+    <!-- First thing on the page, and first in the tab order: someone who
+         cannot read this screen needs to fix that before anything else. -->
+    <div class="flex justify-end">
+      <LocaleSwitcher variant="expanded" />
+    </div>
+
     <div class="flex flex-1 flex-col justify-center">
       <div class="text-center">
         <div class="flex justify-center">

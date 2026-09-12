@@ -3,6 +3,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
+import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { NOT_STAFF, useSessionStore } from '../stores/session'
 import { IS_LOCAL_API } from '../lib/api'
 
@@ -58,6 +59,10 @@ function fillDemo(demo: { email: string; password: string }): void {
 
 <template>
   <section class="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
+    <div class="mb-6 flex justify-end">
+      <LocaleSwitcher variant="expanded" />
+    </div>
+
     <h1 class="text-2xl font-extrabold text-brand-900">{{ t('entry.loginTitle') }}</h1>
     <p class="mt-1 text-sm text-muted">{{ t('entry.loginSubtitle') }}</p>
 
