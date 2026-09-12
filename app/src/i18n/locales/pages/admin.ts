@@ -9,7 +9,7 @@ const en = {
   prizeLocationLabel: 'Prize pickup location',
   prizeLocationHelp: 'Where a winner goes to claim. Appears on the redeem screen.',
   badgeTargetLabel: 'Default badge target',
-  badgeTargetHelp: 'Used until the campaign loads. The campaign then wins.',
+  badgeTargetHelp: 'Prefills the target for new hunts. Each hunt then keeps its own.',
 
   paletteHeading: 'Palette',
   brandLabel: 'Brand color',
@@ -65,7 +65,7 @@ const es: typeof en = {
   prizeLocationLabel: 'Lugar de entrega del premio',
   prizeLocationHelp: 'Dónde se reclama el premio. Aparece en la pantalla de canje.',
   badgeTargetLabel: 'Insignias necesarias (por defecto)',
-  badgeTargetHelp: 'Se usa hasta que carga la campaña. Después manda la campaña.',
+  badgeTargetHelp: 'Prerrellena el objetivo de las nuevas búsquedas. Cada una guarda el suyo.',
 
   paletteHeading: 'Paleta',
   brandLabel: 'Color de marca',

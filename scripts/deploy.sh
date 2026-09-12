@@ -33,7 +33,19 @@ if [ -f app/.env ] && grep -qE 'VITE_API_URL=.*(127\.0\.0\.1|localhost)' app/.en
   exit 1
 fi
 
-# ── 1. Build the SPA ──────────────────────────────────────────────────
+# ── 1. Build everything, in dependency order ──────────────────────────
+# shared FIRST: both the app and the functions compile against shared/dist,
+# so a stale build here silently ships an old contract to one side or both.
+echo "==> Building shared/"
+npm run build:shared
+
+# The functions bundle inlines shared, so it must be rebuilt after it.
+# firebase.json also declares a predeploy hook that does this, for anyone
+# running a bare `firebase deploy` — belt and braces, because shipping a
+# stale lib/ is invisible until something breaks in production.
+echo "==> Building firebase/functions/"
+npm run build -w firebase/functions
+
 echo "==> Building app/"
 cd app
 npm run build

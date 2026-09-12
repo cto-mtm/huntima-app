@@ -13,7 +13,7 @@
  * Eliminated from production: EntryPage resolves this through a dynamic
  * import inside an `import.meta.env.DEV` branch. See CLAUDE.md § Dev tooling.
  */
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { DEV_PERSONAS, type DevPersona } from './personas'
 import { useMissionsStore } from '../stores/missions'
@@ -25,6 +25,23 @@ const router = useRouter()
 const progress = useProgressStore()
 const missionsStore = useMissionsStore()
 const session = useSessionStore()
+
+/**
+ * Which persona (if any) the current session matches. Without this the entry
+ * screen says "Continue as MidInning" with nothing on screen explaining where
+ * that name came from.
+ */
+const activePersonaId = computed(() => {
+  const target = missionsStore.badgeTarget
+  return (
+    DEV_PERSONAS.find(
+      (p) =>
+        p.nickname === progress.nickname &&
+        p.badgeCount(target) === progress.earnedCount &&
+        (p.redeemed ?? false) === progress.redeemed,
+    )?.id ?? null
+  )
+})
 
 function applyFan(persona: DevPersona): void {
   const wanted = persona.badgeCount(missionsStore.badgeTarget)
@@ -120,7 +137,16 @@ async function signInAsStaff(): Promise<void> {
           @click="applyFan(persona)"
         >
           <span aria-hidden="true" class="text-sm leading-none">{{ persona.emoji }}</span>
-          <span class="flex-1 text-[11px] font-semibold">{{ persona.label }}</span>
+          <span class="flex-1 text-[11px] font-semibold">
+            {{ persona.label }}
+            <span class="font-mono font-normal text-slate-400">{{ persona.nickname }}</span>
+            <span
+              v-if="activePersonaId === persona.id"
+              class="ml-1 rounded-full bg-green-500/20 px-1.5 text-[9px] font-bold uppercase text-green-300"
+            >
+              active
+            </span>
+          </span>
           <span class="font-mono text-[10px] text-slate-400">
             {{ persona.badgeCount(missionsStore.badgeTarget) }}/{{ missionsStore.badgeTarget }}
           </span>
