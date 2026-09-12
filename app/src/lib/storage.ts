@@ -54,8 +54,22 @@ function getStorageInstance(): Promise<FirebaseStorage> {
       // blocked mixed-content request. Match the page's protocol instead —
       // the proxy serves Storage on the same origin, so https page ⇒ https
       // emulator. _protocol isn't in the public type; this cast is the seam.
-      ;(storage as unknown as { _protocol: string })._protocol =
-        window.location.protocol === 'https:' ? 'https' : 'http'
+      //
+      // Guard the cast: this reaches into a PRIVATE SDK field, so a firebase
+      // upgrade that renames it would silently stop applying the fix and
+      // re-introduce the mixed-content bug with no compile error. Warn loudly
+      // if the field is gone so it's caught in dev, not by a staff upload that
+      // fails at a game.
+      if ('_protocol' in storage) {
+        ;(storage as unknown as { _protocol: string })._protocol =
+          window.location.protocol === 'https:' ? 'https' : 'http'
+      } else {
+        console.warn(
+          '[storage] Firebase Storage no longer exposes `_protocol`; the ' +
+            'https-emulator workaround in lib/storage.ts needs revisiting — ' +
+            'uploads over the https dev tunnel may fail as mixed content.',
+        )
+      }
     }
 
     return storage

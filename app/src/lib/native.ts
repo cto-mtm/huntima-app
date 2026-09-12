@@ -15,10 +15,21 @@ export function registerNative(router: Router): void {
   // ── Android hardware / gesture back button ─────────────────────────
   // Without this listener, Android's back gesture closes the entire app
   // from ANY page — a fan three missions deep taps back once and loses
-  // the app. Route back when vue-router has history, exit only at the root.
+  // the app.
+  //
+  // Three cases:
+  //   1. Router has history → go back.
+  //   2. No history but we're NOT at the hub (e.g. a QR deep-link opened the
+  //      app straight on a mission page, so window.history has no `back`) →
+  //      route to the hub rather than exiting, so the first back press lands
+  //      the fan somewhere sensible instead of dumping them out.
+  //   3. No history AND already at the hub → exit, the expected Android
+  //      behaviour at a task's root.
   App.addListener('backButton', () => {
     if (window.history.state?.back) {
       router.back()
+    } else if (router.currentRoute.value.name !== 'home') {
+      void router.replace({ name: 'home' })
     } else {
       App.exitApp()
     }

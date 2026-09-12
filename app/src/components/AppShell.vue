@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import LocaleSwitcher from './LocaleSwitcher.vue'
+import AmbientBackdrop from './AmbientBackdrop.vue'
 import AppIcon, { type IconName } from './AppIcon.vue'
 import TeamMark from './TeamMark.vue'
 import FanAvatar from './FanAvatar.vue'
@@ -31,11 +32,21 @@ function isActive(name: string): boolean {
 
 <template>
   <div class="flex min-h-dvh flex-col bg-canvas">
+    <!-- The drifting brand shapes (Recipe 12). Rendered before <main> and
+         painted under it: main is `relative`, so it stacks above in DOM
+         order while the backdrop's pointer-events-none keeps taps working. -->
+    <AmbientBackdrop style="view-transition-name: app-backdrop" />
+
     <!-- Header. pt-safe + px-safe keep it clear of the notch and of
          landscape rounded corners; the same markup is correct in a
-         browser tab, where the env() values resolve to 0. -->
+         browser tab, where the env() values resolve to 0.
+
+         The static view-transition-name (safe: AppShell renders once) opts
+         the fixed chrome out of the root group, so Recipe 1's page lift
+         moves the content while header, nav and backdrop hold still. -->
     <header
       class="fixed inset-x-0 top-0 z-20 border-b border-brand-100 bg-surface/90 pt-safe px-safe backdrop-blur"
+      style="view-transition-name: app-header"
     >
       <div class="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4">
         <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2">
@@ -55,22 +66,31 @@ function isActive(name: string): boolean {
          plus the home indicator. max-w-md centers the fan content into a
          phone-width column on a desktop instead of letting it span the whole
          window — the same framing the pre-session screens use. -->
-    <main class="mx-auto w-full max-w-md flex-1 px-gutter pb-28 mt-header-safe">
+    <main class="relative mx-auto w-full max-w-md flex-1 px-gutter pb-28 mt-header-safe">
       <slot />
     </main>
 
     <nav
       class="fixed inset-x-0 bottom-0 z-20 border-t border-brand-100 bg-surface/95 pb-safe px-safe backdrop-blur"
+      style="view-transition-name: app-nav"
     >
       <ul class="mx-auto flex max-w-md items-stretch justify-around">
         <li v-for="item in NAV" :key="item.name" class="flex-1">
+          <!-- The active tab wears a filled pill. Its move between tabs is
+               animated for free: the nav is its own view-transition group,
+               so each navigation cross-fades old and new pill position. -->
           <RouterLink
             :to="{ name: item.name }"
-            class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium"
-            :class="isActive(item.name) ? 'text-brand-600' : 'text-muted'"
+            class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold"
+            :class="isActive(item.name) ? 'text-brand-700' : 'text-muted'"
             :aria-current="isActive(item.name) ? 'page' : undefined"
           >
-            <AppIcon :name="item.icon" class="size-5" />
+            <span
+              class="flex h-6 items-center justify-center rounded-full px-4"
+              :class="isActive(item.name) ? 'bg-brand-600 text-white shadow-sm' : ''"
+            >
+              <AppIcon :name="item.icon" class="size-5" />
+            </span>
             {{ t(item.labelKey) }}
           </RouterLink>
         </li>

@@ -16,6 +16,10 @@ const en = {
   scanning: 'Checking your photo…',
   successTitle: 'Badge unlocked!',
   successBody: 'Added to your trophy case.',
+  huntCompleteTitle: 'Hunt complete!',
+  huntCompleteBody: 'You collected them all — your prize is waiting.',
+  claimPrize: 'Claim your prize',
+  progressCount: '{count} of {target} badges',
   keepGoing: 'Keep hunting',
   viewTrophies: 'View trophy case',
 }
@@ -39,6 +43,10 @@ const es: typeof en = {
   scanning: 'Comprobando tu foto…',
   successTitle: '¡Insignia desbloqueada!',
   successBody: 'Añadida a tu vitrina de trofeos.',
+  huntCompleteTitle: '¡Búsqueda completada!',
+  huntCompleteBody: 'Las conseguiste todas. Tu premio te espera.',
+  claimPrize: 'Reclama tu premio',
+  progressCount: '{count} de {target} insignias',
   keepGoing: 'Seguir buscando',
   viewTrophies: 'Ver la vitrina',
 }

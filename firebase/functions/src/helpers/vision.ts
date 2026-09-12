@@ -39,6 +39,19 @@ function apiKey(): string | null {
   return key ? key : null
 }
 
+/**
+ * Whether real model verification is configured. When false, every capture
+ * gets the lenient stub verdict (auto-pass) — fine for local dev, but in
+ * production it means the honor system is silently in effect. Surfaced on
+ * GET /health so ops can catch a missing/blank secret before a fan does.
+ */
+export function isVerificationLive(): boolean {
+  return apiKey() !== null
+}
+
+/** The model id in use, for operational visibility (never a secret). */
+export const VERIFICATION_MODEL = MODEL
+
 interface GeminiVerdict {
   match: boolean
   confidence: number

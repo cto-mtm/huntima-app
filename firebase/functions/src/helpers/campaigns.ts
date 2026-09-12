@@ -1,5 +1,5 @@
 import { getApps, initializeApp } from 'firebase-admin/app'
-import { getFirestore, type Firestore } from 'firebase-admin/firestore'
+import { getFirestore, type Firestore, type QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import {
   campaignSchema,
   missionListSchema,
@@ -60,32 +60,56 @@ export async function updateCampaign(
   id: string,
   patch: Partial<Omit<Campaign, 'id'>>,
 ): Promise<Campaign | null> {
-  const ref = db().collection(COLLECTION).doc(id)
-  if (!(await ref.get()).exists) return null
-  await ref.update(patch)
+  const firestore = db()
+  const ref = firestore.collection(COLLECTION).doc(id)
 
   // Publishing is EXCLUSIVE. GET /missions serves the single published hunt
   // (`.limit(1)`), so two live at once makes the served hunt arbitrary — which
   // is exactly the "my custom hunt isn't showing, the seed one is" symptom.
-  // The moment a hunt goes live, demote every other published hunt. This is the
-  // "publishing replaces the live one" the admin UI already promises.
-  if (patch.status === 'published') {
-    const live = await db().collection(COLLECTION).where('status', '==', 'published').get()
-    const stale = live.docs.filter((doc) => doc.id !== id)
-    if (stale.length > 0) {
-      const batch = db().batch()
-      stale.forEach((doc) => batch.update(doc.ref, { status: 'draft' }))
-      await batch.commit()
+  //
+  // The apply-patch, demote-others and clamp-badgeTarget steps used to run as
+  // three separate awaits. Two admins (or a double-click) publishing at once
+  // could interleave between them and leave ZERO published hunts (each demotes
+  // the other) or two survivors. A transaction makes the whole publish a
+  // single atomic read-modify-write: every participant sees a consistent
+  // snapshot and Firestore retries on contention, so "exactly one published"
+  // holds under concurrency.
+  const applied = await firestore.runTransaction(async (tx) => {
+    const doc = await tx.get(ref)
+    if (!doc.exists) return false
+
+    // A publish must demote every OTHER published hunt. Read them INSIDE the
+    // transaction (before any write) so a concurrent publish is serialized
+    // against this one rather than racing it.
+    let stale: QueryDocumentSnapshot[] = []
+    if (patch.status === 'published') {
+      const live = await tx.get(
+        firestore.collection(COLLECTION).where('status', '==', 'published'),
+      )
+      stale = live.docs.filter((d) => d.id !== id)
     }
 
-    // Safety net: never publish an unwinnable hunt. The editor guards this too,
-    // but this guarantees it regardless of how the status got flipped.
-    const current = await getCampaign(id)
-    if (current && current.missions.length > 0 && current.badgeTarget > current.missions.length) {
-      await ref.update({ badgeTarget: current.missions.length })
-    }
-  }
+    tx.update(ref, patch)
 
+    if (patch.status === 'published') {
+      for (const d of stale) tx.update(d.ref, { status: 'draft' })
+
+      // Safety net: never publish an unwinnable hunt. Compute from the merged
+      // state (existing doc + this patch), so a status-only publish still
+      // clamps against the stored missions. The editor guards this too, but
+      // this guarantees it regardless of how the status got flipped.
+      const merged = { ...(doc.data() as Record<string, unknown>), ...patch }
+      const missions = Array.isArray(merged.missions) ? (merged.missions as Mission[]) : []
+      const badgeTarget = typeof merged.badgeTarget === 'number' ? merged.badgeTarget : 0
+      if (missions.length > 0 && badgeTarget > missions.length) {
+        tx.update(ref, { badgeTarget: missions.length })
+      }
+    }
+
+    return true
+  })
+
+  if (!applied) return null
   return getCampaign(id)
 }
 

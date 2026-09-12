@@ -42,15 +42,21 @@ const session = useSessionStore()
 
     <ul v-else class="mt-4 grid gap-2.5">
       <li
-        v-for="trophy in progress.trophies"
+        v-for="(trophy, index) in progress.trophies"
         :key="trophy.campaignId"
-        class="flex items-center gap-3 rounded-card bg-surface p-3.5 shadow-sm ring-1 ring-brand-100"
+        class="flex items-center gap-3 rounded-card bg-surface p-3.5 shadow-md shadow-brand-900/5 ring-1 ring-brand-100"
       >
         <div
-          class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-400 to-accent-600 text-white ring-1 ring-accent-600/20"
+          class="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-accent-400 to-accent-600 text-white shadow-md shadow-accent-600/30 ring-1 ring-accent-600/20"
           aria-hidden="true"
         >
           <AppIcon name="trophies" class="size-7" />
+          <!-- One specular sweep per tile when the case opens (Recipe 10),
+               staggered down the shelf. Never loops. -->
+          <span
+            class="trophy-gleam absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/60 to-transparent"
+            :style="{ animationDelay: `${index * 120}ms` }"
+          />
         </div>
         <div class="min-w-0 flex-1">
           <h2 class="truncate font-bold text-brand-900" translate="no">{{ trophy.name }}</h2>
@@ -63,7 +69,7 @@ const session = useSessionStore()
 
     <!-- A win the fan hasn't claimed yet: send them to the prize screen. -->
     <div v-if="progress.isComplete && !progress.redeemed" class="mt-6">
-      <BaseButton size="lg" @click="$router.push({ name: 'redeem' })">
+      <BaseButton size="lg" icon="prize" @click="$router.push({ name: 'redeem' })">
         {{ t('trophyCase.complete') }}
       </BaseButton>
     </div>

@@ -31,6 +31,74 @@ const capture = ref<PreparedImage | null>(null)
 const rejection = ref<string | null>(null)
 const stubbed = ref(false)
 
+/** True when THIS capture was the one that completed the hunt — the reward
+ *  card upgrades from "badge unlocked" to the full hunt-complete moment. */
+const justCompleted = ref(false)
+
+/**
+ * Confetti burst for the reward card (Recipe 9). Each piece is a DOM span
+ * whose arc lives in inline custom props: a mid keyframe that rises and an
+ * end keyframe that falls past it, so the "gravity" is faked entirely with
+ * transform. Colors come from the mission plus the brand/accent tokens, so
+ * the burst re-skins with the tenant like everything else.
+ */
+interface ConfettiPiece {
+  id: number
+  style: Record<string, string>
+}
+
+function makeConfetti(missionColor: string, count: number): ConfettiPiece[] {
+  const palette = [
+    missionColor,
+    'var(--color-accent-400)',
+    'var(--color-accent-600)',
+    'var(--color-brand-400)',
+    '#ffffff',
+  ]
+  return Array.from({ length: count }, (_, i) => {
+    // Evenly fanned with jitter, so the burst always covers the circle.
+    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
+    const distance = 70 + Math.random() * 90
+    const size = 5 + Math.random() * 5
+    const rot = (Math.random() - 0.5) * 540
+    return {
+      id: i,
+      style: {
+        backgroundColor: palette[i % palette.length],
+        width: `${size.toFixed(1)}px`,
+        height: `${(size * (Math.random() > 0.5 ? 1.8 : 1)).toFixed(1)}px`,
+        borderRadius: Math.random() > 0.6 ? '9999px' : '2px',
+        animationDelay: `${Math.round(Math.random() * 120)}ms`,
+        '--confetti-mid-x': `${(Math.cos(angle) * distance * 0.7).toFixed(1)}px`,
+        '--confetti-mid-y': `${(Math.sin(angle) * distance * 0.7 - 30).toFixed(1)}px`,
+        '--confetti-mid-rot': `${(rot * 0.6).toFixed(0)}deg`,
+        '--confetti-end-x': `${(Math.cos(angle) * distance).toFixed(1)}px`,
+        '--confetti-end-y': `${(Math.sin(angle) * distance + 60).toFixed(1)}px`,
+        '--confetti-end-rot': `${rot.toFixed(0)}deg`,
+      },
+    }
+  })
+}
+
+const confetti = ref<ConfettiPiece[]>([])
+
+/** Haptic beat to pair with the visual one. Vibration is physical motion,
+ *  so it respects reduced motion; a no-vibrate device just skips it. */
+function buzz(pattern: number | number[]): void {
+  if (reducedMotion.value) return
+  try {
+    navigator.vibrate?.(pattern)
+  } catch {
+    // Some WebViews throw instead of ignoring — the beat is optional.
+  }
+}
+
+/** Progress shown in the reward card. Capped at the target so a hunt with
+ *  more missions than the badge target never reads "6 of 5". */
+const shownCount = computed(() =>
+  Math.min(progress.earnedCount, missionsStore.badgeTarget),
+)
+
 /**
  * prepareCapture's previewUrl is now an object URL (created from the
  * compressed blob), so it must be revoked or it leaks for the life of the
@@ -131,11 +199,21 @@ async function onFileChosen(event: Event): Promise<void> {
   if (!verdict.data.match) {
     phase.value = 'rejected'
     rejection.value = verdict.data.reason
+    buzz([20, 60, 20])
     return
   }
 
-  // Award only now, after the check has visibly completed.
+  // Award only now, after the check has visibly completed. The award is the
+  // state change; everything after it is celebration and may be skipped
+  // (reduced motion) without the fan losing anything.
+  const wasComplete = progress.isComplete
   progress.awardBadge(missionId.value)
+  justCompleted.value = !wasComplete && progress.isComplete
+
+  confetti.value = reducedMotion.value
+    ? []
+    : makeConfetti(mission.value?.color ?? 'var(--color-accent-500)', justCompleted.value ? 28 : 18)
+  buzz(justCompleted.value ? [20, 60, 20, 60, 80] : [15, 60, 40])
   phase.value = 'reward'
 }
 
@@ -221,6 +299,14 @@ function tryAgain(): void {
       >
         {{ t('capture.scanning') }}
       </p>
+
+      <!-- The verdict landing: one white flash over the photo (Recipe 9),
+           the beat between "checking…" and the badge popping below. -->
+      <div
+        v-if="phase === 'reward'"
+        class="capture-flash pointer-events-none absolute inset-0 bg-white"
+        aria-hidden="true"
+      />
     </div>
 
     <div v-if="isSpyglass && phase === 'framing'" class="mt-4">
@@ -255,7 +341,7 @@ function tryAgain(): void {
     />
 
     <div v-if="phase === 'framing'" class="mt-4">
-      <BaseButton size="lg" :disabled="locating" @click="pickPhoto">
+      <BaseButton size="lg" icon="camera" :disabled="locating" @click="pickPhoto">
         {{ locating ? t('capture.locating') : t('capture.capture') }}
       </BaseButton>
       <p v-if="rejection" class="mt-2 text-center text-sm font-medium text-red-600">
@@ -276,8 +362,8 @@ function tryAgain(): void {
         <p class="mt-1 text-sm text-muted">{{ rejection ?? t('capture.rejectedBody') }}</p>
 
         <div class="mt-4 grid gap-2">
-          <BaseButton size="lg" @click="tryAgain">{{ t('capture.tryAgain') }}</BaseButton>
-          <BaseButton size="lg" variant="secondary" @click="$router.push({ name: 'home' })">
+          <BaseButton size="lg" icon="camera" @click="tryAgain">{{ t('capture.tryAgain') }}</BaseButton>
+          <BaseButton size="lg" variant="secondary" icon="missions" @click="$router.push({ name: 'home' })">
             {{ t('capture.keepGoing') }}
           </BaseButton>
         </div>
@@ -287,9 +373,17 @@ function tryAgain(): void {
     <Transition name="reward">
       <div
         v-if="phase === 'reward'"
-        class="mt-6 rounded-card bg-surface p-5 text-center shadow-sm ring-1 ring-accent-400"
+        class="mt-6 rounded-card bg-surface p-5 text-center shadow-lg shadow-accent-500/20 ring-1 ring-accent-400"
       >
         <div class="relative mx-auto size-20">
+          <!-- Mission-colored halo, breathing via opacity (Recipe 9). A
+               static radial gradient — glow is painted once, never an
+               animated box-shadow. -->
+          <span
+            class="badge-halo absolute -inset-5 rounded-full opacity-50"
+            :style="{ background: `radial-gradient(closest-side, ${mission.color}, transparent)` }"
+            aria-hidden="true"
+          />
           <span class="badge-ring absolute inset-0 rounded-2xl bg-accent-400" aria-hidden="true" />
           <div
             class="badge-pop relative flex size-20 items-center justify-center rounded-2xl"
@@ -297,16 +391,56 @@ function tryAgain(): void {
           >
             <AppIcon name="badge" class="size-9 text-white/90" />
           </div>
+          <!-- Confetti burst (Recipe 9): pieces fan out from the badge center
+               and arc down past the card edge. Empty under reduced motion. -->
+          <span
+            v-for="piece in confetti"
+            :key="piece.id"
+            class="confetti-piece pointer-events-none absolute left-1/2 top-1/2 -ml-1 -mt-1"
+            :style="piece.style"
+            aria-hidden="true"
+          />
         </div>
-        <h2 class="mt-3 text-xl font-extrabold text-brand-900">{{ t('capture.successTitle') }}</h2>
-        <p class="mt-1 text-sm text-muted">{{ t('capture.successBody') }}</p>
+        <h2 class="mt-3 text-xl font-extrabold text-brand-900">
+          {{ justCompleted ? t('capture.huntCompleteTitle') : t('capture.successTitle') }}
+        </h2>
+        <p class="mt-1 text-sm text-muted">
+          {{ justCompleted ? t('capture.huntCompleteBody') : t('capture.successBody') }}
+        </p>
+
+        <!-- The meter tick: every win visibly moves the count toward the
+             prize. The newest dot pops in after the badge lands. -->
+        <template v-if="missionsStore.badgeTarget > 0">
+          <p class="mt-4 text-xs font-bold uppercase tracking-wide text-muted">
+            {{ t('capture.progressCount', { count: shownCount, target: missionsStore.badgeTarget }) }}
+          </p>
+          <div class="mt-2 flex justify-center gap-1.5" aria-hidden="true">
+            <span
+              v-for="i in missionsStore.badgeTarget"
+              :key="i"
+              class="size-2.5 rounded-full"
+              :class="[
+                i <= shownCount ? 'bg-accent-500' : 'bg-brand-100',
+                i === shownCount ? 'badge-dot-pop' : '',
+              ]"
+            />
+          </div>
+        </template>
 
         <div class="mt-4 grid gap-2">
-          <BaseButton size="lg" @click="$router.push({ name: 'home' })">
+          <BaseButton v-if="justCompleted" size="lg" icon="prize" @click="$router.push({ name: 'redeem' })">
+            {{ t('capture.claimPrize') }}
+          </BaseButton>
+          <BaseButton v-else size="lg" icon="missions" @click="$router.push({ name: 'home' })">
             {{ t('capture.keepGoing') }}
           </BaseButton>
-          <BaseButton size="lg" variant="secondary" @click="$router.push({ name: 'trophies' })">
-            {{ t('capture.viewTrophies') }}
+          <BaseButton
+            size="lg"
+            variant="secondary"
+            :icon="justCompleted ? 'missions' : 'trophies'"
+            @click="$router.push({ name: justCompleted ? 'home' : 'trophies' })"
+          >
+            {{ justCompleted ? t('capture.keepGoing') : t('capture.viewTrophies') }}
           </BaseButton>
         </div>
       </div>

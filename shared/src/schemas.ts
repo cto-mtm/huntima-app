@@ -95,12 +95,16 @@ export type CampaignStatus = z.infer<typeof campaignStatusSchema>
 
 /** What `GET /missions` returns to a fan. */
 export const missionListSchema = z.object({
-  campaignId: z.string(),
+  // Bounded to match campaignSchema: an empty campaignId gets posted straight
+  // back on /verify-capture, and an empty/overlong name becomes a blank or
+  // truncated trophy. The empty-state payload uses '' deliberately, so these
+  // allow zero length here (unlike campaignSchema) but still cap the max.
+  campaignId: z.string().max(200),
   /** The hunt's name, so a completed hunt can be shown as a named trophy. */
-  name: z.string(),
+  name: z.string().max(80),
   badgeTarget: z.number().int().positive(),
   prize: prizeSchema.optional(),
-  missions: z.array(missionSchema),
+  missions: z.array(missionSchema).max(50),
 })
 
 export type MissionList = z.infer<typeof missionListSchema>
@@ -149,8 +153,10 @@ export const verifyResultSchema = z.object({
   match: z.boolean(),
   /** 0–1. Staff see this on low-confidence captures. */
   confidence: z.number().min(0).max(1),
-  /** Short, fan-facing explanation when match is false. */
-  reason: z.string().nullable(),
+  /** Short, fan-facing explanation when match is false. Capped like every
+   *  other fan-facing string; the model is instructed to write one sentence
+   *  but the ceiling guards against a runaway response. */
+  reason: z.string().max(300).nullable(),
   /** True when the verdict came from the stub rather than the model. */
   stubbed: z.boolean(),
 })
@@ -302,7 +308,29 @@ export const tenantConfigSchema = z.object({
   prizeLocation: z.string().min(1).max(80),
   /** Pre-fetch default only. A loaded campaign is authoritative. */
   badgeTarget: z.number().int().positive().max(50),
-  timezone: z.string().min(1).max(60),
+  /**
+   * An IANA time zone (e.g. `America/New_York`). Validated against the
+   * platform's zone database rather than accepting any string, because the
+   * value is handed to Intl.DateTimeFormat on the stats screen — a bad zone
+   * throws a RangeError there, turning a typo in the branding form into a
+   * crashed dashboard. `Intl.supportedValuesOf('timeZone')` isn't universal,
+   * so probe by construction instead.
+   */
+  timezone: z
+    .string()
+    .min(1)
+    .max(60)
+    .refine(
+      (tz) => {
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone: tz })
+          return true
+        } catch {
+          return false
+        }
+      },
+      { message: 'Invalid IANA time zone' },
+    ),
   /** The full 50-900 ramp is derived from this one hex client-side. */
   brandBase: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   accentBase: z.string().regex(/^#[0-9a-fA-F]{6}$/),

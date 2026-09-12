@@ -5,8 +5,10 @@ const en = {
     photo: 'Concourse',
     spyglass: 'On the field',
   },
-  statusLocked: 'Not collected',
-  statusEarned: 'Collected',
+  // A pending mission is an invitation, not a deficit: "Snap it!" beats a
+  // red "Not collected" for a twelve-year-old with a phone.
+  statusLocked: 'Snap it!',
+  statusEarned: 'Got it!',
   open: 'Open mission',
 }
 
@@ -16,8 +18,8 @@ const es: typeof en = {
     photo: 'Pasillo',
     spyglass: 'En el campo',
   },
-  statusLocked: 'Sin conseguir',
-  statusEarned: 'Conseguida',
+  statusLocked: '¡Captúralo!',
+  statusEarned: '¡Conseguida!',
   open: 'Abrir misión',
 }
 

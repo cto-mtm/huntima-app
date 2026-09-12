@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useSessionStore } from './session'
 import { useMissionsStore } from './missions'
 import { reportFanEvent } from '../lib/analytics'
@@ -266,6 +266,12 @@ export const useProgressStore = defineStore('progress', () => {
       void pushToAccount()
     }, 800)
   }
+
+  // Clear a pending debounce if the store's scope is torn down (tests, HMR)
+  // so the timer can't fire against a disposed store.
+  onScopeDispose(() => {
+    if (pushTimer) clearTimeout(pushTimer)
+  })
 
   /**
    * On sign-in: pull the account copy, MERGE it into whatever is on this

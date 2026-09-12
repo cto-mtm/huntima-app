@@ -75,6 +75,8 @@ const en = {
   diagFail: 'API unreachable: {reason}',
   diagCheck: 'Check again',
   diagBuildLabel: 'Build',
+  diagVerifyLive: 'Photo verification: LIVE ({model})',
+  diagVerifyStub: 'Photo verification: STUB — every capture auto-passes. Set GEMINI_API_KEY to enable real checks.',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -155,6 +157,8 @@ const es: typeof en = {
   diagFail: 'API inaccesible: {reason}',
   diagCheck: 'Comprobar de nuevo',
   diagBuildLabel: 'Compilación',
+  diagVerifyLive: 'Verificación de fotos: ACTIVA ({model})',
+  diagVerifyStub: 'Verificación de fotos: SIMULADA — cada captura se aprueba automáticamente. Configura GEMINI_API_KEY para activar las comprobaciones reales.',
 }
 
 export default { en, es }

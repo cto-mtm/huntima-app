@@ -14,11 +14,37 @@
    Full cookbook: docs/animations.md
    ════════════════════════════════════════════════════════════ */
 
-/* ── Recipe 1 — default page cross-fade (applies to everything) ── */
-::view-transition-old(root),
+/* ── Recipe 1 — default page transition: the lift-in ──────────────
+   Every navigation: the old page settles down and away, the new one
+   rises in with a whisper of scale. Livelier than a cross-fade but
+   still 200–280ms, and the automatic fallback (plain cross-fade)
+   stays acceptable.
+
+   This only works because AppShell's fixed chrome (header, bottom
+   nav, ambient backdrop) carries its OWN static view-transition-names
+   — that opts them out of the root group, so the chrome holds still
+   while the content lifts. Without those names the whole app would
+   bounce on every tap. */
+@keyframes page-lift-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+
+@keyframes page-settle-out {
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.99);
+  }
+}
+
+::view-transition-old(root) {
+  animation: 200ms cubic-bezier(0.4, 0, 0.2, 1) both page-settle-out;
+}
+
 ::view-transition-new(root) {
-  animation-duration: 220ms;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation: 280ms cubic-bezier(0.2, 0.9, 0.3, 1.05) both page-lift-in;
 }
 
 /* ── Recipe 2 — hero / shared elements ─────────────────────────
@@ -115,8 +141,39 @@
   }
 }
 
+/* Pop, then keep the badge gently afloat for as long as the reward card
+   is on screen — a state-scoped loop like the scan sweep, not ambient.
+   The float's 340ms delay hands transform control from one animation to
+   the other exactly when the pop lands. */
+@keyframes badge-float {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-6px);
+  }
+}
+
 .badge-pop {
-  animation: badge-pop 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  animation:
+    badge-pop 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both,
+    badge-float 2.8s ease-in-out 340ms infinite alternate;
+}
+
+/* The mission-colored halo behind the badge, breathing via opacity — the
+   glow itself is a static radial gradient, never an animated box-shadow.
+   Base opacity lives on the element, so reduced motion keeps a still glow. */
+@keyframes halo-breathe {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0.75;
+  }
+}
+
+.badge-halo {
+  animation: halo-breathe 2.6s ease-in-out 340ms infinite alternate;
 }
 
 @keyframes badge-ring {
@@ -239,4 +296,212 @@
 
 ::view-transition-old(about-page) {
   animation: 160ms cubic-bezier(0.4, 0, 0.2, 1) both fade-out;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 9 — capture celebration (CapturePage.vue)
+
+   The payoff sequence when a badge is verified, staged as beats:
+   flash (the verdict landing) → badge pop (Recipe 5, unchanged) →
+   confetti burst → progress dot pop. Covered by the celebration
+   exception in docs/animations.md §4: each beat is a short flourish
+   over a state change that has ALREADY committed — the badge is
+   awarded before any of this plays.
+
+   Confetti pieces get their trajectory from inline custom props
+   (--confetti-mid-… and --confetti-end-…) set per piece in JS: the mid
+   keyframe rises, the end keyframe falls past it, faking a gravity
+   arc with nothing but transform.
+   ════════════════════════════════════════════════════════════ */
+@keyframes capture-flash {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.capture-flash {
+  animation: capture-flash 320ms ease-out both;
+}
+
+@keyframes confetti-burst {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(var(--confetti-mid-x), var(--confetti-mid-y))
+      rotate(var(--confetti-mid-rot)) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--confetti-end-x), var(--confetti-end-y))
+      rotate(var(--confetti-end-rot)) scale(0.4);
+    opacity: 0;
+  }
+}
+
+.confetti-piece {
+  animation: confetti-burst 900ms cubic-bezier(0.2, 0.8, 0.4, 1) both;
+}
+
+/* The just-earned dot in the progress row. `both` + delay holds it at
+   scale(0) until the badge itself has landed, then it pops in. */
+@keyframes badge-dot-pop {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.badge-dot-pop {
+  animation: badge-dot-pop 300ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  animation-delay: 280ms;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 10 — trophy gleam (TrophyCasePage.vue)
+
+   A single specular sweep across each trophy tile when the case
+   opens — once, staggered per tile via inline animation-delay,
+   never looping. The element is a narrow white gradient strip that
+   translates across its overflow-hidden tile.
+   ════════════════════════════════════════════════════════════ */
+@keyframes trophy-gleam {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(260%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
+.trophy-gleam {
+  animation: trophy-gleam 700ms ease-out both;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 11 — one-away beacon (MissionCard.vue)
+
+   When exactly one badge remains, pending cards carry a softly
+   pulsing accent ring. The ONLY looping ambient animation in the
+   app, on purpose: the near-win is the one state worth ambient
+   emphasis, and everything staying calm is what makes it read.
+   Opacity-only, slow, and killed under reduced motion.
+   ════════════════════════════════════════════════════════════ */
+@keyframes one-away-pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.one-away-ring {
+  animation: one-away-pulse 2s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 12 — ambient backdrop drift (AmbientBackdrop.vue)
+
+   The always-on floating layer behind fan pages. A sanctioned
+   ambient loop (docs/animations.md §4) held to three limits: low
+   opacity, glacial durations (var(--drift-duration), 20s+), and
+   transform only. `alternate` makes each shape wander out and back
+   forever without a seam; per-shape negative delays desync them.
+
+   --drift-rot is the shape's resting tilt — it must live in the
+   keyframes because an animation's transform replaces any static
+   rotate utility on the element.
+   ════════════════════════════════════════════════════════════ */
+@keyframes ambient-drift {
+  0% {
+    transform: translate(0, 0) rotate(var(--drift-rot, 0deg));
+  }
+  50% {
+    transform: translate(16px, -24px) rotate(calc(var(--drift-rot, 0deg) + 9deg));
+  }
+  100% {
+    transform: translate(-12px, 14px) rotate(calc(var(--drift-rot, 0deg) - 7deg));
+  }
+}
+
+.ambient-drift {
+  animation: ambient-drift var(--drift-duration, 30s) ease-in-out infinite alternate;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 13 — meter segment fill (HubPage.vue badge meter)
+
+   When a badge is earned and the fan returns to the hub, the newest
+   segment shouldn't just be filled already — it should fill in. Each
+   lit segment paints its color via a child overlay that scales in
+   from the left (transform-only, compositor-friendly). A per-segment
+   inline animation-delay walks the fill left-to-right so the whole
+   bar "charges up" toward the prize. `both` holds the overlay at
+   scaleX(0) until its delay elapses, so unlit-then-lit reads as a
+   sweep rather than a snap.
+
+   Covered by the celebration exception (docs/animations.md §4): the
+   count has already committed in the store; this only dresses the
+   arrival. Reduced motion snaps every segment to full.
+   ════════════════════════════════════════════════════════════ */
+@keyframes meter-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.meter-fill {
+  transform-origin: left center;
+  animation: meter-fill 360ms cubic-bezier(0.2, 0.9, 0.3, 1.05) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill {
+    animation: none !important;
+    transform: scaleX(1);
+  }
+}
+
+/* Reduced motion for recipes 9–12. Beats whose 0% frame is visible
+   (flash, confetti, gleam, beacon) must be hidden outright, not just
+   frozen — animation: none leaves them stuck at full opacity. The
+   dot pop simply snaps to its final state. */
+@media (prefers-reduced-motion: reduce) {
+  .capture-flash,
+  .confetti-piece,
+  .trophy-gleam,
+  .one-away-ring {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .badge-dot-pop {
+    animation: none !important;
+  }
+
+  /* The backdrop shapes and badge halo stay as static decor — only their
+     motion goes. The halo holds its base element opacity. */
+  .ambient-drift,
+  .badge-halo {
+    animation: none !important;
+  }
 }

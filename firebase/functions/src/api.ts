@@ -13,10 +13,11 @@ import {
   listCampaigns,
   updateCampaign,
 } from './helpers/campaigns'
-import { verifyCapture } from './helpers/vision'
+import { verifyCapture, isVerificationLive, VERIFICATION_MODEL } from './helpers/vision'
 import { getTenant, putTenant } from './helpers/tenant'
 import { getCampaignStats, recordCapture, recordFanEvent } from './helpers/analytics'
 import { getFanProgress, putFanProgress } from './helpers/fanProgress'
+import { callerIp, rateLimit } from './helpers/rateLimit'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
@@ -130,7 +131,16 @@ export const api = onRequest(
     try {
       // ── Public ────────────────────────────────────────────────────
       if (route === 'GET /health') {
-        res.status(200).json({ ok: true, ts: new Date().toISOString() })
+        // `verificationLive` tells ops whether a real vision key is configured.
+        // When false, every capture auto-passes via the lenient stub — expected
+        // locally, a silent honor-system in production. `model` aids a quick
+        // "is the pinned model still valid" check. Neither leaks the key.
+        res.status(200).json({
+          ok: true,
+          ts: new Date().toISOString(),
+          verificationLive: isVerificationLive(),
+          model: VERIFICATION_MODEL,
+        })
         return
       }
 
@@ -159,6 +169,24 @@ export const api = onRequest(
       // award its own badges, which is the same as letting it mint prizes.
       // The image is never persisted — see storage.rules.
       if (route === 'POST /verify-capture') {
+        // Cost guard: this endpoint is unauthenticated (fans are anonymous)
+        // and every call hits a PAID vision model on a ~1 MB image. Without a
+        // ceiling, anyone holding the public campaign/mission ids can drive
+        // unbounded model spend. Limit per caller IP; fail-open so a limiter
+        // outage never costs a real fan their capture. See helpers/rateLimit.
+        const gate = await rateLimit({
+          bucket: 'verify-capture',
+          key: callerIp(req.headers as Record<string, unknown>, req.ip),
+          limit: 30,
+          windowSeconds: 60,
+        })
+        if (!gate.allowed) {
+          logger.warn('verify-capture rate limited', { ip: req.ip })
+          res.set('Retry-After', String(gate.retryAfterSeconds))
+          res.status(429).json({ error: 'Too many requests. Please slow down.' })
+          return
+        }
+
         const input = verifyCaptureSchema.parse(req.body)
         const mission = await findMission(input.campaignId, input.missionId)
 
@@ -203,6 +231,20 @@ export const api = onRequest(
       // of the anonymous-auth seam. Only a real, persisted hunt gets stats.
       if (segments[0] === 'campaigns' && segments[2] === 'events' && req.method === 'POST') {
         const campaignId = segments[1]
+        // Cheap counter, but still an unauthenticated write — cap it so it
+        // can't be spun into a write-amplification bill. Generous: a real fan
+        // fires this a handful of times per hunt.
+        const gate = await rateLimit({
+          bucket: 'campaign-events',
+          key: callerIp(req.headers as Record<string, unknown>, req.ip),
+          limit: 60,
+          windowSeconds: 60,
+        })
+        if (!gate.allowed) {
+          res.set('Retry-After', String(gate.retryAfterSeconds))
+          res.status(429).json({ error: 'Too many requests.' })
+          return
+        }
         const { kind } = campaignEventSchema.parse(req.body)
         if (campaignId) {
           try {

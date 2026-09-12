@@ -39,6 +39,13 @@ service cloud.firestore {
     // a prize. What the function stores is still the fan's self-reported
     // progress (continuity, not a trusted ledger); making badges
     // server-authoritative is a separate seam — see docs/architecture.md.
+    //
+    // The same deny-all covers the server-only collections the Admin SDK owns:
+    //   • campaign_stats/  — aggregate counters (helpers/analytics.ts)
+    //   • rate_limits/     — per-caller cost-guard counters (helpers/rateLimit.ts)
+    // The Admin SDK bypasses these rules; a client must never read or write
+    // them. rate_limits docs carry an `expireAt` field — configure a Firestore
+    // TTL policy on it so spent windows are reaped automatically.
     match /{document=**} {
       allow read, write: if false;
     }

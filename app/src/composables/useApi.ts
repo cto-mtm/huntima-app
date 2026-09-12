@@ -11,11 +11,22 @@ export function useApi<T>(path: string, init?: RequestInit) {
   const error = ref<string | null>(null)
   const loading = ref(false)
 
+  // Monotonic token: only the MOST RECENT execute() may write the refs. Two
+  // rapid calls (a double-click, or a re-fetch before the first lands) would
+  // otherwise resolve in arbitrary order and let a stale response clobber a
+  // fresh one. Each call captures its id and bails on write if it's been
+  // superseded.
+  let latest = 0
+
   async function execute(): Promise<void> {
+    const token = ++latest
     loading.value = true
     error.value = null
 
     const result = await apiFetch<T>(path, init)
+
+    // A newer execute() started while this one was in flight — discard.
+    if (token !== latest) return
 
     if (result.ok) {
       data.value = result.data

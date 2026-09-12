@@ -73,9 +73,16 @@ async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer()
   let binary = ''
   const bytes = new Uint8Array(buffer)
-  const chunk = 0x8000
+  // Build the binary string one byte at a time rather than spreading each
+  // chunk into String.fromCharCode(...). Spreading a 32k-element subarray
+  // pushes 32k arguments onto the call stack, which throws "Maximum call
+  // stack size exceeded" on some engines/WebViews for a ~1 MB image — the
+  // exact size a full-res phone photo produces. A plain loop has no such
+  // ceiling and the per-byte cost is negligible for a <=1 MB payload.
+  const chunk = 0x2000
   for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    const end = Math.min(i + chunk, bytes.length)
+    for (let j = i; j < end; j++) binary += String.fromCharCode(bytes[j])
   }
   return btoa(binary)
 }

@@ -13,7 +13,15 @@
  */
 import { computed } from 'vue'
 
-export type IconName = 'missions' | 'trophies' | 'prize' | 'about' | 'badge' | 'search' | 'camera'
+export type IconName =
+  | 'missions'
+  | 'trophies'
+  | 'prize'
+  | 'about'
+  | 'badge'
+  | 'search'
+  | 'camera'
+  | 'spark'
 
 const props = withDefaults(defineProps<{ name: IconName; title?: string }>(), { title: undefined })
 
@@ -31,6 +39,8 @@ const PATHS: Record<IconName, string[]> = {
   badge: ['M12 3.5 14.2 8l5 .7-3.6 3.5.9 5-4.5-2.4L7.5 17.2l.9-5L4.8 8.7l5-.7L12 3.5Z'],
   search: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z', 'M16.2 16.2 20.5 20.5'],
   camera: ['M4 8h3l1.5-2h7L17 8h3v11H4V8Z', 'M12 10.5a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z'],
+  // Four-point star — the "something exciting is happening" accent
+  spark: ['M12 3.5l1.7 5.3 5.3 1.7-5.3 1.7L12 17.5l-1.7-5.3L5 10.5l5.3-1.7L12 3.5Z'],
 }
 
 const paths = computed(() => PATHS[props.name])

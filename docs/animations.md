@@ -53,8 +53,8 @@ on text, not just images.
 ## 2. Add a custom per-page transition
 
 Worked example, already implemented in the scaffold as **Recipe 6**: the About
-page slides in from the right instead of cross-fading. Read it in
-`transitions.css` and copy the block for any other page.
+page slides in from the right instead of taking the default lift-in
+(Recipe 1). Read it in `transitions.css` and copy the block for any other page.
 
 **Step 1** — give that page's root element a stable transition name:
 
@@ -114,6 +114,33 @@ Vue can't tell that an item moved rather than changed.
   stadium concourse.
 - **Durations 200–350ms.** Easing `cubic-bezier(0.4, 0, 0.2, 1)`. Longer feels
   broken on a device someone is holding one-handed while watching a game.
+- **Celebration exception.** Reward moments — the capture celebration
+  (Recipe 9) and the trophy gleam (Recipe 10) — may run up to ~900ms, staged
+  as short beats. Like the scan loop (Recipe 7), they are flourishes layered
+  *over* an already-committed state change, not state transitions: the badge
+  is awarded before the confetti flies, so skipping them loses nothing. A
+  reward state may also hold a gentle *state-scoped* loop while it is on
+  screen (the badge float and halo breathe in Recipe 9) — scoped like the
+  scan sweep, gone the moment the state is. They still animate only
+  transform/opacity and die under reduced motion. Navigation and state
+  transitions stay inside 200–350ms — the exception is for payoffs, never
+  for anything a fan is waiting on.
+- **Glows never animate box-shadow.** A "pulsing glow" is a static shadow or
+  radial gradient on an element whose *opacity* animates (the one-away
+  beacon, the badge halo). Same look, still compositor-only.
+- **Calm concourse, loud goal horn.** The celebration budget only reads if the
+  ambient UI stays quiet. Exactly two ambient layers are sanctioned: the
+  app-wide backdrop drift (Recipe 12 — low opacity, 20s+ durations,
+  transform-only, fan shell only) and the one-away beacon (Recipe 11, which
+  earns its pulse by marking the near-win). Don't add per-element ambient
+  loops beyond these; a third would start dulling the payoffs.
+- **The fixed chrome opts out of the page transition.** AppShell's header,
+  bottom nav, and backdrop each carry a static `view-transition-name`
+  (`app-header`, `app-nav`, `app-backdrop`), which removes them from the root
+  group — Recipe 1's lift moves the page content while the chrome holds
+  still. Static names are safe there because AppShell renders exactly once;
+  the active-tab pill's move between tabs comes free from the nav being its
+  own group.
 - **Names unique per page**, always derived from ids inside lists.
 - **Always test with reduced motion on.** Recipe 3 kills every animation under
   `prefers-reduced-motion: reduce`, and the router skips the transition entirely.
