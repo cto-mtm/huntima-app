@@ -33,9 +33,14 @@ function isActive(name: string): boolean {
 <template>
   <div class="flex min-h-dvh flex-col bg-canvas">
     <!-- The drifting brand shapes (Recipe 12). Rendered before <main> and
-         painted under it: main is `relative`, so it stacks above in DOM
-         order while the backdrop's pointer-events-none keeps taps working. -->
-    <AmbientBackdrop style="view-transition-name: app-backdrop" />
+         painted under it. Explicit z-0 (not just DOM order): during the
+         Recipe 1 page-lift the content gets its own view-transition group and
+         is composited on a transformed layer, so relying on `z-index: auto` +
+         DOM order stops holding — the separately-snapshotted backdrop would
+         paint OVER the transforming content. A concrete z-index below the
+         content's keeps the order through the transition. pointer-events-none
+         keeps taps falling through to the content. -->
+    <AmbientBackdrop class="z-0" style="view-transition-name: app-backdrop" />
 
     <!-- Header. pt-safe + px-safe keep it clear of the notch and of
          landscape rounded corners; the same markup is correct in a
@@ -66,7 +71,7 @@ function isActive(name: string): boolean {
          plus the home indicator. max-w-md centers the fan content into a
          phone-width column on a desktop instead of letting it span the whole
          window — the same framing the pre-session screens use. -->
-    <main class="relative mx-auto w-full max-w-md flex-1 px-gutter pb-28 mt-header-safe">
+    <main class="relative z-10 mx-auto w-full max-w-md flex-1 px-gutter pb-28 mt-header-safe">
       <slot />
     </main>
 

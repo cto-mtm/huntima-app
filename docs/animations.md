@@ -141,6 +141,16 @@ Vue can't tell that an item moved rather than changed.
   still. Static names are safe there because AppShell renders exactly once;
   the active-tab pill's move between tabs comes free from the nav being its
   own group.
+- **Splitting into named groups also splits the stacking.** Once an element
+  has its own `view-transition-name` it is snapshotted into its own group, and
+  the groups paint in name-declaration order — NOT the live DOM z-index the
+  static layout uses. This bit the backdrop: it sits under the content by DOM
+  order at rest, but mid-lift (content on its own transformed layer) its
+  snapshot painted on top. Recipe 1b fixes it by giving the groups explicit
+  `z-index` (`::view-transition-group(app-backdrop) { z-index: 0 }`, root 10,
+  chrome 20). Rule of thumb: if you give a background/foreground element its
+  own name, also rank its group, and keep that ranking in sync with the DOM
+  z-index classes in AppShell.vue.
 - **Names unique per page**, always derived from ids inside lists.
 - **Always test with reduced motion on.** Recipe 3 kills every animation under
   `prefers-reduced-motion: reduce`, and the router skips the transition entirely.

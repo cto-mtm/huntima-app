@@ -47,6 +47,36 @@
   animation: 280ms cubic-bezier(0.2, 0.9, 0.3, 1.05) both page-lift-in;
 }
 
+/* ── Recipe 1b — snapshot stacking order ───────────────────────
+   The chrome (header, nav, backdrop) each carry their own
+   view-transition-name, so during a navigation the page is split
+   into separate snapshot groups: `root` (the page content) plus
+   `app-backdrop`, `app-header`, `app-nav`.
+
+   The catch: those groups are painted in NAME-DECLARATION order,
+   NOT the DOM z-index the static layout relies on. Because the
+   backdrop element appears first in the DOM, its group paints
+   first — i.e. UNDERNEATH — normally, but the moment `root` is
+   mid-transform on its own compositor layer, the default order let
+   the backdrop's snapshot land ON TOP of the lifting content.
+
+   Fix: rank the groups explicitly. The backdrop sits below the
+   content; the fixed chrome sits above it. This governs ONLY the
+   transition snapshots — the live DOM stacking is handled by the
+   z-0 / z-10 / z-20 classes in AppShell.vue. Keep the two in sync. */
+::view-transition-group(app-backdrop) {
+  z-index: 0;
+}
+
+::view-transition-group(root) {
+  z-index: 10;
+}
+
+::view-transition-group(app-header),
+::view-transition-group(app-nav) {
+  z-index: 20;
+}
+
 /* ── Recipe 2 — hero / shared elements ─────────────────────────
    The morph itself is automatic: the browser matches the
    view-transition-name on the source and target elements and
