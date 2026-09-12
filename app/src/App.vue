@@ -11,7 +11,7 @@ const missions = useMissionsStore()
 // Instantiated here so the brand custom properties are written to <html>
 // before the first paint — a flash of the default palette is exactly what a
 // white-label product cannot afford.
-useTenantStore()
+const tenant = useTenantStore()
 
 // Screens that exist outside a fan session (entry, staff login, admin)
 // render without the fan shell.
@@ -22,6 +22,9 @@ const isBare = computed(() => route.meta.bare === true)
 // fallback campaign, so nothing here needs to handle failure.
 onMounted(() => {
   void missions.load()
+  // Branding is served by the API so every device shows the same club.
+  // The cached brand is already painted; this reconciles it.
+  void tenant.load()
 })
 </script>
 

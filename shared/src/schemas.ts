@@ -146,6 +146,58 @@ export const SEED_CAMPAIGN: MissionList = {
   ],
 }
 
+// ── Tenant branding ───────────────────────────────────────────────────
+/**
+ * A club's identity: the thing that makes this white-label product look like
+ * one team's app rather than a template.
+ *
+ * Served from the API so every device in the building shows the same brand.
+ * It used to live in localStorage, which meant two staff phones could show
+ * two different clubs and a fan saw whatever their own browser happened to
+ * hold. The client still caches it locally, but as a cache, not as the truth.
+ */
+export const tenantAvatarSchema = z.object({
+  /** Stable across re-uploads; progress stores this, never the URL. */
+  id: z.string().min(1),
+  url: z.string().url(),
+  /** Accessible name, derived from the file name at upload time. */
+  label: z.string().min(1).max(40),
+})
+
+export type TenantAvatar = z.infer<typeof tenantAvatarSchema>
+
+export const tenantConfigSchema = z.object({
+  /**
+   * The club's name as it should appear. Do NOT append "Team": every surface
+   * already reads as a team name, and "Riverdogs Team" is how a template
+   * announces itself as a template.
+   */
+  teamName: z.string().min(1).max(60),
+  prizeLocation: z.string().min(1).max(80),
+  /** Pre-fetch default only. A loaded campaign is authoritative. */
+  badgeTarget: z.number().int().positive().max(50),
+  timezone: z.string().min(1).max(60),
+  /** The full 50-900 ramp is derived from this one hex client-side. */
+  brandBase: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  accentBase: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  logoUrl: z.string().url().nullable(),
+  avatars: z.array(tenantAvatarSchema).max(24),
+})
+
+export type TenantConfig = z.infer<typeof tenantConfigSchema>
+
+/** What a brand-new deployment looks like before staff touch anything. */
+export const SEED_TENANT: TenantConfig = {
+  teamName: 'Louisville Bats',
+  prizeLocation: 'the Main Team Store',
+  badgeTarget: 5,
+  timezone: 'America/New_York',
+  brandBase: '#14284b',
+  accentBase: '#c8102e',
+  logoUrl: null,
+  avatars: [],
+}
+
 // ── POST /echo (reference endpoint) ───────────────────────────────────
 export const echoSchema = z.object({
   message: z.string().min(1, 'message is required'),

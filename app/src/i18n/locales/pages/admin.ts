@@ -46,7 +46,11 @@ const en = {
 
   reset: 'Reset to defaults',
   resetConfirm: 'Reset branding to the built-in defaults?',
-  storageNote: 'Saved to this browser only. Serving branding from the API is not built yet.',
+  saveBranding: 'Publish branding',
+  saving: 'Publishing…',
+  savedNote: 'Published. Every device shows this brand.',
+  unsavedNote: 'Unpublished changes — you are previewing them.',
+  saveFailed: 'Could not publish.',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -98,7 +102,11 @@ const es: typeof en = {
 
   reset: 'Restablecer valores por defecto',
   resetConfirm: '¿Restablecer la marca a los valores por defecto?',
-  storageNote: 'Guardado solo en este navegador. Servir la marca desde la API todavía no está implementado.',
+  saveBranding: 'Publicar marca',
+  saving: 'Publicando…',
+  savedNote: 'Publicado. Todos los dispositivos ven esta marca.',
+  unsavedNote: 'Cambios sin publicar: estás viendo una vista previa.',
+  saveFailed: 'No se pudo publicar.',
 }
 
 export default { en, es }

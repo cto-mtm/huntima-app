@@ -24,6 +24,14 @@ service cloud.firestore {
       }
     }
 
+    // Branding: world-readable because every fan's first paint needs it and
+    // fans are anonymous; staff-writable because it changes what an entire
+    // stadium sees.
+    match /tenants/{tenantId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     // Fan progress is deliberately NOT here yet. It lives on the device, so
     // the claim code is still forgeable — see docs/architecture.md § Seams.
     // When it lands it must be server-written only: a fan who can write their

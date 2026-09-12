@@ -63,9 +63,21 @@ function confirmReset(): void {
       </div>
     </header>
 
-    <p class="mt-4 rounded-lg bg-accent-500/10 px-3 py-2 text-xs font-medium text-accent-600">
-      {{ t('admin.storageNote') }}
-    </p>
+    <!-- Branding is published, not auto-saved. Every keystroke reaching a
+         stadium full of phones is not a feature; previewing locally and
+         publishing deliberately is. -->
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <BaseButton :disabled="!tenant.dirty || tenant.saving" @click="tenant.save()">
+        {{ tenant.saving ? t('admin.saving') : t('admin.saveBranding') }}
+      </BaseButton>
+      <p v-if="tenant.error" class="text-xs font-medium text-red-600">
+        {{ t('admin.saveFailed') }} {{ tenant.error }}
+      </p>
+      <p v-else-if="tenant.dirty" class="text-xs font-medium text-accent-600">
+        {{ t('admin.unsavedNote') }}
+      </p>
+      <p v-else class="text-xs font-medium text-green-700">{{ t('admin.savedNote') }}</p>
+    </div>
 
     <div class="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
       <!-- ── Controls ──────────────────────────────────────────── -->

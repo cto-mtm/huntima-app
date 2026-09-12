@@ -14,6 +14,7 @@ import {
   updateCampaign,
 } from './helpers/campaigns'
 import { verifyCapture } from './helpers/vision'
+import { getTenant, putTenant } from './helpers/tenant'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
@@ -22,6 +23,7 @@ import {
   echoSchema,
   missionSchema,
   verifyCaptureSchema,
+  tenantConfigSchema,
 } from 'shared'
 
 // ── Secrets ───────────────────────────────────────────────────────────
@@ -38,6 +40,8 @@ const VALID_ROUTES = [
   'GET /missions',
   'POST /echo',
   'POST /verify-capture',
+  'GET /tenant',
+  'PUT /admin/tenant',
   'GET /admin/whoami',
   'GET /admin/campaigns',
   'POST /admin/campaigns',
@@ -107,6 +111,13 @@ export const api = onRequest(
         return
       }
 
+      // Branding, read by every fan on first paint. Public because fans are
+      // anonymous and a club's logo is not a secret.
+      if (route === 'GET /tenant') {
+        res.status(200).json(await getTenant())
+        return
+      }
+
       if (route === 'POST /echo') {
         res.status(200).json({ success: true, echoed: echoSchema.parse(req.body) })
         return
@@ -137,6 +148,17 @@ export const api = onRequest(
       }
 
       // ── Staff ─────────────────────────────────────────────────────
+      // Whole-document replace: branding is edited as one coherent look, and
+      // a partial write could leave a club with someone else's accent color.
+      if (route === 'PUT /admin/tenant') {
+        const user = await requireStaff()
+        if (!user) return
+        const config = tenantConfigSchema.parse(req.body)
+        logger.info('tenant updated', { by: user.email, teamName: config.teamName })
+        res.status(200).json(await putTenant(config))
+        return
+      }
+
       if (route === 'GET /admin/whoami') {
         const user = await requireStaff()
         if (!user) return

@@ -9,6 +9,9 @@ export {
   missionInputSchema,
   verifyCaptureSchema,
   verifyResultSchema,
+  tenantAvatarSchema,
+  tenantConfigSchema,
+  SEED_TENANT,
   echoSchema,
   SEED_CAMPAIGN,
 } from './schemas.js'
@@ -23,5 +26,7 @@ export type {
   MissionInput,
   VerifyCaptureInput,
   VerifyResult,
+  TenantAvatar,
+  TenantConfig,
   EchoInput,
 } from './schemas.js'

@@ -1,64 +1,59 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { tenantConfigSchema, type TenantConfig } from 'shared'
 import { ACCENT_STOPS, BRAND_STOPS, generateRamp, isValidHex, normalizeHex } from '../lib/color'
-import { DEFAULT_TENANT, type TenantAvatar, type TenantConfig } from '../config/tenant'
+import { DEFAULT_TENANT } from '../config/tenant'
+import { apiFetch } from '../lib/api'
+import { useSessionStore } from './session'
 
-const STORAGE_KEY = 'photo-hunt:tenant'
+const CACHE_KEY = 'photo-hunt:tenant'
 
 /**
- * Values that were once shipped as defaults. A browser still holding one of
- * these never chose it, so it is migrated rather than preserved — otherwise
- * changing a placeholder only affects people who have never opened the app.
+ * The live club identity.
+ *
+ * The API is the source of truth — branding decides what an entire stadium
+ * sees, so it cannot be per-device. localStorage is a CACHE, not the truth:
+ * it exists so the first paint is already branded before the network answers,
+ * and so the app still looks like the club with no signal at all.
+ *
+ * How the re-skin works: Tailwind v4 compiles `bg-brand-600` down to
+ * `background-color: var(--color-brand-600)`, so writing that custom property
+ * onto <html> re-skins every utility with no rebuild and no reload. There is
+ * no theme framework underneath this.
  */
-const LEGACY_DEFAULT_TEAM_NAMES = ['REPLACE_ME Team']
-
-function load(): TenantConfig {
+function readCache(): TenantConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return { ...DEFAULT_TENANT }
-    const parsed = JSON.parse(raw) as Partial<TenantConfig>
-
-    if (parsed.teamName && LEGACY_DEFAULT_TEAM_NAMES.includes(parsed.teamName)) {
-      parsed.teamName = DEFAULT_TENANT.teamName
-    }
-    // Merge rather than replace: a config saved by an older build is missing
-    // any field added since, and a half-populated theme is worse than none.
-    return {
-      ...DEFAULT_TENANT,
-      ...parsed,
-      geofence: { ...DEFAULT_TENANT.geofence, ...(parsed.geofence ?? {}) },
-      // Avatars used to be emoji strings. Anything that is not the current
-      // { id, url, label } shape is dropped rather than migrated — there is
-      // no image to migrate an emoji into, and a half-shaped entry would
-      // render as a broken img.
-      avatars: Array.isArray(parsed.avatars)
-        ? (parsed.avatars.filter(
-            (a): a is TenantAvatar =>
-              typeof a === 'object' && a !== null && typeof (a as TenantAvatar).url === 'string',
-          ) as TenantAvatar[])
-        : [],
-    }
+    const parsed = tenantConfigSchema.safeParse(JSON.parse(raw))
+    // A cache written by an older build is discarded rather than merged: a
+    // half-shaped brand renders as broken images and wrong colors.
+    return parsed.success ? parsed.data : { ...DEFAULT_TENANT }
   } catch {
     return { ...DEFAULT_TENANT }
   }
 }
 
-/**
- * The live tenant identity, and the white-label seam.
- *
- * How the re-skin actually works: Tailwind v4's @theme block in main.css
- * compiles `bg-brand-600` down to `background-color: var(--color-brand-600)`.
- * So overriding that custom property on <html> at runtime re-skins every
- * utility in the app with no rebuild and no page reload. That is the whole
- * mechanism — there is no theme framework underneath this.
- *
- * SEAM: persistence is localStorage, i.e. per-device. A real deployment
- * serves the tenant config from the API alongside the campaign so every fan
- * in the building sees the same brand. Swap `load()`/`persist()` for that
- * fetch; nothing else in the app changes.
- */
+function writeCache(config: TenantConfig): void {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(config))
+  } catch {
+    // Private browsing. The brand still applies for this session.
+  }
+}
+
 export const useTenantStore = defineStore('tenant', () => {
-  const settings = ref<TenantConfig>(load())
+  const session = useSessionStore()
+
+  const settings = ref<TenantConfig>(readCache())
+  /** The last state known to be on the server, for dirty tracking. */
+  const published = ref<TenantConfig>({ ...settings.value })
+
+  const loading = ref(false)
+  const saving = ref(false)
+  const error = ref<string | null>(null)
+
+  const dirty = computed(() => JSON.stringify(settings.value) !== JSON.stringify(published.value))
 
   const brandRamp = computed(() =>
     generateRamp(
@@ -75,10 +70,7 @@ export const useTenantStore = defineStore('tenant', () => {
   )
 
   const isDefault = computed(
-    () =>
-      settings.value.brandBase === DEFAULT_TENANT.brandBase &&
-      settings.value.accentBase === DEFAULT_TENANT.accentBase &&
-      settings.value.teamName === DEFAULT_TENANT.teamName,
+    () => JSON.stringify(settings.value) === JSON.stringify(DEFAULT_TENANT),
   )
 
   function applyTheme(): void {
@@ -91,24 +83,66 @@ export const useTenantStore = defineStore('tenant', () => {
     }
   }
 
-  function persist(): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings.value))
-    } catch {
-      // Private browsing. The theme still applies for this session.
+  /** Public read. Every session calls this once on boot. */
+  async function load(): Promise<void> {
+    loading.value = true
+    const result = await apiFetch<unknown>('/tenant')
+
+    if (result.ok) {
+      const parsed = tenantConfigSchema.safeParse(result.data)
+      if (parsed.success) {
+        settings.value = parsed.data
+        published.value = { ...parsed.data }
+        writeCache(parsed.data)
+      } else {
+        // Server reachable but shape wrong — a deploy skew. Keep the cached
+        // brand rather than flashing the default palette at a stadium.
+        console.error('[tenant] unexpected /tenant payload', parsed.error.issues)
+      }
     }
+
+    loading.value = false
+  }
+
+  /** Staff write. Publishes the brand to every device in the building. */
+  async function save(): Promise<boolean> {
+    saving.value = true
+    error.value = null
+
+    const token = await session.getIdToken()
+    if (!token) {
+      error.value = 'Not signed in'
+      saving.value = false
+      return false
+    }
+
+    const result = await apiFetch<unknown>('/admin/tenant', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(settings.value),
+    })
+
+    saving.value = false
+
+    if (!result.ok) {
+      error.value = result.error
+      return false
+    }
+
+    published.value = { ...settings.value }
+    writeCache(settings.value)
+    return true
   }
 
   function setBrandBase(hex: string): void {
-    if (!isValidHex(hex)) return
-    settings.value.brandBase = normalizeHex(hex)
+    if (isValidHex(hex)) settings.value.brandBase = normalizeHex(hex)
   }
 
   function setAccentBase(hex: string): void {
-    if (!isValidHex(hex)) return
-    settings.value.accentBase = normalizeHex(hex)
+    if (isValidHex(hex)) settings.value.accentBase = normalizeHex(hex)
   }
 
+  /** Local revert to defaults. Nothing is published until save(). */
   function reset(): void {
     settings.value = { ...DEFAULT_TENANT, avatars: [] }
   }
@@ -118,26 +152,21 @@ export const useTenantStore = defineStore('tenant', () => {
   // cannot afford.
   applyTheme()
 
-  // Write once at startup so a migrated legacy value is actually replaced in
-  // storage. Without this the migration re-runs on every load and the stale
-  // value resurfaces the day LEGACY_DEFAULT_TEAM_NAMES is pruned.
-  persist()
-
-  watch(
-    settings,
-    () => {
-      applyTheme()
-      persist()
-    },
-    { deep: true },
-  )
+  watch(settings, applyTheme, { deep: true })
 
   return {
     settings,
+    published,
+    loading,
+    saving,
+    error,
+    dirty,
     brandRamp,
     accentRamp,
     isDefault,
     applyTheme,
+    load,
+    save,
     setBrandBase,
     setAccentBase,
     reset,

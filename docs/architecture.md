@@ -190,7 +190,7 @@ each with a marked seam:
 | Camera capture | `CapturePage.vue` `simulateCapture()` | Replace with `@capacitor/camera`; keep the same `progress.awardBadge()` call |
 | Geofence validation | `CapturePage.vue`, same function | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
 | OCR "spyglass" missions | `mission.kind === 'spyglass'` branch in `CapturePage.vue` | The UI branch exists; the verification call does not |
-| Tenant branding served from the API | `stores/tenant.ts` `load()`/`persist()` use localStorage | Fetch tenant config alongside the campaign so every fan sees one brand |
+| Fan progress written server-side | `awardBadge` writes localStorage; the claim code is derived, not issued | Verification is already server-authoritative; the badge ledger is not |
 | Server-trusted fan progress | Device id is local-only; the claim code is derived, not issued | Fans upgrade to Firebase anonymous auth so the server can mint and invalidate claim codes |
 | Admin campaign builder & live dashboard | `/admin/branding` exists; the rest does not | A wider admin route tree, and auth before any of it writes to the API |
 | Auth | Nothing | Fans are anonymous by design; admin is not |

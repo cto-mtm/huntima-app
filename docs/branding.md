@@ -72,10 +72,12 @@ saved by an older build is missing the new field rather than breaking.
 
 ## Known limits
 
-- **Persistence is `localStorage`, per device.** Two staff phones can show two
-  different brands, and clearing site data resets it. A real deployment serves
-  tenant config from the API alongside the campaign. Swap `load()`/`persist()`
-  in the store for that fetch; nothing else changes.
+- **Branding is published, not auto-saved.** Edits preview locally and reach
+  other devices only when you press Publish. Every keystroke reaching a
+  stadium full of phones is not a feature.
+- **`localStorage` is a cache, not the truth.** It exists so the first paint
+  is already branded before the network answers, and so the app still looks
+  like the club with no signal. The API is authoritative.
 - **`/admin` has no auth.** That is survivable only because branding is
   device-local today. The moment it writes to the API, it needs a real guard —
   see `docs/architecture.md` § "Seams left open".

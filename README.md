@@ -47,12 +47,20 @@ npm run emulators
 ```
 
 ```bash
-# 3. In a second terminal: start the web app on :5173
+# 3. Seed a staff account, club branding and a published hunt
+npm run seed
+```
+
+```bash
+# 4. In a second terminal: start the web app
 npm run dev
 ```
 
-Open <http://localhost:5173>. Visit `/about` — it calls `GET /health` on the
+Open the app (the dev server prints the URL). Visit `/about` — it calls `GET /health` on the
 emulated function and renders the response, proving the whole app → API path.
+
+The seed is idempotent — re-run it after every emulator restart, since the
+Auth and Firestore emulators start empty.
 
 Every command above runs from the repo root. You do **not** need an
 `app/.env` for local dev: `src/lib/api.ts` falls back to the emulator URL in
