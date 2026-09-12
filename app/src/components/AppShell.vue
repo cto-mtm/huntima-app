@@ -39,7 +39,7 @@ function isActive(name: string): boolean {
       <div class="flex h-14 items-center justify-between px-4">
         <RouterLink :to="{ name: 'home' }" class="flex items-center gap-2">
           <TeamMark />
-          <span class="text-sm font-bold text-brand-900">{{ tenant.settings.teamName }}</span>
+          <span class="text-sm font-bold text-brand-900" translate="no">{{ tenant.settings.teamName }}</span>
         </RouterLink>
         <LocaleSwitcher />
       </div>

@@ -116,6 +116,20 @@ function detectLocale(): SupportedLocale {
   return isSupported(device ?? null) ? (device as SupportedLocale) : DEFAULT_LOCALE
 }
 
+/**
+ * Keeps <html lang> in step with the active locale.
+ *
+ * This is not cosmetic. A `lang` that contradicts the rendered text makes
+ * browsers distrust it and sniff the content instead — and content sniffing
+ * on a short page full of loanwords ("Missions", "Continue", a French-derived
+ * place name) cheerfully guesses the wrong language and offers to translate a
+ * page that was never in that language. It also decides which voice a screen
+ * reader uses, so a mismatch makes Spanish copy read aloud in an English one.
+ */
+function syncDocumentLang(locale: SupportedLocale): void {
+  document.documentElement.setAttribute('lang', locale)
+}
+
 export const i18n = createI18n({
   legacy: false,
   locale: detectLocale(),
@@ -125,10 +139,14 @@ export const i18n = createI18n({
   numberFormats,
 })
 
+// index.html can only hardcode one value, and the detected locale is not
+// known until now — so sync it immediately, not just when someone switches.
+syncDocumentLang(i18n.global.locale.value as SupportedLocale)
+
 /** Flips the global locale and remembers it. Used by LocaleSwitcher.vue. */
 export function setLocale(locale: SupportedLocale): void {
   i18n.global.locale.value = locale
-  document.documentElement.setAttribute('lang', locale)
+  syncDocumentLang(locale)
   try {
     localStorage.setItem(STORAGE_KEY, locale)
   } catch {

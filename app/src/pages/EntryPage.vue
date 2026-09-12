@@ -63,7 +63,9 @@ const busy = ref(false)
         <div class="flex justify-center">
           <TeamMark size="lg" />
         </div>
-        <h1 class="mt-3 text-3xl font-extrabold text-brand-900">{{ tenant.settings.teamName }}</h1>
+        <h1 class="mt-3 text-3xl font-extrabold text-brand-900" translate="no">
+          {{ tenant.settings.teamName }}
+        </h1>
         <p class="mt-1 text-sm text-muted">{{ t('entry.subtitle') }}</p>
       </div>
 
@@ -104,7 +106,7 @@ const busy = ref(false)
       >
         {{ t('entry.staffSignIn') }}
       </RouterLink>
-      <p class="mt-2 font-mono text-[10px] text-muted/60">
+      <p class="mt-2 font-mono text-[10px] text-muted/60" translate="no">
         {{ t('entry.deviceLabel') }} {{ shortDeviceId }}
       </p>
     </footer>

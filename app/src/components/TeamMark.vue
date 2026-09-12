@@ -40,6 +40,7 @@ const box = computed(() => (props.size === 'lg' ? 'size-16 text-xl' : 'size-7 te
     class="flex shrink-0 items-center justify-center rounded-lg bg-brand-600 font-extrabold text-white"
     :class="box"
     aria-hidden="true"
+    translate="no"
   >
     {{ monogram }}
   </span>

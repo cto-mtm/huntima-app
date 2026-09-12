@@ -37,7 +37,11 @@ const tenant = useTenantStore()
         </p>
         <!-- Deliberately huge: a staff member reads this across a counter
              in a loud, bright concourse. -->
-        <p class="mt-2 font-mono text-6xl font-black tracking-[0.2em] text-brand-900">
+        <!-- An identifier, not prose: never machine-translated. -->
+        <p
+          class="mt-2 font-mono text-6xl font-black tracking-[0.2em] text-brand-900"
+          translate="no"
+        >
           {{ progress.claimCode }}
         </p>
       </div>
