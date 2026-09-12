@@ -139,7 +139,6 @@ async function signInAsStaff(): Promise<void> {
           <span aria-hidden="true" class="text-sm leading-none">{{ persona.emoji }}</span>
           <span class="flex-1 text-[11px] font-semibold">
             {{ persona.label }}
-            <span class="font-mono font-normal text-slate-400">{{ persona.nickname }}</span>
             <span
               v-if="activePersonaId === persona.id"
               class="ml-1 rounded-full bg-green-500/20 px-1.5 text-[9px] font-bold uppercase text-green-300"
