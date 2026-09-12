@@ -151,6 +151,15 @@ Vue can't tell that an item moved rather than changed.
   chrome 20). Rule of thumb: if you give a background/foreground element its
   own name, also rank its group, and keep that ranking in sync with the DOM
   z-index classes in AppShell.vue.
+- **A named static element must be told NOT to fade.** A group with no
+  animation of its own inherits the default cross-fade. For the backdrop,
+  header and nav — identical before and after a navigation — that cross-fade
+  between two identical snapshots reads as a flicker, and the frozen snapshot
+  also pauses the backdrop's drift. Recipe 1c sets `animation: none` on their
+  old/new pseudo-elements (old hidden, new at full opacity) so they hold a
+  single frame and swap seamlessly; the live drift resumes the moment the
+  transition ends. The chrome is meant to "hold still" — that means no
+  transition on it at all, not a subtle one.
 - **Names unique per page**, always derived from ids inside lists.
 - **Always test with reduced motion on.** Recipe 3 kills every animation under
   `prefers-reduced-motion: reduce`, and the router skips the transition entirely.

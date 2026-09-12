@@ -77,6 +77,36 @@
   z-index: 20;
 }
 
+/* ── Recipe 1c — the fixed chrome holds still, it does NOT fade ──
+   The backdrop, header and nav each get their own snapshot group so
+   the page-lift can't drag them (Recipe 1b). But a named group with
+   no animation of its own inherits the DEFAULT cross-fade — and for
+   the backdrop the old and new snapshots are the SAME static image,
+   so that cross-fade reads as a flicker (disappear, reappear) around
+   the content. Worse, a snapshot is a frozen frame, so the backdrop
+   stops drifting for the duration too.
+
+   These elements are visually identical before and after a
+   navigation, so the right transition is NONE: hold the new snapshot
+   at full opacity and skip the fade entirely. The live drift animation
+   resumes the instant the transition ends and the real element is
+   shown again. Seamless — the chrome simply looks like it never moved. */
+::view-transition-old(app-backdrop),
+::view-transition-old(app-header),
+::view-transition-old(app-nav) {
+  animation: none;
+  /* The old snapshot sits under the new one; hide it so there is nothing
+     to fade against. */
+  opacity: 0;
+}
+
+::view-transition-new(app-backdrop),
+::view-transition-new(app-header),
+::view-transition-new(app-nav) {
+  animation: none;
+  opacity: 1;
+}
+
 /* ── Recipe 2 — hero / shared elements ─────────────────────────
    The morph itself is automatic: the browser matches the
    view-transition-name on the source and target elements and
