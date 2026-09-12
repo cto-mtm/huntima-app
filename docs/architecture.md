@@ -89,6 +89,31 @@ spike when the jumbotron shows the QR code.
 The alternative — packing `shared` to a tarball in a `predeploy` hook — avoids
 the bundler but adds a script that breaks quietly. Bundling was the call.
 
+## Identity
+
+Two audiences, deliberately asymmetric.
+
+**Fans are anonymous.** No account, no password, no download — that is the
+product requirement, not a shortcut. A fan is a `crypto.randomUUID()` device
+id in localStorage (`stores/session.ts`) plus a nickname. It is generated
+on-device so it works with no signal, which a concourse frequently has.
+
+**Staff authenticate for real.** Firebase Auth email/password, and the
+`admin` custom claim — not the email address — is what grants access. The
+router guard is convenience; the actual gate is server-side token
+verification in `functions/src/helpers/auth.ts`. Forcing your way to
+`/admin` gets you a dashboard whose privileged calls all return 401/403.
+
+The Auth SDK is loaded through dynamic imports only. A static import puts
+~129 KB into the entry chunk that every family would download over stadium
+wifi for a feature only staff can reach.
+
+Locally the Auth emulator runs on :9099 and starts empty. `POST
+/dev/seed-admin` creates the demo account — gated on `FUNCTIONS_EMULATOR`,
+checked twice, because a route that mints admin claims is not a recoverable
+mistake. In the emulator that route needs no auth of its own: anyone who can
+reach your localhost can already do worse.
+
 ## Local development
 
 The emulator scripts pass `--project demo-app`. Any project id prefixed with
@@ -124,7 +149,7 @@ each with a marked seam:
 | Geofence validation | `CapturePage.vue`, same function | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
 | OCR "spyglass" missions | `mission.kind === 'spyglass'` branch in `CapturePage.vue` | The UI branch exists; the verification call does not |
 | Tenant branding served from the API | `stores/tenant.ts` `load()`/`persist()` use localStorage | Fetch tenant config alongside the campaign so every fan sees one brand |
-| Auth on `/admin` | Nothing — the route is open | Survivable only while branding is device-local |
+| Server-trusted fan progress | Device id is local-only; the claim code is derived, not issued | Fans upgrade to Firebase anonymous auth so the server can mint and invalidate claim codes |
 | Admin campaign builder & live dashboard | `/admin/branding` exists; the rest does not | A wider admin route tree, and auth before any of it writes to the API |
 | Auth | Nothing | Fans are anonymous by design; admin is not |
 

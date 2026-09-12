@@ -86,6 +86,35 @@ From `firebase/`, `npm run emulators:all` additionally serves the built app from
 on :5000 for a production-like smoke test. Day-to-day dev uses Vite on :5173.
 The Emulator UI is on :4000.
 
+## Signing in
+
+Every session starts at the entry screen.
+
+**Fans** tap *Continue as guest*. No account, no password — they get a device
+id generated on-device (so it works with no signal) plus a nickname. *Switch
+user* is on the About tab.
+
+**Staff** tap *Staff sign-in*, which is real Firebase Auth. The Auth emulator
+starts empty, so on the login screen use the dev shortcut **Create demo
+admin** — it seeds an account and fills the form:
+
+```
+admin@demo.local / demo1234
+```
+
+Access is granted by the `admin` **custom claim**, never the email address.
+The router guard only decides what UI to draw; the real gate is server-side
+token verification, so forcing your way to `/admin` yields a dashboard whose
+privileged calls return 401/403. Try it:
+
+```bash
+curl -i http://127.0.0.1:5001/demo-app/us-central1/api/admin/whoami
+```
+
+In dev, the entry screen also offers persona shortcuts that jump a fan
+straight to a progress state (winner, already claimed, and so on) — reaching
+the prize screen otherwise means capturing five missions by hand.
+
 ## How to add a hero transition
 
 Three steps, no JavaScript:

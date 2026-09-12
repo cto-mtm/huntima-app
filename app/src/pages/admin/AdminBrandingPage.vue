@@ -6,9 +6,18 @@ import ColorField from '../../components/admin/ColorField.vue'
 import PhonePreview from '../../components/admin/PhonePreview.vue'
 import { contrastRatio, gradeContrast, type ContrastGrade } from '../../lib/color'
 import { useTenantStore } from '../../stores/tenant'
+import { useSessionStore } from '../../stores/session'
+import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
+const session = useSessionStore()
+const router = useRouter()
+
+async function signOut(): Promise<void> {
+  await session.signOutAll()
+  void router.push({ name: 'entry' })
+}
 
 // Avatars edit as a space-separated string — an emoji list is one of the few
 // cases where a text field beats a repeater UI.
@@ -66,9 +75,14 @@ function confirmReset(): void {
         <h1 class="text-2xl font-extrabold text-brand-900">{{ t('admin.title') }}</h1>
         <p class="mt-1 text-sm text-muted">{{ t('admin.subtitle') }}</p>
       </div>
-      <RouterLink :to="{ name: 'home' }" class="text-sm font-semibold text-brand-600">
-        {{ t('admin.backToApp') }}
-      </RouterLink>
+      <div class="text-right">
+        <p v-if="session.adminEmail" class="text-xs text-muted">
+          {{ t('entry.signedInAs', { email: session.adminEmail }) }}
+        </p>
+        <button type="button" class="mt-1 text-sm font-semibold text-brand-600" @click="signOut">
+          {{ t('entry.signOut') }}
+        </button>
+      </div>
     </header>
 
     <p class="mt-4 rounded-lg bg-accent-500/10 px-3 py-2 text-xs font-medium text-accent-600">

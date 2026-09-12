@@ -7,6 +7,7 @@ import { applyCors } from './helpers/cors'
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
 import { echoSchema, missionListSchema, SEED_CAMPAIGN } from 'shared'
+import { isEmulator, seedDemoAdmin, verifyRequest } from './helpers/auth'
 
 // ── Secrets ───────────────────────────────────────────────────────────
 // When you need a third-party key (an OCR provider, an SMS gateway),
@@ -20,7 +21,12 @@ import { echoSchema, missionListSchema, SEED_CAMPAIGN } from 'shared'
 //
 // Set it once with: firebase functions:secrets:set OCR_API_KEY
 
-const VALID_ROUTES = ['GET /health', 'GET /missions', 'POST /echo']
+const VALID_ROUTES = ['GET /health', 'GET /missions', 'POST /echo', 'GET /admin/whoami']
+
+// Demo credentials for the Auth emulator ONLY. These never reach a
+// deployed function: the seed route is gated on isEmulator.
+const DEMO_ADMIN_EMAIL = 'admin@demo.local'
+const DEMO_ADMIN_PASSWORD = 'demo1234'
 
 /**
  * The entire HTTP API, as one v2 function with hand-rolled routing.
@@ -64,6 +70,44 @@ export const api = onRequest(
       if (route === 'POST /echo') {
         const parsed = echoSchema.parse(req.body)
         res.status(200).json({ success: true, echoed: parsed })
+        return
+      }
+
+      // ── GET /admin/whoami ─────────────────────────────────────────
+      // The reference protected endpoint. Proves the gate is real: the
+      // ID token is verified server-side and the `admin` custom claim is
+      // what grants access. A client that simply *claims* to be an admin
+      // gets 401/403 here no matter what its UI shows.
+      if (route === 'GET /admin/whoami') {
+        const user = await verifyRequest(req.headers.authorization)
+        if (!user) {
+          res.status(401).json({ error: 'Unauthenticated' })
+          return
+        }
+        if (!user.isAdmin) {
+          res.status(403).json({ error: 'Not an admin' })
+          return
+        }
+        res.status(200).json({ uid: user.uid, email: user.email, isAdmin: true })
+        return
+      }
+
+      // ── POST /dev/seed-admin ──────────────────────────────────────
+      // EMULATOR ONLY. The Auth emulator starts empty and custom claims
+      // cannot be set from the client SDK, so without this a fresh clone
+      // has no route into the admin dashboard at all.
+      if (route === 'POST /dev/seed-admin') {
+        if (!isEmulator) {
+          logger.warn('seed-admin attempted outside the emulator')
+          res.status(404).json({ error: 'Not found' })
+          return
+        }
+        const seeded = await seedDemoAdmin(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD)
+        res.status(200).json({
+          ...seeded,
+          email: DEMO_ADMIN_EMAIL,
+          password: DEMO_ADMIN_PASSWORD,
+        })
         return
       }
 

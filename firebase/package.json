@@ -1,10 +1,10 @@
 {
   "name": "photo-hunt-firebase",
   "private": true,
-  "description": "Emulator convenience scripts. No dependencies — firebase-tools is expected globally (npm i -g firebase-tools).",
+  "description": "Emulator convenience scripts. No dependencies \u2014 firebase-tools is expected globally (npm i -g firebase-tools).",
   "scripts": {
-    "emulators": "npm --prefix functions run build && firebase emulators:start --only functions --project demo-app",
+    "emulators": "npm --prefix functions run build && firebase emulators:start --only functions,auth --project demo-app",
     "emulators:all": "npm --prefix functions run build && firebase emulators:start --project demo-app",
-    "emulators:watch": "firebase emulators:start --only functions --project demo-app"
+    "emulators:watch": "firebase emulators:start --only functions,auth --project demo-app"
   }
 }

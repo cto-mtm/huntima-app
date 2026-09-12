@@ -69,9 +69,12 @@ Do not add these speculatively. Each has a marked seam; see
 
 ## Dev tooling
 
-`src/dev/` holds test affordances, not product. Today that is the quick-login
-switcher: a floating panel that jumps the fan session between progress
-personas (fresh / halfway / one away / winner / already claimed).
+`src/dev/` holds test affordances, not product:
+
+- `DevPersonaPicker.vue` — on the entry screen, signs in as a fan at a given
+  progress state (fresh / halfway / one away / winner / already claimed)
+- `DevAdminSeeder.vue` — on the staff login screen, creates the demo staff
+  account in the Auth emulator, which starts empty
 
 Rules for anything added there:
 
@@ -79,7 +82,7 @@ Rules for anything added there:
   literal `false` in a production build. Resolve the component through a
   `defineAsyncComponent(() => import(...))` **inside** that branch, so Rollup
   drops the import too — hidden is not the same as absent.
-- Verify after any change: `npm run build && grep -r "Quick login" app/dist`
+- Verify after any change: `npm run build && grep -r "Dev shortcut" app/dist`
   must return nothing, and no dev chunk may appear in `dist/assets/`.
 - **The i18n rule does not apply in `src/dev/`.** Strings there are never
   shown to a fan and never shipped, so translating them would add two locales
