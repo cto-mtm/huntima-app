@@ -190,6 +190,48 @@ export const campaignStatsSchema = z.object({
 })
 export type CampaignStats = z.infer<typeof campaignStatsSchema>
 
+// ── Fan progress (cross-device continuity) ────────────────────────────
+/**
+ * A signed-in fan's progress, made durable so their trophies follow them to a
+ * new phone instead of living only in one device's localStorage.
+ *
+ * IMPORTANT — this is NOT a trusted ledger. It is the fan's OWN self-reported
+ * progress: the server stores, keyed by their verified uid, exactly what their
+ * client sends. It must never be the basis for handing over a prize without
+ * staff verification — the same forgeable-claim-code caveat as today (see
+ * docs/architecture.md § Seams). Making badges server-authoritative (awarded on
+ * a verified capture) is a separate, larger change; this only buys continuity.
+ *
+ * Guests have no uid and never reach this — they stay device-local.
+ *
+ * The `.max()` caps exist purely to bound what an authenticated client can push
+ * into its own document; they are generous relative to any real hunt.
+ */
+export const wonHuntSchema = z.object({
+  campaignId: z.string().min(1).max(200),
+  /** The hunt's name at the time it was won, shown on the trophy shelf. */
+  name: z.string().max(120),
+  /** Epoch ms when the hunt was completed. */
+  wonAt: z.number().int().nonnegative(),
+})
+
+export type WonHunt = z.infer<typeof wonHuntSchema>
+
+export const fanProgressSchema = z.object({
+  /** Fan-chosen display name. Empty string when they never set one. */
+  nickname: z.string().max(60),
+  /** Avatar id (never a URL), or null for the monogram fallback. */
+  avatarId: z.string().max(64).nullable(),
+  /** Earned badge ids, keyed by campaign id. */
+  earned: z.record(z.string().max(200), z.array(z.string().max(200)).max(50)),
+  /** Redeemed flag, keyed by campaign id. */
+  claimed: z.record(z.string().max(200), z.boolean()),
+  /** Finished hunts — the trophy shelf. */
+  wonHunts: z.array(wonHuntSchema).max(200),
+})
+
+export type FanProgress = z.infer<typeof fanProgressSchema>
+
 // ── Tenant branding ───────────────────────────────────────────────────
 /**
  * A club's identity: the thing that makes this white-label product look like

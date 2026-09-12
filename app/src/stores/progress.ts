@@ -3,8 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useSessionStore } from './session'
 import { useMissionsStore } from './missions'
 import { reportFanEvent } from '../lib/analytics'
+import { apiFetch } from '../lib/api'
 
 const STORAGE_KEY = 'photo-hunt:progress'
+/** Authenticated cross-device progress store. See helpers/fanProgress.ts. */
+const PROGRESS_ENDPOINT = '/me/progress'
 
 /**
  * A hunt the fan has finished. This is what a "trophy" is: a past win, kept
@@ -59,6 +62,45 @@ function parseClaimed(value: unknown): Record<string, boolean> {
   const out: Record<string, boolean> = {}
   for (const [id, v] of Object.entries(value)) if (v === true) out[id] = true
   return out
+}
+
+/**
+ * Merge helpers for reconciling this device's progress with the account copy
+ * pulled from the server. The rule everywhere is UNION, never clobber: a fan
+ * who played as a guest and then signed in must keep both sides — losing a
+ * trophy to a sync is worse than the sync not existing.
+ */
+function mergeEarned(
+  a: Record<string, string[]>,
+  b: Record<string, string[]>,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {}
+  for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    out[id] = [...new Set([...(a[id] ?? []), ...(b[id] ?? [])])]
+  }
+  return out
+}
+
+function mergeClaimed(
+  a: Record<string, boolean>,
+  b: Record<string, boolean>,
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {}
+  for (const id of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (a[id] === true || b[id] === true) out[id] = true
+  }
+  return out
+}
+
+function mergeWonHunts(a: WonHunt[], b: WonHunt[]): WonHunt[] {
+  const byId = new Map<string, WonHunt>()
+  for (const hunt of [...a, ...b]) {
+    const existing = byId.get(hunt.campaignId)
+    // Keep the EARLIEST win: the first time this hunt was actually finished,
+    // not whichever device happened to sync last.
+    if (!existing || hunt.wonAt < existing.wonAt) byId.set(hunt.campaignId, hunt)
+  }
+  return [...byId.values()]
 }
 
 function load(): PersistedProgress {
@@ -186,6 +228,90 @@ export const useProgressStore = defineStore('progress', () => {
     wonHunts.value = []
   }
 
+  // ── Cross-device sync (signed-in fans only) ──────────────────────────
+  // Progress is device-local for guests. A signed-in fan gets it made durable
+  // under their uid so trophies follow them to a new phone. This is the fan's
+  // OWN self-reported progress — continuity, not a trusted ledger — so it
+  // never gains authority a forgeable localStorage value did not already have.
+  // See stores/session.ts, firebase helpers/fanProgress.ts, docs/architecture.
+
+  function currentPayload(): PersistedProgress {
+    return {
+      nickname: nickname.value,
+      avatarId: avatarId.value,
+      earned: earned.value,
+      claimed: claimed.value,
+      wonHunts: wonHunts.value,
+    }
+  }
+
+  /** Fire-and-forget: a fan must never wait on, or fail because of, a sync. */
+  async function pushToAccount(): Promise<void> {
+    const token = await session.getIdToken()
+    if (!token) return
+    void apiFetch(PROGRESS_ENDPOINT, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(currentPayload()),
+    })
+  }
+
+  let pushTimer: ReturnType<typeof setTimeout> | null = null
+  /** Coalesce the burst of writes from awarding a badge (or a merge) into one
+   *  request — 800ms is imperceptible and collapses a five-badge spree. */
+  function schedulePush(): void {
+    if (pushTimer) clearTimeout(pushTimer)
+    pushTimer = setTimeout(() => {
+      pushTimer = null
+      void pushToAccount()
+    }, 800)
+  }
+
+  /**
+   * On sign-in: pull the account copy, MERGE it into whatever is on this
+   * device (never clobber — a guest who then signs in keeps both sides), then
+   * push the reconciled result so the server and every device converge. The
+   * merge also covers first sign-in: the server has nothing, so this device's
+   * play is uploaded as-is.
+   */
+  async function hydrateFromAccount(): Promise<void> {
+    const token = await session.getIdToken()
+    if (!token) return
+
+    const result = await apiFetch<{ progress: unknown }>(PROGRESS_ENDPOINT, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    // A failed pull must not wipe local progress or upload a half-read state.
+    if (!result.ok) return
+
+    const remote = result.data.progress
+    if (remote && typeof remote === 'object') {
+      // Parse defensively with the same helpers used for localStorage — a doc
+      // from an older shape is coerced, never trusted whole.
+      const r = remote as Record<string, unknown>
+      nickname.value = nickname.value.trim() || (typeof r.nickname === 'string' ? r.nickname : '')
+      avatarId.value = avatarId.value ?? (typeof r.avatarId === 'string' ? r.avatarId : null)
+      earned.value = mergeEarned(earned.value, parseEarned(r.earned))
+      claimed.value = mergeClaimed(claimed.value, parseClaimed(r.claimed))
+      wonHunts.value = mergeWonHunts(wonHunts.value, parseWonHunts(r.wonHunts))
+    }
+
+    // Explicit (not scheduled): converge immediately, and cover the empty-server
+    // first-sign-in case where no ref changed and the watch below would not fire.
+    void pushToAccount()
+  }
+
+  // Hydrate when a real fan account becomes active — never for guests (no uid)
+  // and never for admins (staff testing is not a fan session). Fires when the
+  // async auth listener resolves the account after boot.
+  watch(
+    () => (session.isFan ? (session.user?.uid ?? null) : null),
+    (uid) => {
+      if (uid) void hydrateFromAccount()
+    },
+    { immediate: true },
+  )
+
   // The moment the badge target is first reached on a real published hunt:
   // report the aggregate completion, and keep the hunt as a trophy. Fires only
   // on the false→true transition; reportFanEvent and recordWin are both
@@ -214,6 +340,10 @@ export const useProgressStore = defineStore('progress', () => {
       } catch {
         // Private browsing. Progress stays in memory for this session.
       }
+
+      // A signed-in fan's progress also lives on the server, so it survives a
+      // new phone. Debounced and fire-and-forget; guests never reach here.
+      if (session.isFan) schedulePush()
     },
     { deep: true },
   )

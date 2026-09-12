@@ -49,6 +49,27 @@ const steps = computed(() => [
       </li>
     </ol>
 
+    <!-- Legal / privacy notes. These describe real behaviour: captures are
+         downscaled and stripped of GPS on-device, checked, then discarded and
+         never stored (see docs/architecture.md), and the badge ledger lives in
+         localStorage, not an account (src/stores/progress.ts). -->
+    <div class="mt-8 grid gap-4">
+      <section class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+        <h2 class="font-bold text-brand-900">{{ t('about.photosTitle') }}</h2>
+        <p class="mt-1 text-sm text-muted">{{ t('about.photosBody') }}</p>
+      </section>
+      <section class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+        <h2 class="font-bold text-brand-900">{{ t('about.progressTitle') }}</h2>
+        <p class="mt-1 text-sm text-muted">{{ t('about.progressBody') }}</p>
+      </section>
+      <section class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+        <h2 class="font-bold text-brand-900">{{ t('about.finePrintTitle') }}</h2>
+        <p class="mt-1 text-sm text-muted">
+          {{ t('about.finePrintBody', { team: tenant.settings.teamName }) }}
+        </p>
+      </section>
+    </div>
+
     <div class="mt-8 flex flex-col items-center gap-3">
       <RouterLink :to="{ name: 'entry' }" class="text-sm font-semibold text-brand-600">
         {{ t('entry.switchUser') }}

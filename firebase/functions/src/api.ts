@@ -16,6 +16,7 @@ import {
 import { verifyCapture } from './helpers/vision'
 import { getTenant, putTenant } from './helpers/tenant'
 import { getCampaignStats, recordCapture, recordFanEvent } from './helpers/analytics'
+import { getFanProgress, putFanProgress } from './helpers/fanProgress'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
@@ -23,6 +24,7 @@ import {
   campaignInputSchema,
   campaignEventSchema,
   echoSchema,
+  fanProgressSchema,
   verifyCaptureSchema,
   verifyResultSchema,
   missionListPayloadSchema,
@@ -46,6 +48,8 @@ const VALID_ROUTES = [
   'POST /echo',
   'POST /verify-capture',
   'POST /campaigns/:id/events',
+  'GET /me/progress',
+  'PUT /me/progress',
   'GET /tenant',
   'PUT /admin/tenant',
   'GET /admin/whoami',
@@ -103,6 +107,21 @@ export const api = onRequest(
       }
       if (!user.isAdmin) {
         res.status(403).json({ error: 'Not an admin' })
+        return null
+      }
+      return user
+    }
+
+    /**
+     * Resolves ANY authenticated caller — no admin claim required. Used by the
+     * fan-progress endpoints, which act only on the caller's OWN document
+     * (keyed by their verified uid), so a signed-in fan is enough. Guests have
+     * no token and are refused; their progress stays device-local by design.
+     */
+    async function requireAuth(): Promise<AuthedUser | null> {
+      const user = await verifyRequest(req.headers.authorization)
+      if (!user) {
+        res.status(401).json({ error: 'Unauthenticated' })
         return null
       }
       return user
@@ -193,6 +212,30 @@ export const api = onRequest(
           }
         }
         res.status(204).send('')
+        return
+      }
+
+      // ── Fan progress (cross-device continuity) ────────────────────
+      // A signed-in fan's OWN progress, stored under their verified uid so
+      // their trophies follow them to a new phone. This is continuity, NOT a
+      // trusted ledger: the server stores what the client claims, so it must
+      // never be the basis for handing over a prize without staff
+      // verification — the same forgeable-claim-code caveat as today (see
+      // docs/architecture.md § Seams). The client merges the server copy with
+      // local state before PUTting, so this is a whole-document replace.
+      if (route === 'GET /me/progress') {
+        const user = await requireAuth()
+        if (!user) return
+        res.status(200).json({ progress: await getFanProgress(user.uid) })
+        return
+      }
+
+      if (route === 'PUT /me/progress') {
+        const user = await requireAuth()
+        if (!user) return
+        const progress = fanProgressSchema.parse(req.body)
+        await putFanProgress(user.uid, progress)
+        res.status(200).json({ progress })
         return
       }
 

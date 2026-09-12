@@ -183,20 +183,25 @@ const tenant = await call('/admin/tenant', {
 
 // ── 4. A published hunt ───────────────────────────────────────────────
 // Staff-authored copy is literal text, never i18n keys — it is user-generated
-// content. Ten ballpark things to photograph around Slugger Field. Tweak the
-// wording to your real landmarks; the target photo you drop in seed-assets is
-// what actually gets matched.
+// content. Ten ballpark things to photograph around Slugger Field. Colors stay
+// on the Bats navy/red palette so the fallback tiles look on-brand when a
+// target photo has not been dropped in seed-assets yet.
+const NAVY = '#14284b'
+const RED = '#c8102e'
+const STEEL = '#2f4a7c'
+const SLATE = '#41618f'
+
 const MISSIONS = [
-  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', '#14284b'],
-  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', '#c8102e'],
-  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', '#4f8a63'],
-  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', '#8b6db3'],
-  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', '#a8763e'],
-  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', '#2f8f9d'],
-  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', '#d09a2c'],
-  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', '#3b6ea5'],
-  ['Meet Buddy Bat', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', '#c7563f'],
-  ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', '#6d8b3a'],
+  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', NAVY],
+  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', RED],
+  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', STEEL],
+  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', SLATE],
+  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', NAVY],
+  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', STEEL],
+  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', RED],
+  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', SLATE],
+  ['Meet Buddy Bat', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', RED],
+  ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', NAVY],
 ]
 
 const existing = await call('/admin/campaigns', { headers: auth })

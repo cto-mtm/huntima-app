@@ -11,7 +11,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TenantAvatar } from 'shared'
-import { uploadImage } from '../../lib/storage'
+import { uploadImage, UploadError } from '../../lib/storage'
 import { useTenantStore } from '../../stores/tenant'
 
 const TENANT_ID = 'default'
@@ -23,6 +23,16 @@ const logoInput = ref<HTMLInputElement | null>(null)
 const avatarInput = ref<HTMLInputElement | null>(null)
 const busy = ref<'logo' | 'avatar' | null>(null)
 const error = ref<string | null>(null)
+
+/** Maps an upload failure to localized copy: known codes get a specific
+ *  message, everything else falls back to the generic one. */
+function uploadErrorMessage(err: unknown): string {
+  if (err instanceof UploadError) {
+    if (err.code === 'not-image') return t('admin.uploadNotImage')
+    if (err.code === 'too-large') return t('admin.uploadTooLarge')
+  }
+  return t('admin.uploadFailed')
+}
 
 function labelFromFile(name: string): string {
   return name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim().slice(0, 40) || 'Avatar'
@@ -38,7 +48,7 @@ async function onLogo(event: Event): Promise<void> {
     const { url } = await uploadImage('team-asset', TENANT_ID, file)
     tenant.settings.logoUrl = url
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('admin.uploadFailed')
+    error.value = uploadErrorMessage(err)
   } finally {
     busy.value = null
     if (logoInput.value) logoInput.value.value = ''
@@ -62,7 +72,7 @@ async function onAvatar(event: Event): Promise<void> {
       tenant.settings.avatars = [...tenant.settings.avatars, avatar]
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('admin.uploadFailed')
+    error.value = uploadErrorMessage(err)
   } finally {
     busy.value = null
     if (avatarInput.value) avatarInput.value.value = ''

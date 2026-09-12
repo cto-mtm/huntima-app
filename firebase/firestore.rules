@@ -32,10 +32,13 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
-    // Fan progress is deliberately NOT here yet. It lives on the device, so
-    // the claim code is still forgeable — see docs/architecture.md § Seams.
-    // When it lands it must be server-written only: a fan who can write their
-    // own badge count can write themselves a prize.
+    // Fan progress (`fan_progress/{uid}`) is written ONLY by the Cloud Function
+    // via the Admin SDK, through the authenticated /me/progress endpoint — the
+    // client never touches Firestore directly, so this deny-all is exactly the
+    // guard we want: a fan who could write their own doc could write themselves
+    // a prize. What the function stores is still the fan's self-reported
+    // progress (continuity, not a trusted ledger); making badges
+    // server-authoritative is a separate seam — see docs/architecture.md.
     match /{document=**} {
       allow read, write: if false;
     }

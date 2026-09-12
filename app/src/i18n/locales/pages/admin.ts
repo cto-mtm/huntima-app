@@ -57,6 +57,8 @@ const en = {
   removeImage: 'Remove',
   uploading: 'Uploading…',
   uploadFailed: 'Upload failed.',
+  uploadNotImage: 'That file is not an image.',
+  uploadTooLarge: 'Images must be under 5 MB.',
 
   previewHeading: 'Live preview',
   previewHelp: 'The real components, re-skinned as you type.',
@@ -135,6 +137,8 @@ const es: typeof en = {
   removeImage: 'Quitar',
   uploading: 'Subiendo…',
   uploadFailed: 'Error al subir.',
+  uploadNotImage: 'Ese archivo no es una imagen.',
+  uploadTooLarge: 'Las imágenes deben pesar menos de 5 MB.',
 
   previewHeading: 'Vista previa',
   previewHelp: 'Los componentes reales, con la nueva marca mientras escribes.',

@@ -66,6 +66,8 @@ const en = {
   uploadTarget: 'Upload photo',
   uploading: 'Uploading…',
   uploadFailed: 'Upload failed.',
+  uploadNotImage: 'That file is not an image.',
+  uploadTooLarge: 'Images must be under 5 MB.',
   removeTarget: 'Remove photo',
 
   assetsHeading: 'Team assets',
@@ -167,6 +169,8 @@ const es: typeof en = {
   uploadTarget: 'Subir foto',
   uploading: 'Subiendo…',
   uploadFailed: 'Error al subir.',
+  uploadNotImage: 'Ese archivo no es una imagen.',
+  uploadTooLarge: 'Las imágenes deben pesar menos de 5 MB.',
   removeTarget: 'Quitar foto',
 
   assetsHeading: 'Recursos del equipo',

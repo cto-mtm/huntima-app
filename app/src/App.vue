@@ -5,6 +5,7 @@ import AppShell from './components/AppShell.vue'
 import { useMissionsStore } from './stores/missions'
 import { useTenantStore } from './stores/tenant'
 import { useSessionStore } from './stores/session'
+import { useProgressStore } from './stores/progress'
 
 const route = useRoute()
 const missions = useMissionsStore()
@@ -15,10 +16,16 @@ const missions = useMissionsStore()
 const tenant = useTenantStore()
 const session = useSessionStore()
 
+// Instantiated on boot so its account-sync watcher is live on every entry
+// path: a returning signed-in fan is hydrated the moment auth resolves, not
+// only once they navigate to a page that happens to read progress. A no-op
+// for guests and admins — the watcher gates on the fan role.
+useProgressStore()
+
 // Screens that exist outside a fan session (entry, staff login, admin)
 // render without the fan shell.
-const isBare = computed(() => route.meta.bare === true)
-
+const isBare = computed(() => route.meta.bare === true)
+
 
 // One campaign fetch for the whole session. The hub reflects the real
 // backend: on success it shows the published hunt or an empty state, and on

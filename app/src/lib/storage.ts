@@ -66,6 +66,21 @@ function getStorageInstance(): Promise<FirebaseStorage> {
 
 export type AssetKind = 'team-asset' | 'mission-target'
 
+/**
+ * Upload failures carry a stable `code`, not display copy. This lib has no
+ * i18n context, so the calling component maps the code to a localized string
+ * (see TenantImagesField / MissionTargetField). Unknown failures fall through
+ * to the generic uploadFailed key.
+ */
+export type UploadErrorCode = 'not-image' | 'too-large'
+
+export class UploadError extends Error {
+  constructor(readonly code: UploadErrorCode) {
+    super(code)
+    this.name = 'UploadError'
+  }
+}
+
 function pathFor(kind: AssetKind, ownerId: string, fileName: string): string {
   const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60)
   const stamp = Date.now()
@@ -118,7 +133,7 @@ export async function uploadImage(
   file: File,
 ): Promise<UploadResult> {
   if (!file.type.startsWith('image/')) {
-    throw new Error('That file is not an image.')
+    throw new UploadError('not-image')
   }
 
   const storage = await getStorageInstance()
@@ -140,8 +155,8 @@ export async function uploadImage(
     contentType = compressed.mimeType
   } else if (!isSvg && file.size > 5 * 1024 * 1024) {
     // Only reachable if compression somehow could not run; the rules cap is
-    // 5 MB, so surface a clear sentence rather than an opaque permission error.
-    throw new Error('Images must be under 5 MB.')
+    // 5 MB, so surface a clear error rather than an opaque permission failure.
+    throw new UploadError('too-large')
   }
 
   const path = pathFor(kind, ownerId, withExtensionFor(file.name, contentType))

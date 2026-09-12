@@ -45,9 +45,13 @@ Wired up:
 Still deliberately open (see `docs/architecture.md` § "Seams left open"):
 
 - Native camera viewfinder, geofencing, and OCR "spyglass" verification
-- Per-fan server-side progress: the badge ledger lives in `localStorage`
-  (`src/stores/progress.ts`) and the claim code is derived, not issued — which
-  is why analytics keeps aggregate counters rather than trusting a fan's count
+- Server-*authoritative* fan progress: a signed-in fan's progress now syncs to
+  `fan_progress/{uid}` via `/me/progress` for cross-device continuity, but the
+  server stores what the client claims and the claim code is still derived, not
+  issued. The open piece is *authority* — the server owning the badge ledger
+  (awarding on a verified capture) and minting/invalidating claim codes. Until
+  then, progress must never hand over a prize without staff verification, and
+  analytics stays aggregate counters rather than trusting a fan's count
 
 Do not add the open seams speculatively. Each drags in a real decision
 (PII retention, prize fraud) that belongs in its own change.

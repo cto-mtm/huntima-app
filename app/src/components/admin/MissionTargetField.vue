@@ -8,7 +8,7 @@
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { uploadImage } from '../../lib/storage'
+import { uploadImage, UploadError } from '../../lib/storage'
 import AppIcon from '../AppIcon.vue'
 
 const props = defineProps<{
@@ -24,6 +24,16 @@ const input = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const error = ref<string | null>(null)
 
+/** Maps an upload failure to localized copy: known codes get a specific
+ *  message, everything else falls back to the generic one. */
+function uploadErrorMessage(err: unknown): string {
+  if (err instanceof UploadError) {
+    if (err.code === 'not-image') return t('hunts.uploadNotImage')
+    if (err.code === 'too-large') return t('hunts.uploadTooLarge')
+  }
+  return t('hunts.uploadFailed')
+}
+
 async function onChosen(event: Event): Promise<void> {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -36,7 +46,7 @@ async function onChosen(event: Event): Promise<void> {
     emit('update:modelValue', url)
   } catch (err) {
     // Staff are looking at a form and need a sentence, not a console entry.
-    error.value = err instanceof Error ? err.message : t('hunts.uploadFailed')
+    error.value = uploadErrorMessage(err)
   } finally {
     uploading.value = false
     if (input.value) input.value.value = ''

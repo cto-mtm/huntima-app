@@ -33,8 +33,10 @@ Vue 3 (`<script setup>`, TypeScript strict) + vue-router with `createWebHistory`
   fallback, not a bug. See [`animations.md`](animations.md).
 - **State** — `stores/missions.ts` hydrates the campaign from `GET /missions`
   (falling back to the seed when the network fails); `stores/progress.ts` holds
-  the fan's nickname, avatar and earned badges, and that one is still
-  device-local (`localStorage`) — see the seam table below.
+  the fan's nickname, avatar and earned badges. That one is device-local
+  (`localStorage`) for guests; a signed-in fan also has it synced to the server
+  (`/me/progress`) so their trophies follow them to a new phone — but it stays
+  *self-reported*, not server-authoritative. See the seam table below.
 - **Strings** — everything user-facing flows through vue-i18n. Seed data stores
   message *keys*, never display text. See [`i18n.md`](i18n.md).
 - **Safe areas** — `AppShell.vue` pads header and bottom nav with
@@ -197,7 +199,7 @@ per-hunt analytics. What remains deliberately open, each with a marked seam:
 | Native camera viewfinder | `CapturePage.vue` uses a file input with `capture="environment"` | Works today and degrades to a desktop file picker; `@capacitor/camera` would buy a nicer in-app viewfinder, not a new capability |
 | Geofence validation | `CapturePage.vue` | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
 | OCR "spyglass" verification | `mission.kind === 'spyglass'` | The capture UI distinguishes spyglass missions, but they share the photo verification path — there is no OCR-specific server check yet |
-| Server-trusted fan progress | `stores/progress.ts` writes `localStorage`; `claimCode` is derived, not issued | Fans upgrade to Firebase anonymous auth so the server can own the badge ledger and mint/invalidate claim codes. **Analytics is deliberately aggregate-only** (`campaign_stats/` counters, no per-person row) precisely because there is no trusted per-fan identity yet — and because storing behavioural data on minors is its own decision |
+| Server-*trusted* fan progress | `stores/progress.ts` now syncs a signed-in fan's progress to `fan_progress/{uid}` via `/me/progress`, but the server stores what the client claims; `claimCode` is still derived, not issued | Cross-device *continuity* is done (a signed-in fan's trophies follow them; guests stay device-local). What is still open is *authority*: the server does not yet own the badge ledger (awarding badges on a verified capture) or mint/invalidate claim codes, so progress must never hand over a prize without staff verification. **Analytics stays aggregate-only** (`campaign_stats/` counters, no per-person row): `fan_progress` is opt-in and self-reported, so it is not a trusted per-fan identity to attribute analytics to — and storing behavioural data on minors is its own decision |
 
 Resist closing these speculatively. Each drags in a real decision (PII
 retention, prize fraud) that belongs in its own change.

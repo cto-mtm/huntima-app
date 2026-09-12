@@ -97,7 +97,11 @@ async function withGoogle(): Promise<void> {
 
         <div class="my-4 flex items-center gap-3" aria-hidden="true">
           <span class="h-px flex-1 bg-brand-100" />
-          <span class="text-[11px] font-semibold uppercase text-muted">{{ t('entry.or') }}</span>
+          <!-- translate="no": rendered uppercase, "OR" is also the French word
+               for "gold", so Chrome's content sniffer flags the page as French
+               and offers to translate it (turning this into "GOLD"). It is
+               decorative chrome, not content, so opt it out of translation. -->
+          <span class="text-[11px] font-semibold uppercase text-muted" translate="no">{{ t('entry.or') }}</span>
           <span class="h-px flex-1 bg-brand-100" />
         </div>
 
