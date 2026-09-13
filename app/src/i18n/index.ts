@@ -17,6 +17,8 @@ import admin from './locales/pages/admin'
 import entry from './locales/pages/entry'
 import hunts from './locales/pages/hunts'
 import profile from './locales/pages/profile'
+import landing from './locales/pages/landing'
+import orgs from './locales/pages/orgs'
 
 export const SUPPORTED_LOCALES = ['en', 'es'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -53,6 +55,8 @@ const messages = {
     entry: entry.en,
     hunts: hunts.en,
     profile: profile.en,
+    landing: landing.en,
+    orgs: orgs.en,
   },
   es: {
     common: common.es,
@@ -69,6 +73,8 @@ const messages = {
     entry: entry.es,
     hunts: hunts.es,
     profile: profile.es,
+    landing: landing.es,
+    orgs: orgs.es,
   },
 }
 
@@ -103,7 +109,7 @@ const numberFormats = {
   es: { decimal: { style: 'decimal' } },
 } as const
 
-const STORAGE_KEY = 'photo-hunt:locale'
+const STORAGE_KEY = 'huntima:locale'
 
 function isSupported(value: string | null): value is SupportedLocale {
   return value !== null && (SUPPORTED_LOCALES as readonly string[]).includes(value)

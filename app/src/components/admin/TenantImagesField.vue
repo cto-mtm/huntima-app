@@ -14,8 +14,6 @@ import type { TenantAvatar } from 'shared'
 import { uploadImage, UploadError } from '../../lib/storage'
 import { useTenantStore } from '../../stores/tenant'
 
-const TENANT_ID = 'default'
-
 const { t } = useI18n()
 const tenant = useTenantStore()
 
@@ -45,7 +43,8 @@ async function onLogo(event: Event): Promise<void> {
   busy.value = 'logo'
   error.value = null
   try {
-    const { url } = await uploadImage('team-asset', TENANT_ID, file)
+    // The router guard guarantees an active slug on every admin route.
+    const { url } = await uploadImage('team-asset', { slug: tenant.slug ?? '' }, file)
     tenant.settings.logoUrl = url
   } catch (err) {
     error.value = uploadErrorMessage(err)
@@ -63,7 +62,7 @@ async function onAvatar(event: Event): Promise<void> {
   error.value = null
   try {
     for (const file of files) {
-      const { url } = await uploadImage('team-asset', TENANT_ID, file)
+      const { url } = await uploadImage('team-asset', { slug: tenant.slug ?? '' }, file)
       const avatar: TenantAvatar = {
         id: crypto.randomUUID(),
         url,

@@ -1,42 +1,54 @@
 rules_version = '2';
 
-// Two kinds of object, with opposite rules.
+// Two kinds of object, with opposite rules — now scoped per org.
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function isStaff() {
+    // Platform operator (support/ops). See firestore.rules for why the claim
+    // and not an email.
+    function isOperator() {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    // Raster images plus SVG. SVG's content type is image/svg+xml, which
-    // already matches image/.* — it is listed explicitly here so the intent
-    // is obvious and so tightening it later (SVGs can embed script) has one
-    // clear place to live. Assets are served from a separate storage origin
-    // and rendered as <img>/background, not inlined into the app's DOM.
+    // Org membership, read cross-service from Firestore — the same
+    // tenants/{slug}/members/{uid} document the API checks, so there is one
+    // source of truth for "who runs this org".
+    function isMemberOf(slug) {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/tenants/$(slug)/members/$(request.auth.uid));
+    }
+
+    // Raster images plus SVG. Listed explicitly so tightening it later (SVGs
+    // can embed script) has one clear place to live. Assets are served from a
+    // separate storage origin and rendered as <img>, not inlined.
     function isAllowedImage() {
       return request.resource.contentType.matches('image/.*');
     }
 
-    // Team assets (logos, marks) and mission target photos are public: every
-    // fan's app has to render them, and fans are anonymous so there is nobody
-    // to authenticate. Staff-only writes, capped at 5 MB — a phone photo
-    // uploaded raw is easily 10 MB and nobody needs that on a concourse.
-    match /tenants/{tenantId}/assets/{fileName} {
+    // Team assets (logos, marks, avatars): public read — every fan's app has
+    // to render them and fans are anonymous. Member-only writes, capped at
+    // 5 MB — a phone photo uploaded raw is easily 10 MB and nobody needs that
+    // on a concourse.
+    match /tenants/{slug}/assets/{fileName} {
       allow read: if true;
-      allow write: if isStaff() && isAllowedImage() && request.resource.size < 5 * 1024 * 1024;
+      allow write: if (isMemberOf(slug) || isOperator())
+        && isAllowedImage() && request.resource.size < 5 * 1024 * 1024;
     }
 
-    match /campaigns/{campaignId}/targets/{fileName} {
+    // Mission target photos, now under their org's subtree.
+    match /tenants/{slug}/campaigns/{campaignId}/targets/{fileName} {
       allow read: if true;
-      allow write: if isStaff() && isAllowedImage() && request.resource.size < 5 * 1024 * 1024;
+      allow write: if (isMemberOf(slug) || isOperator())
+        && isAllowedImage() && request.resource.size < 5 * 1024 * 1024;
     }
 
     // Fan captures are NEVER written here. They are posted to the verify
     // function, forwarded to the model, and discarded. Photographs taken by
     // children in a public venue are not something to accumulate: what you do
     // not store cannot leak, and there is no deletion request to service.
-    // If that policy ever changes, it needs a retention rule and a privacy
-    // policy before a single byte lands — not a rule edit here.
+    // If that policy ever changes (the per-hunt data policy planned in
+    // docs/platform-migration.md § Phase 2), it needs a retention rule and a
+    // privacy policy before a single byte lands — not a rule edit here.
     match /{allPaths=**} {
       allow read, write: if false;
     }

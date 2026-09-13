@@ -1,7 +1,7 @@
 {
-  "name": "photo-hunt",
+  "name": "huntima",
   "private": true,
-  "description": "White-label digital passport for live sporting events.",
+  "description": "Huntima — multi-tenant platform for verified photo hunts at live events.",
   "workspaces": [
     "shared",
     "app",

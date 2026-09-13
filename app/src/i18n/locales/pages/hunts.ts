@@ -1,6 +1,7 @@
 const en = {
   navBranding: 'Branding',
   navHunts: 'Hunts',
+  navOrgs: 'Switch organization',
 
   title: 'Hunts',
   subtitle: 'Build the missions fans work through on game day.',
@@ -104,6 +105,7 @@ const en = {
 const es: typeof en = {
   navBranding: 'Marca',
   navHunts: 'Búsquedas',
+  navOrgs: 'Cambiar de organización',
 
   title: 'Búsquedas',
   subtitle: 'Crea las misiones que los aficionados completan el día del partido.',

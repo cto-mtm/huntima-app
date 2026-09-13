@@ -44,9 +44,16 @@ async function signOut(): Promise<void> {
       <p v-if="session.email" class="text-xs text-muted">
         {{ t('entry.signedInAs', { email: session.email }) }}
       </p>
-      <button type="button" class="text-sm font-semibold text-brand-600" @click="signOut">
-        {{ t('entry.signOut') }}
-      </button>
+      <div class="flex items-center justify-end gap-3">
+        <!-- One account can run several orgs; this is where that becomes
+             visible. Global route: no slug param needed or inherited. -->
+        <RouterLink :to="{ name: 'orgs' }" class="text-sm font-semibold text-brand-600">
+          {{ t('hunts.navOrgs') }}
+        </RouterLink>
+        <button type="button" class="text-sm font-semibold text-brand-600" @click="signOut">
+          {{ t('entry.signOut') }}
+        </button>
+      </div>
     </div>
   </header>
 </template>

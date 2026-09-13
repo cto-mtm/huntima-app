@@ -1,5 +1,5 @@
 {
-  "name": "photo-hunt-firebase",
+  "name": "huntima-firebase",
   "private": true,
   "description": "Emulator convenience scripts. No dependencies \u2014 firebase-tools is expected globally (npm i -g firebase-tools).",
   "scripts": {

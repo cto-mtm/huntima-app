@@ -10,9 +10,12 @@ import { apiFetch } from '../lib/api'
 // subtly different definition later.
 
 export const useMissionsStore = defineStore('missions', () => {
+  /** Which org's hunt this is. Set by the router guard via `activate`. */
+  const slug = ref<string | null>(null)
   // No seed. The hub reflects the real backend: it starts empty, fills from
-  // GET /missions, and shows an empty state when no hunt is published. A
-  // failed request is a distinct `loadError` state, not a silent fallback.
+  // GET /t/:slug/missions, and shows an empty state when no hunt is
+  // published. A failed request is a distinct `loadError` state, not a
+  // silent fallback.
   const missions = ref<Mission[]>([])
   // Which hunt these missions belong to. Capture verification posts it back,
   // so the server looks the target up in the same campaign the fan is playing.
@@ -32,15 +35,45 @@ export const useMissionsStore = defineStore('missions', () => {
   const byId = computed(() => (id: string) => missions.value.find((m) => m.id === id) ?? null)
 
   /**
-   * `GET /missions` reads the published hunt from Firestore and returns an
-   * empty list when none is published. The contract is `missionListSchema`,
-   * shared by both ends, so this parse is the only place the shape is trusted.
+   * Scopes the store to an org and (re)loads its published hunt. Idempotent
+   * per slug — the router guard calls this on every slugged navigation, so a
+   * fan moving between pages never refetches, and a fan landing on a second
+   * club's page never sees the first club's missions.
+   */
+  function activate(nextSlug: string): void {
+    if (slug.value === nextSlug) return
+    slug.value = nextSlug
+    missions.value = []
+    campaignId.value = ''
+    name.value = ''
+    badgeTarget.value = 0
+    prize.value = null
+    loaded.value = false
+    loadError.value = false
+    void load()
+  }
+
+  /**
+   * `GET /t/:slug/missions` reads the org's published hunt from Firestore and
+   * returns an empty list when none is published. The contract is
+   * `missionListSchema`, shared by both ends, so this parse is the only place
+   * the shape is trusted.
    */
   async function load(): Promise<void> {
+    const requested = slug.value
+    if (!requested) return
+
     loading.value = true
     loadError.value = false
 
-    const result = await apiFetch<unknown>('/missions')
+    const result = await apiFetch<unknown>(`/t/${requested}/missions`)
+
+    // A rapid org switch can land a stale response — discard it. Clear the
+    // flag first: the newer load manages its own, but only if one is coming.
+    if (slug.value !== requested) {
+      loading.value = false
+      return
+    }
 
     if (result.ok) {
       const parsed = missionListSchema.safeParse(result.data)
@@ -65,5 +98,5 @@ export const useMissionsStore = defineStore('missions', () => {
     loading.value = false
   }
 
-  return { missions, campaignId, name, badgeTarget, prize, loading, loadError, loaded, byId, load }
+  return { slug, missions, campaignId, name, badgeTarget, prize, loading, loadError, loaded, byId, activate, load }
 })

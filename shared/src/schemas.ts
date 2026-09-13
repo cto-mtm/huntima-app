@@ -15,6 +15,112 @@ import { z } from 'zod'
  *   using zod rather than bare types.
  */
 
+// ── Tenant slugs (org identity in every URL) ──────────────────────────
+/**
+ * The slug IS the tenant id: `huntima.app/louisville-bats` and Firestore's
+ * `tenants/louisville-bats` are the same string. One definition here, used by
+ * the API router, the app router guard, and org creation — so a slug that
+ * parses anywhere parses everywhere.
+ *
+ * Lowercase alphanumerics with single interior hyphens, 3–50 chars. Renames
+ * are deliberately not supported (a rename is a document move; ship it later
+ * as copy + redirect-stub if ever needed).
+ */
+export const TENANT_SLUG_PATTERN = /^[a-z0-9](?:-?[a-z0-9]){2,49}$/
+
+/**
+ * Every current top-level route plus platform words we will want later. A fan
+ * URL and an app route must never collide — `/orgs` the org picker and
+ * `/orgs` the ball club cannot both exist.
+ */
+export const RESERVED_SLUGS = new Set([
+  'admin',
+  'api',
+  'app',
+  'about',
+  'dev',
+  'explore',
+  'health',
+  'help',
+  'me',
+  'missions',
+  'orgs',
+  'pricing',
+  'privacy',
+  'profile',
+  'redeem',
+  'signin',
+  'staff-login',
+  'support',
+  't',
+  'terms',
+  'trophies',
+  'welcome',
+  'www',
+])
+
+export const tenantSlugSchema = z
+  .string()
+  .min(3)
+  .max(50)
+  .regex(TENANT_SLUG_PATTERN, 'Lowercase letters, numbers and hyphens only')
+  .refine((s) => !RESERVED_SLUGS.has(s), { message: 'This name is reserved' })
+
+export type TenantSlug = z.infer<typeof tenantSlugSchema>
+
+/** Cheap boolean form for hot paths (router guards, URL parsing). */
+export function isValidTenantSlug(value: string): boolean {
+  return tenantSlugSchema.safeParse(value).success
+}
+
+// ── Org membership ────────────────────────────────────────────────────
+/**
+ * Access to an org is a MEMBERSHIP DOCUMENT (`tenants/{slug}/members/{uid}`),
+ * not a custom claim. Claims cap at 1000 bytes (a ceiling on orgs per user)
+ * and lag behind token refresh; a document revokes instantly and is checkable
+ * from the API and from Firestore/Storage rules alike.
+ *
+ * The global `admin` claim survives with a new meaning: PLATFORM OPERATOR.
+ * It bypasses membership everywhere — the support/ops axis, never handed to
+ * a customer.
+ *
+ * `uid` is stored redundantly as a field so `GET /me/orgs` can be a single
+ * collection-group query (`members` where uid == caller).
+ */
+export const orgRoleSchema = z.enum(['owner', 'editor'])
+export type OrgRole = z.infer<typeof orgRoleSchema>
+
+export const orgMemberSchema = z.object({
+  uid: z.string().min(1).max(128),
+  role: orgRoleSchema,
+  /** Epoch ms. */
+  addedAt: z.number().int().nonnegative(),
+  /** uid of who granted it ('seed' / 'migration' for scripts). */
+  addedBy: z.string().min(1).max(128),
+})
+
+export type OrgMember = z.infer<typeof orgMemberSchema>
+
+/** One row of `GET /me/orgs` — enough to render the org picker. */
+export const orgSummarySchema = z.object({
+  slug: z.string().min(1).max(50),
+  teamName: z.string().max(60),
+  role: z.union([orgRoleSchema, z.literal('operator')]),
+})
+
+export type OrgSummary = z.infer<typeof orgSummarySchema>
+
+export const myOrgsSchema = z.object({ orgs: z.array(orgSummarySchema).max(200) })
+export type MyOrgs = z.infer<typeof myOrgsSchema>
+
+/** Body of `POST /orgs`. Branding starts from SEED_TENANT with this name. */
+export const createOrgSchema = z.object({
+  slug: tenantSlugSchema,
+  teamName: z.string().min(1).max(60),
+})
+
+export type CreateOrgInput = z.infer<typeof createOrgSchema>
+
 // ── Mission text ──────────────────────────────────────────────────────
 /**
  * Mission copy comes from two places that must not be confused.
@@ -219,6 +325,13 @@ export const wonHuntSchema = z.object({
   name: z.string().max(120),
   /** Epoch ms when the hunt was completed. */
   wonAt: z.number().int().nonnegative(),
+  /**
+   * Which org's hunt this was. Optional: trophies recorded before the
+   * platform pivot lack it and must keep parsing. Campaign ids are globally
+   * unique (Firestore auto-ids), so this is provenance for display, not a
+   * key.
+   */
+  tenantSlug: z.string().max(60).optional(),
 })
 
 export type WonHunt = z.infer<typeof wonHuntSchema>
@@ -343,14 +456,26 @@ export const tenantConfigSchema = z.object({
 
 export type TenantConfig = z.infer<typeof tenantConfigSchema>
 
-/** What a brand-new deployment looks like before staff touch anything. */
+/**
+ * The neutral Huntima starter brand. Three jobs, one definition:
+ * what `createOrg` seeds a brand-new org with (before its owner touches
+ * Branding), the app's platform-default theme on org-less pages (landing,
+ * org picker), and the pre-network fallback while a real org's brand loads.
+ *
+ * Deliberately NOT any club's colors — a mistyped slug or a slow connection
+ * must read as "Huntima, loading", never as the wrong team. Demo-club
+ * branding (Louisville Bats etc.) lives in firebase/seed.mjs.
+ *
+ * The amber accent grades ~3.3:1 on white — "large text only", which is the
+ * accent's documented role (badge numerals, win states; see docs/branding.md).
+ */
 export const SEED_TENANT: TenantConfig = {
-  teamName: 'Louisville Bats',
-  prizeLocation: 'the Main Team Store',
+  teamName: 'Huntima',
+  prizeLocation: 'the prize counter',
   badgeTarget: 5,
   timezone: 'America/New_York',
-  brandBase: '#14284b',
-  accentBase: '#c8102e',
+  brandBase: '#312e63',
+  accentBase: '#d97706',
   fontFamily: 'system',
   logoUrl: null,
   avatars: [],

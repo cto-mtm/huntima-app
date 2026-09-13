@@ -1,15 +1,35 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { NOT_STAFF, useSessionStore } from '../stores/session'
+import { useOrgsStore } from '../stores/orgs'
 import { IS_LOCAL_API } from '../lib/api'
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
+const orgs = useOrgsStore()
+
+/**
+ * Deep links carry their destination: someone who opened
+ * /:slug/admin/hunts signed-out must land back there, not on the org
+ * picker. Only same-origin paths are honored — a query param is
+ * attacker-writable, and an absolute URL here would be an open redirect.
+ */
+function destination(): string | null {
+  const to = route.query.to
+  return typeof to === 'string' && to.startsWith('/') && !to.startsWith('//') ? to : null
+}
+
+function proceed(): void {
+  const dest = destination()
+  if (dest) void router.push(dest)
+  else void router.push({ name: 'orgs' })
+}
 
 const email = ref('')
 const password = ref('')
@@ -70,20 +90,32 @@ async function submit(): Promise<void> {
   await session.ensureAuthReady()
   await waitForRole()
 
-  // A real account without the claim is a FAN, and must not be left holding
-  // a half-open staff session just because they used the wrong form.
-  if (!session.isAdmin) {
-    await session.signOutAll()
-    session.authError = NOT_STAFF
-    password.value = ''
+  // Operators (the platform claim) pass every gate.
+  if (session.isAdmin) {
+    proceed()
+    return
   }
+
+  // Org access is MEMBERSHIP, not a claim: any account can run an org. Ask
+  // the server which orgs this one opens; an account with none is not an
+  // organizer, and must not be left holding a half-open staff session just
+  // because they used the wrong form.
+  await orgs.load()
+  if (orgs.orgs.length) {
+    proceed()
+    return
+  }
+
+  await session.signOutAll()
+  session.authError = NOT_STAFF
+  password.value = ''
 }
 
-// Navigate only once the verified claim has actually granted the role.
+// An operator revisiting this page while already signed in skips the form.
 watch(
   () => session.isAdmin,
   (isAdmin) => {
-    if (isAdmin) void router.push({ name: 'admin-hunts' })
+    if (isAdmin) proceed()
   },
   { immediate: true },
 )
@@ -146,7 +178,7 @@ function fillDemo(demo: { email: string; password: string }): void {
     <button
       type="button"
       class="mt-6 text-center text-sm font-semibold text-brand-600"
-      @click="router.push({ name: 'entry' })"
+      @click="router.push('/')"
     >
       {{ t('entry.backToEntry') }}
     </button>

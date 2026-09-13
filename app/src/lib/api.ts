@@ -40,7 +40,11 @@ export const IS_LOCAL_API =
   API_BASE_URL.includes('127.0.0.1:6001') ||
   API_BASE_URL.includes('localhost:6001')
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string }
+export type ApiResult<T> =
+  | { ok: true; data: T }
+  // `status` is present for HTTP failures and absent for network ones, so a
+  // caller can tell "the server said 404" (an unknown org) from "no signal".
+  | { ok: false; error: string; status?: number }
 
 /**
  * JSON in, JSON out. Never throws — every failure (network, non-2xx, bad
@@ -65,7 +69,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
       try {
         body = JSON.parse(text)
       } catch {
-        return { ok: false, error: `Bad JSON from ${path} (HTTP ${res.status})` }
+        return { ok: false, error: `Bad JSON from ${path} (HTTP ${res.status})`, status: res.status }
       }
     }
 
@@ -74,7 +78,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<Api
         body && typeof body === 'object' && 'error' in body
           ? String((body as { error: unknown }).error)
           : `HTTP ${res.status}`
-      return { ok: false, error: message }
+      return { ok: false, error: message, status: res.status }
     }
 
     return { ok: true, data: body as T }

@@ -63,12 +63,22 @@ Express, to keep the cold-start dependency surface minimal.
   Origin, so a local curl proves nothing about it. Verify CORS on a deployed
   function only. See the comment in `functions/src/helpers/cors.ts`.
 
-Routes today: public `GET /health`, `GET /missions`, `GET /tenant`,
-`POST /echo`, `POST /verify-capture`, `POST /campaigns/:id/events`; staff-only
-(admin claim) `PUT /admin/tenant`, `GET /admin/whoami`, the
-`GET|POST|PATCH|DELETE /admin/campaigns[/:id]` CRUD, `PUT
-/admin/campaigns/:id/missions`, and `GET /admin/campaigns/:id/stats`; and the
-emulator-only `POST /dev/seed-admin`.
+**Multi-tenant since the platform pivot** (see `docs/platform-migration.md`):
+an org's slug is in every URL — `tenants/{slug}` in Firestore, `/t/:slug/…`
+on the wire, `/:tenantSlug/…` in the app. Org access is a membership
+document (`tenants/{slug}/members/{uid}`), not a claim; the `admin` claim
+now means *platform operator* and bypasses membership everywhere.
+
+Routes today: public `GET /health`, `POST /echo`, `GET /t/:slug/tenant`,
+`GET /t/:slug/missions`, `POST /t/:slug/verify-capture` (per-IP and
+per-tenant rate limits), `POST /t/:slug/campaigns/:id/events`; authenticated
+`GET|PUT /me/progress`, `GET /me/orgs`; operator-only `POST /orgs`;
+member-gated `PUT /t/:slug/admin/tenant`, `GET /t/:slug/admin/whoami`,
+`GET|POST /t/:slug/admin/members`, the `GET|POST|PATCH|DELETE
+/t/:slug/admin/campaigns[/:id]` CRUD, `PUT
+/t/:slug/admin/campaigns/:id/missions`, and `GET
+/t/:slug/admin/campaigns/:id/stats`; and the emulator-only
+`POST /dev/seed-admin`.
 
 ## Shared contracts
 

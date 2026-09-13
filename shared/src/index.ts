@@ -1,4 +1,13 @@
 export {
+  TENANT_SLUG_PATTERN,
+  RESERVED_SLUGS,
+  tenantSlugSchema,
+  isValidTenantSlug,
+  orgRoleSchema,
+  orgMemberSchema,
+  orgSummarySchema,
+  myOrgsSchema,
+  createOrgSchema,
   missionTextSchema,
   missionKindSchema,
   missionSchema,
@@ -25,6 +34,12 @@ export {
 } from './schemas.js'
 
 export type {
+  TenantSlug,
+  OrgRole,
+  OrgMember,
+  OrgSummary,
+  MyOrgs,
+  CreateOrgInput,
   MissionText,
   Mission,
   Campaign,

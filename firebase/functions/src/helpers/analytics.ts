@@ -20,7 +20,10 @@ function db(): Firestore {
   return getFirestore()
 }
 
-const COLLECTION = 'campaign_stats'
+/** Stats live beside the hunts they count: `tenants/{slug}/campaign_stats/{id}`. */
+function statsRef(slug: string, campaignId: string) {
+  return db().collection('tenants').doc(slug).collection('campaign_stats').doc(campaignId)
+}
 
 /** UTC hour bucket, e.g. `2026-09-12T19`. Rendered in the club tz client-side. */
 function hourBucket(at: Date): string {
@@ -32,18 +35,20 @@ function hourBucket(at: Date): string {
  * bucket answers "when did they do it"; `matches` separates real badges from
  * attempts.
  */
-export async function recordCapture(campaignId: string, matched: boolean, at: Date): Promise<void> {
-  await db()
-    .collection(COLLECTION)
-    .doc(campaignId)
-    .set(
-      {
-        captures: FieldValue.increment(1),
-        matches: FieldValue.increment(matched ? 1 : 0),
-        hours: { [hourBucket(at)]: FieldValue.increment(1) },
-      },
-      { merge: true },
-    )
+export async function recordCapture(
+  slug: string,
+  campaignId: string,
+  matched: boolean,
+  at: Date,
+): Promise<void> {
+  await statsRef(slug, campaignId).set(
+    {
+      captures: FieldValue.increment(1),
+      matches: FieldValue.increment(matched ? 1 : 0),
+      hours: { [hourBucket(at)]: FieldValue.increment(1) },
+    },
+    { merge: true },
+  )
 }
 
 /**
@@ -52,18 +57,19 @@ export async function recordCapture(campaignId: string, matched: boolean, at: Da
  * would make them exact. An abusive client can inflate them; a real deployment
  * closes that with the anonymous-auth seam (see docs/architecture.md).
  */
-export async function recordFanEvent(campaignId: string, kind: CampaignEventKind): Promise<void> {
+export async function recordFanEvent(
+  slug: string,
+  campaignId: string,
+  kind: CampaignEventKind,
+): Promise<void> {
   const field = kind === 'participant' ? 'participants' : 'completions'
-  await db()
-    .collection(COLLECTION)
-    .doc(campaignId)
-    .set({ [field]: FieldValue.increment(1) }, { merge: true })
+  await statsRef(slug, campaignId).set({ [field]: FieldValue.increment(1) }, { merge: true })
 }
 
 const EMPTY: CampaignStats = { participants: 0, completions: 0, captures: 0, matches: 0, hours: {} }
 
-export async function getCampaignStats(campaignId: string): Promise<CampaignStats> {
-  const doc = await db().collection(COLLECTION).doc(campaignId).get()
+export async function getCampaignStats(slug: string, campaignId: string): Promise<CampaignStats> {
+  const doc = await statsRef(slug, campaignId).get()
   if (!doc.exists) return EMPTY
   // Parse defensively: a doc written by an older shape must not 500 the
   // dashboard. Missing counters fall back to zero via the spread.

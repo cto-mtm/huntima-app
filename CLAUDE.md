@@ -1,8 +1,13 @@
-# Photo Hunt
+# Huntima
 
-A white-label "digital passport" web app for live sporting events. Fans scan a
-QR code on the jumbotron, get a list of photo missions around the concourse,
-capture them, and collect badges toward a redeemable prize.
+A multi-tenant platform for verified photo hunts at live events. Each org
+(ball club, company, wedding) gets a branded page at `/:tenantSlug` — fans
+scan a QR code, get a list of photo missions, capture them, and collect
+badges toward a redeemable prize. Organizers run their own console at
+`/:tenantSlug/admin`; org access is a membership document
+(`tenants/{slug}/members/{uid}`), while the `admin` custom claim means
+*platform operator*. See `docs/platform-migration.md` for the pivot design
+and `docs/business-plan.md` / `BUSINESS_MODEL.md` for who pays.
 
 Mobile-first browser app today; ships as an iOS/Android app via Capacitor with
 zero restructuring.

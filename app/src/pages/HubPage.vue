@@ -41,7 +41,9 @@ watch(
       ? missionsStore.campaignId
       : null,
   (campaignId) => {
-    if (campaignId) reportFanEvent(campaignId, 'participant')
+    if (campaignId && missionsStore.slug) {
+      reportFanEvent(missionsStore.slug, campaignId, 'participant')
+    }
   },
   { immediate: true },
 )

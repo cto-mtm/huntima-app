@@ -7,11 +7,13 @@ import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import MissionTargetField from '../../components/admin/MissionTargetField.vue'
 import { useHuntsStore } from '../../stores/hunts'
+import { useTenantStore } from '../../stores/tenant'
 import { uploadImage } from '../../lib/storage'
 
 const { t } = useI18n()
 const route = useRoute()
 const hunts = useHuntsStore()
+const tenant = useTenantStore()
 
 const huntId = computed(() => String(route.params.id))
 
@@ -54,7 +56,11 @@ let loadedFor: string | null = null
 watch(
   () => hunts.current,
   (campaign) => {
-    if (!campaign || campaign.id === loadedFor) return
+    // The id must match THIS page's hunt: `current` can still hold the
+    // previously edited hunt when this fires immediately on mount, and
+    // seeding the draft from it would let a failed load save hunt A's
+    // missions over hunt B.
+    if (!campaign || campaign.id !== huntId.value || campaign.id === loadedFor) return
     loadedFor = campaign.id
     draft.value = campaign.missions.map((m) => ({ ...m }))
     prize.value = campaign.prize ? { ...campaign.prize } : { ...emptyPrize }
@@ -88,7 +94,11 @@ async function onPrizeImage(event: Event): Promise<void> {
   try {
     // Reuses the campaign target-photo path/rules rather than a new storage
     // location — it is the same kind of staff-uploaded, world-read image.
-    const { url } = await uploadImage('mission-target', huntId.value, file)
+    const { url } = await uploadImage(
+      'mission-target',
+      { slug: tenant.slug ?? '', campaignId: huntId.value },
+      file,
+    )
     prize.value.imageUrl = url
     markPrizeDirty()
   } catch {

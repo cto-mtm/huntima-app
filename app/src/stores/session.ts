@@ -6,8 +6,8 @@ import { computed, ref } from 'vue'
 import type { User } from 'firebase/auth'
 import { getFirebaseAuth } from '../lib/firebase'
 
-const DEVICE_KEY = 'photo-hunt:device-id'
-const ROLE_KEY = 'photo-hunt:role'
+const DEVICE_KEY = 'huntima:device-id'
+const ROLE_KEY = 'huntima:role'
 /**
  * Set once anybody signs in on this device, and never cleared by a sign-out
  * of convenience — it only records that an account has been used here.
@@ -17,7 +17,7 @@ const ROLE_KEY = 'photo-hunt:role'
  * never touch; not loading it at all means a signed-in fan is never
  * recognised when they come back. This flag buys both.
  */
-const ACCOUNT_SEEN_KEY = 'photo-hunt:has-account'
+const ACCOUNT_SEEN_KEY = 'huntima:has-account'
 
 /**
  * `guest` — no account at all. The default, and the fast path: a family
@@ -77,8 +77,13 @@ export const useSessionStore = defineStore('session', () => {
   const isGuest = computed(() => role.value === 'guest')
   const isFan = computed(() => role.value === 'fan')
   const isAdmin = computed(() => role.value === 'admin')
-  /** Anyone who may play: guests and signed-in fans alike. */
-  const canPlay = computed(() => role.value === 'guest' || role.value === 'fan')
+  /** Anyone who may play: guests, signed-in fans, AND operators/org members.
+   *  Running an org and playing a hunt are two hats on one account — the
+   *  platform's premise — so holding the operator claim must never lock
+   *  someone out of the fan experience. */
+  const canPlay = computed(
+    () => role.value === 'guest' || role.value === 'fan' || role.value === 'admin',
+  )
 
   function persistRole(next: Role): void {
     try {

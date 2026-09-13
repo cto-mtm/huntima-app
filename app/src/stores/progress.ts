@@ -5,7 +5,7 @@ import { useMissionsStore } from './missions'
 import { reportFanEvent } from '../lib/analytics'
 import { apiFetch } from '../lib/api'
 
-const STORAGE_KEY = 'photo-hunt:progress'
+const STORAGE_KEY = 'huntima:progress'
 /** Authenticated cross-device progress store. See helpers/fanProgress.ts. */
 const PROGRESS_ENDPOINT = '/me/progress'
 
@@ -19,6 +19,9 @@ interface WonHunt {
   name: string
   /** Epoch ms when the hunt was completed. */
   wonAt: number
+  /** Which org's hunt this was — provenance for the trophy shelf. Absent on
+   *  trophies recorded before the platform pivot. */
+  tenantSlug?: string
 }
 
 interface PersistedProgress {
@@ -38,14 +41,22 @@ interface PersistedProgress {
 
 function parseWonHunts(value: unknown): WonHunt[] {
   if (!Array.isArray(value)) return []
-  return value.filter(
-    (h): h is WonHunt =>
-      typeof h === 'object' &&
-      h !== null &&
-      typeof (h as WonHunt).campaignId === 'string' &&
-      typeof (h as WonHunt).name === 'string' &&
-      typeof (h as WonHunt).wonAt === 'number',
-  )
+  return value
+    .filter(
+      (h): h is WonHunt =>
+        typeof h === 'object' &&
+        h !== null &&
+        typeof (h as WonHunt).campaignId === 'string' &&
+        typeof (h as WonHunt).name === 'string' &&
+        typeof (h as WonHunt).wonAt === 'number',
+    )
+    .map((h) => ({
+      campaignId: h.campaignId,
+      name: h.name,
+      wonAt: h.wonAt,
+      // Optional provenance; drop anything that isn't a plain string.
+      ...(typeof h.tenantSlug === 'string' ? { tenantSlug: h.tenantSlug } : {}),
+    }))
 }
 
 function parseEarned(value: unknown): Record<string, string[]> {
@@ -215,9 +226,17 @@ export const useProgressStore = defineStore('progress', () => {
    * same hunt again (or a reload while complete) must not add a second trophy.
    * The seed/fallback hunt is skipped by the caller — it has no real name.
    */
-  function recordWin(id: string, huntName: string): void {
+  function recordWin(id: string, huntName: string, tenantSlug?: string): void {
     if (!id || wonHunts.value.some((h) => h.campaignId === id)) return
-    wonHunts.value = [...wonHunts.value, { campaignId: id, name: huntName, wonAt: Date.now() }]
+    wonHunts.value = [
+      ...wonHunts.value,
+      {
+        campaignId: id,
+        name: huntName,
+        wonAt: Date.now(),
+        ...(tenantSlug ? { tenantSlug } : {}),
+      },
+    ]
   }
 
   function reset(): void {
@@ -325,9 +344,9 @@ export const useProgressStore = defineStore('progress', () => {
   // Requires a real campaign id — there is no hunt to win when none is
   // published.
   watch(isComplete, (complete) => {
-    if (complete && missionsStore.loaded && missionsStore.campaignId) {
-      reportFanEvent(missionsStore.campaignId, 'completion')
-      recordWin(missionsStore.campaignId, missionsStore.name)
+    if (complete && missionsStore.loaded && missionsStore.campaignId && missionsStore.slug) {
+      reportFanEvent(missionsStore.slug, missionsStore.campaignId, 'completion')
+      recordWin(missionsStore.campaignId, missionsStore.name, missionsStore.slug)
     }
   })
 

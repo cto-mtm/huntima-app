@@ -11,23 +11,44 @@ import {
 } from 'shared'
 import { apiFetch } from '../lib/api'
 import { useSessionStore } from './session'
+import { useTenantStore } from './tenant'
 
 /**
- * Admin-side hunt CRUD.
+ * Admin-side hunt CRUD, scoped to the org the router has activated.
  *
- * Every call here carries the staff member's Firebase ID token and is
- * enforced server-side against the `admin` custom claim. Nothing in this
- * store is a security boundary — it is the UI's view of data the server
- * already decided this person may touch.
+ * Every call carries the member's Firebase ID token and is enforced
+ * server-side by `requireMember` (membership doc or operator claim). Nothing
+ * in this store is a security boundary — it is the UI's view of data the
+ * server already decided this person may touch.
  */
 export const useHuntsStore = defineStore('hunts', () => {
   const session = useSessionStore()
+  const tenant = useTenantStore()
 
   const campaigns = ref<Campaign[]>([])
   const current = ref<Campaign | null>(null)
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
+
+  /** Which org the cached state belongs to. Switching orgs via the picker
+   *  must not show org A's hunt list inside org B's console — even for the
+   *  beat before the fetch lands, and especially if the fetch fails. */
+  const forSlug = ref<string | null>(null)
+
+  function syncOrg(): void {
+    if (forSlug.value === tenant.slug) return
+    forSlug.value = tenant.slug
+    campaigns.value = []
+    current.value = null
+    error.value = null
+  }
+
+  /** The org console's API root. The guard guarantees a slug is active on
+   *  every admin route before these pages mount. */
+  function base(): string {
+    return `/t/${tenant.slug}/admin/campaigns`
+  }
 
   async function authed<T>(path: string, init?: RequestInit) {
     const token = await session.getIdToken()
@@ -40,10 +61,11 @@ export const useHuntsStore = defineStore('hunts', () => {
   }
 
   async function loadAll(): Promise<void> {
+    syncOrg()
     loading.value = true
     error.value = null
 
-    const result = await authed<{ campaigns: unknown[] }>('/admin/campaigns')
+    const result = await authed<{ campaigns: unknown[] }>(base())
     if (result.ok) {
       campaigns.value = result.data.campaigns
         .map((c) => campaignSchema.safeParse(c))
@@ -57,10 +79,11 @@ export const useHuntsStore = defineStore('hunts', () => {
   }
 
   async function loadOne(id: string): Promise<void> {
+    syncOrg()
     loading.value = true
     error.value = null
 
-    const result = await authed<unknown>(`/admin/campaigns/${id}`)
+    const result = await authed<unknown>(`${base()}/${id}`)
     if (result.ok) {
       const parsed = campaignSchema.safeParse(result.data)
       current.value = parsed.success ? parsed.data : null
@@ -77,7 +100,7 @@ export const useHuntsStore = defineStore('hunts', () => {
     saving.value = true
     error.value = null
 
-    const result = await authed<unknown>('/admin/campaigns', {
+    const result = await authed<unknown>(base(), {
       method: 'POST',
       body: JSON.stringify(input),
     })
@@ -100,7 +123,7 @@ export const useHuntsStore = defineStore('hunts', () => {
     saving.value = true
     error.value = null
 
-    const result = await authed<unknown>(`/admin/campaigns/${id}`, {
+    const result = await authed<unknown>(`${base()}/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     })
@@ -141,7 +164,7 @@ export const useHuntsStore = defineStore('hunts', () => {
       return false
     }
 
-    const result = await authed<unknown>(`/admin/campaigns/${id}/missions`, {
+    const result = await authed<unknown>(`${base()}/${id}/missions`, {
       method: 'PUT',
       body: JSON.stringify(payload.data),
     })
@@ -164,7 +187,7 @@ export const useHuntsStore = defineStore('hunts', () => {
    * renderable shape.
    */
   async function loadStats(id: string): Promise<CampaignStats | null> {
-    const result = await authed<unknown>(`/admin/campaigns/${id}/stats`)
+    const result = await authed<unknown>(`${base()}/${id}/stats`)
     if (!result.ok) {
       error.value = result.error
       return null
@@ -174,7 +197,7 @@ export const useHuntsStore = defineStore('hunts', () => {
   }
 
   async function remove(id: string): Promise<boolean> {
-    const result = await authed<unknown>(`/admin/campaigns/${id}`, { method: 'DELETE' })
+    const result = await authed<unknown>(`${base()}/${id}`, { method: 'DELETE' })
     if (!result.ok) {
       error.value = result.error
       return false

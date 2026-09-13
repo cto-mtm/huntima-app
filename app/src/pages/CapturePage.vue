@@ -159,8 +159,9 @@ async function onFileChosen(event: Event): Promise<void> {
   }
 
   // The verdict is the SERVER's. The client used to award its own badges,
-  // which is the same as letting it mint prizes.
-  const result = await apiPost<unknown>('/verify-capture', {
+  // which is the same as letting it mint prizes. Scoped to the org so a
+  // campaignId can never resolve against another club's hunt.
+  const result = await apiPost<unknown>(`/t/${missionsStore.slug}/verify-capture`, {
     campaignId: missionsStore.campaignId,
     missionId: missionId.value,
     imageBase64: capture.value.base64,

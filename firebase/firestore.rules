@@ -1,51 +1,67 @@
 rules_version = '2';
 
-// Campaign data is world-readable and staff-writable.
+// Multi-tenant layout: everything an org owns lives under tenants/{slug}.
 //
-// Fans are anonymous by product design — there is no sign-in to gate reads
-// behind, and a hunt is public information printed on a jumbotron. Writes are
-// a different matter: a campaign edit changes what an entire stadium sees.
+// Fan-facing data is world-readable — fans are anonymous by product design,
+// and a hunt is public information printed on a jumbotron. Writes are gated
+// on ORG MEMBERSHIP (a document, not a claim) or the platform operator claim.
+//
+// These rules are largely advisory today: every write flows through the
+// Functions API, whose Admin SDK bypasses rules. They exist as cheap
+// insurance for the day a client talks to Firestore directly, and as the
+// single written statement of who may touch what.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // The `admin` custom claim is the authority. Never an email address or a
-    // domain: anyone who can register that address would otherwise inherit it.
-    function isStaff() {
+    // The `admin` claim now means PLATFORM OPERATOR (support/ops, never a
+    // customer). Never an email address or a domain: anyone who can register
+    // that address would otherwise inherit it.
+    function isOperator() {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    match /campaigns/{campaignId} {
-      allow read: if true;
-      allow write: if isStaff();
+    // Org access is a membership document — instant revoke, no claim-size
+    // cap, and one source of truth shared with the API and storage.rules.
+    function isMember(slug) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/tenants/$(slug)/members/$(request.auth.uid));
+    }
 
-      match /missions/{missionId} {
+    match /tenants/{slug} {
+      // Branding: every fan's first paint needs it and fans are anonymous.
+      allow read: if true;
+      // Orgs are created and re-branded via the API (which also guards the
+      // server-written _meta field). Operator writes are the break-glass.
+      allow write: if isOperator();
+
+      match /members/{uid} {
+        // Members can see who else runs their org; nobody self-enrolls —
+        // membership is granted through the API by an owner or operator.
+        allow read: if isMember(slug) || isOperator();
+        allow write: if isOperator();
+      }
+
+      match /campaigns/{campaignId} {
+        // World-readable like the tenant doc; a published hunt is public.
         allow read: if true;
-        allow write: if isStaff();
+        allow write: if isMember(slug) || isOperator();
+      }
+
+      match /campaign_stats/{campaignId} {
+        // Counters are written ONLY by the function (Admin SDK). Members can
+        // read their own org's dashboard numbers directly if a client ever
+        // wants to.
+        allow read: if isMember(slug) || isOperator();
+        allow write: if false;
       }
     }
 
-    // Branding: world-readable because every fan's first paint needs it and
-    // fans are anonymous; staff-writable because it changes what an entire
-    // stadium sees.
-    match /tenants/{tenantId} {
-      allow read: if true;
-      allow write: if isStaff();
-    }
-
-    // Fan progress (`fan_progress/{uid}`) is written ONLY by the Cloud Function
-    // via the Admin SDK, through the authenticated /me/progress endpoint — the
-    // client never touches Firestore directly, so this deny-all is exactly the
-    // guard we want: a fan who could write their own doc could write themselves
-    // a prize. What the function stores is still the fan's self-reported
-    // progress (continuity, not a trusted ledger); making badges
-    // server-authoritative is a separate seam — see docs/architecture.md.
-    //
-    // The same deny-all covers the server-only collections the Admin SDK owns:
-    //   • campaign_stats/  — aggregate counters (helpers/analytics.ts)
-    //   • rate_limits/     — per-caller cost-guard counters (helpers/rateLimit.ts)
-    // The Admin SDK bypasses these rules; a client must never read or write
-    // them. rate_limits docs carry an `expireAt` field — configure a Firestore
-    // TTL policy on it so spent windows are reaped automatically.
+    // Fan progress (`fan_progress/{uid}`) is written ONLY by the Cloud
+    // Function via the Admin SDK, through the authenticated /me/progress
+    // endpoint — a fan who could write their own doc could write themselves
+    // a prize. The same deny-all covers `rate_limits/` (cost-guard counters;
+    // docs carry an `expireAt` field — configure a Firestore TTL policy on it
+    // so spent windows are reaped automatically).
     match /{document=**} {
       allow read, write: if false;
     }

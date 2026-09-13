@@ -1,6 +1,6 @@
 {
-  "name": "photo-hunt-functions",
-  "description": "Cloud Functions API for the Photo Hunt app",
+  "name": "huntima-functions",
+  "description": "Cloud Functions API for Huntima",
   "private": true,
   "engines": { "node": "20" },
   "main": "lib/index.js",

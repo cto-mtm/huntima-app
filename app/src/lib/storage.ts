@@ -95,12 +95,22 @@ export class UploadError extends Error {
   }
 }
 
-function pathFor(kind: AssetKind, ownerId: string, fileName: string): string {
+/**
+ * Who an upload belongs to. Everything lives under the org's subtree —
+ * `tenants/{slug}/…` — which is also what storage.rules scopes writes by
+ * (membership in that org). `campaignId` is required for mission targets.
+ */
+export interface UploadOwner {
+  slug: string
+  campaignId?: string
+}
+
+function pathFor(kind: AssetKind, owner: UploadOwner, fileName: string): string {
   const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60)
   const stamp = Date.now()
   return kind === 'team-asset'
-    ? `tenants/${ownerId}/assets/${stamp}-${safe}`
-    : `campaigns/${ownerId}/targets/${stamp}-${safe}`
+    ? `tenants/${owner.slug}/assets/${stamp}-${safe}`
+    : `tenants/${owner.slug}/campaigns/${owner.campaignId}/targets/${stamp}-${safe}`
 }
 
 /** Swaps a file name's extension to match the content type we actually store,
@@ -143,7 +153,7 @@ export interface UploadResult {
  */
 export async function uploadImage(
   kind: AssetKind,
-  ownerId: string,
+  owner: UploadOwner,
   file: File,
 ): Promise<UploadResult> {
   if (!file.type.startsWith('image/')) {
@@ -173,7 +183,7 @@ export async function uploadImage(
     throw new UploadError('too-large')
   }
 
-  const path = pathFor(kind, ownerId, withExtensionFor(file.name, contentType))
+  const path = pathFor(kind, owner, withExtensionFor(file.name, contentType))
   const objectRef = ref(storage, path)
 
   await uploadBytes(objectRef, body, { contentType })

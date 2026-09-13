@@ -1,125 +1,189 @@
 import { nextTick } from 'vue'
 import { createRouter, createWebHistory, START_LOCATION } from 'vue-router'
+import { isValidTenantSlug } from 'shared'
 import { useSessionStore } from '../stores/session'
+import { useTenantStore } from '../stores/tenant'
+import { useMissionsStore } from '../stores/missions'
+import { useOrgsStore } from '../stores/orgs'
 import { isNavigating } from '../lib/pageTransition'
 
+/**
+ * Multi-tenant routing: the fan app lives under `/:tenantSlug` — the brand
+ * page (`huntima.app/louisville-bats`) IS the app. Platform surfaces
+ * (landing, org picker, staff login) live at reserved top-level paths;
+ * `RESERVED_SLUGS` in `shared` guarantees no org can ever claim one.
+ *
+ * Every in-app navigation is by route NAME. vue-router carries the current
+ * `tenantSlug` param into named navigations, so pages never thread the slug
+ * by hand — they say `{ name: 'home' }` and stay inside their org.
+ */
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'home', component: () => import('../pages/HubPage.vue') },
-    // `bare: true` renders without AppShell. The fan chrome (fixed header,
-    // bottom nav) presumes a session; showing it before you have one offers
-    // navigation into pages the guard will immediately bounce you out of.
+    // Platform landing. Minimal by design in Phase 1 (the front door is a QR
+    // code on a jumbotron); becomes discovery in Phase 3.
     {
-      path: '/welcome',
-      name: 'entry',
+      path: '/',
+      name: 'landing',
       meta: { bare: true },
-      component: () => import('../pages/EntryPage.vue'),
+      component: () => import('../pages/LandingPage.vue'),
     },
-    {
-      path: '/signin',
-      name: 'signin',
-      meta: { bare: true },
-      component: () => import('../pages/FanSignInPage.vue'),
-    },
-    { path: '/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue') },
     {
       path: '/staff-login',
       name: 'staff-login',
       meta: { bare: true },
       component: () => import('../pages/StaffLoginPage.vue'),
     },
-    { path: '/missions/:id', name: 'mission-detail', component: () => import('../pages/MissionDetailPage.vue') },
-    { path: '/missions/:id/capture', name: 'mission-capture', component: () => import('../pages/CapturePage.vue') },
-    { path: '/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
-    { path: '/redeem', name: 'redeem', component: () => import('../pages/RedeemPage.vue') },
-    { path: '/about', name: 'about', component: () => import('../pages/AboutPage.vue') },
-    // Admin lives in the same SPA so the branding preview can render the
-    // real fan components. meta.admin swaps AppShell for a plain layout —
-    // the fan chrome (fixed bottom nav, safe-area header) fights a
-    // dashboard. SEAM: there is no auth on this route. It is safe today
-    // only because branding is device-local; the moment it writes to the
-    // API it needs a real guard.
+    // The org picker: which console does this account open?
     {
-      path: '/admin',
-      // Hunts is the working surface staff return to; branding is set once and
-      // rarely revisited. So /admin lands on the hunt list.
-      redirect: { name: 'admin-hunts' },
+      path: '/orgs',
+      name: 'orgs',
+      meta: { bare: true },
+      component: () => import('../pages/OrgsPage.vue'),
+    },
+
+    // ── Fan app, scoped to one org ──────────────────────────────────
+    { path: '/:tenantSlug', name: 'home', component: () => import('../pages/HubPage.vue') },
+    // `bare: true` renders without AppShell. The fan chrome (fixed header,
+    // bottom nav) presumes a session; showing it before you have one offers
+    // navigation into pages the guard will immediately bounce you out of.
+    {
+      path: '/:tenantSlug/welcome',
+      name: 'entry',
+      meta: { bare: true },
+      component: () => import('../pages/EntryPage.vue'),
     },
     {
-      path: '/admin/hunts',
+      path: '/:tenantSlug/signin',
+      name: 'signin',
+      meta: { bare: true },
+      component: () => import('../pages/FanSignInPage.vue'),
+    },
+    { path: '/:tenantSlug/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue') },
+    { path: '/:tenantSlug/missions/:id', name: 'mission-detail', component: () => import('../pages/MissionDetailPage.vue') },
+    { path: '/:tenantSlug/missions/:id/capture', name: 'mission-capture', component: () => import('../pages/CapturePage.vue') },
+    { path: '/:tenantSlug/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
+    { path: '/:tenantSlug/redeem', name: 'redeem', component: () => import('../pages/RedeemPage.vue') },
+    { path: '/:tenantSlug/about', name: 'about', component: () => import('../pages/AboutPage.vue') },
+
+    // ── Org console, under the same slug ────────────────────────────
+    {
+      path: '/:tenantSlug/admin',
+      // Hunts is the working surface staff return to; branding is set once
+      // and rarely revisited. So /admin lands on the hunt list.
+      redirect: (to) => ({ name: 'admin-hunts', params: to.params }),
+    },
+    {
+      path: '/:tenantSlug/admin/hunts',
       name: 'admin-hunts',
-      meta: { bare: true, requiresAdmin: true },
+      meta: { bare: true, requiresOrg: true },
       component: () => import('../pages/admin/AdminHuntsPage.vue'),
     },
     {
-      path: '/admin/hunts/:id',
+      path: '/:tenantSlug/admin/hunts/:id',
       name: 'admin-hunt-edit',
-      meta: { bare: true, requiresAdmin: true },
+      meta: { bare: true, requiresOrg: true },
       component: () => import('../pages/admin/AdminHuntEditPage.vue'),
     },
     {
-      path: '/admin/hunts/:id/stats',
+      path: '/:tenantSlug/admin/hunts/:id/stats',
       name: 'admin-hunt-stats',
-      meta: { bare: true, requiresAdmin: true },
+      meta: { bare: true, requiresOrg: true },
       component: () => import('../pages/admin/AdminHuntStatsPage.vue'),
     },
     {
-      path: '/admin/branding',
+      path: '/:tenantSlug/admin/branding',
       name: 'admin-branding',
-      meta: { bare: true, requiresAdmin: true },
+      meta: { bare: true, requiresOrg: true },
       component: () => import('../pages/admin/AdminBrandingPage.vue'),
     },
     // Catch-all 404. Required because Firebase Hosting rewrites every URL
-    // to index.html — without this, typos render an empty RouterView.
-    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../pages/NotFoundPage.vue') },
+    // to index.html — without this, typos render an empty RouterView. Also
+    // where malformed slugs land.
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      meta: { bare: true },
+      component: () => import('../pages/NotFoundPage.vue'),
+    },
   ],
   scrollBehavior: () => ({ top: 0 }),
 })
 
-// ── SESSION GATE ────────────────────────────────────────────────────
+// ── SESSION + TENANT GATE ───────────────────────────────────────────
 // A fan arrives by scanning a QR code, so ANY route can be the entry
-// point. Three tiers:
+// point. Tiers:
 //   public      — reachable with no session at all
-//   fan         — needs a guest session and a profile
-//   admin       — needs a Firebase session carrying the verified `admin`
-//                 custom claim
+//   fan         — needs a guest session (or any signed-in account)
+//   org console — needs a signed-in account that is a MEMBER of this org
+//                 (tenants/{slug}/members/{uid}), or the platform operator
+//                 claim
 //
-// The admin check here is convenience, not security: it decides what UI to
-// render. The real gate is server-side token verification in
-// functions/src/helpers/auth.ts. A client that forces its way to /admin
-// sees a dashboard whose every privileged call returns 401/403.
-const PUBLIC_ROUTES = new Set(['entry', 'signin', 'staff-login', 'about', 'not-found'])
+// The org check here is convenience, not security: it decides what UI to
+// render. The real gate is server-side in functions/src/api.ts —
+// requireMember() refuses every privileged call.
+const PUBLIC_ROUTES = new Set(['landing', 'orgs', 'entry', 'signin', 'staff-login', 'about', 'not-found'])
 
 router.beforeEach(async (to) => {
   const session = useSessionStore()
+  const tenant = useTenantStore()
+  const missions = useMissionsStore()
   const name = String(to.name ?? '')
 
-  if (to.meta.requiresAdmin) {
+  // ── Tenant scope ──
+  // Entering any slugged route activates that org: cached brand applies
+  // synchronously (no default-palette flash), then the API reconciles.
+  // Leaving tenant scope restores the platform default theme so /orgs and
+  // the landing page never wear the last-visited club's colors.
+  const slugParam = to.params.tenantSlug
+  if (typeof slugParam === 'string') {
+    if (!isValidTenantSlug(slugParam)) return { name: 'not-found' }
+    tenant.activate(slugParam)
+    missions.activate(slugParam)
+  } else {
+    tenant.deactivate()
+  }
+
+  if (to.meta.requiresOrg) {
     // Await Firebase restoring any existing session first, or a staff
     // member who simply reloads the page gets bounced to the login screen.
     await session.ensureAuthReady()
-    return session.isAdmin ? true : { name: 'staff-login' }
+    if (!session.user) {
+      // Carry the destination: someone deep-linking an org console must land
+      // back on it after signing in, not on the org picker.
+      return { name: 'staff-login', query: { to: to.fullPath } }
+    }
+    if (session.isAdmin) return true // platform operator bypasses membership
+    const orgs = useOrgsStore()
+    await orgs.ensureLoaded()
+    if (typeof slugParam === 'string' && orgs.isMemberOf(slugParam)) return true
+    return { name: 'orgs' }
   }
 
   if (name === 'signin' || name === 'staff-login') {
     await session.ensureAuthReady()
-    if (name === 'signin') return session.isFan ? { name: 'home' } : true
-    return session.isAdmin ? { name: 'admin-hunts' } : true
+    if (name === 'signin')
+      return session.isFan
+        ? { name: 'home', params: { tenantSlug: String(to.params.tenantSlug ?? '') } }
+        : true
+    return session.isAdmin ? { name: 'orgs' } : true
   }
 
   if (PUBLIC_ROUTES.has(name)) return true
 
-  // Fan routes. A guest and a signed-in fan are equally entitled to play;
-  // there is no longer a profile step to complete first, because naming
-  // yourself is optional and happens from /profile whenever you feel like it.
+  // Fan routes. A guest and any signed-in account are equally entitled to
+  // play — including org members and operators; running an org and playing
+  // a hunt are two hats on one account, not two accounts.
   //
   // A fan's role is NOT restored from storage — it comes from a live Firebase
   // session — so on a refresh or a deep link this guard would otherwise run
   // first and bounce them to the entry screen. Wait for auth, but only if an
   // account has been used here: a guest must never pay for the Auth SDK.
   if (!session.canPlay && session.hasUsedAccount()) await session.ensureAuthReady()
-  if (!session.canPlay) return { name: 'entry' }
+  // Only the slug crosses into the entry route — a mission id from a deep
+  // link is not an entry param, and passing it would log a router warning.
+  if (!session.canPlay)
+    return { name: 'entry', params: { tenantSlug: String(to.params.tenantSlug ?? '') } }
   return true
 })
 

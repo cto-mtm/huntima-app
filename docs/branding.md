@@ -80,9 +80,10 @@ for the moment it takes the API to answer.
 - **`localStorage` is a cache, not the truth.** It exists so the first paint
   is already branded before the network answers, and so the app still looks
   like the club with no signal. The API is authoritative.
-- **Single tenant.** One deployment serves one club, so there is exactly one
-  `tenants/default` document. Hosting several means a tenant id and a
-  membership check in the rules instead of a bare admin claim.
+- **Multi-tenant.** One deployment serves every org: branding lives in
+  `tenants/{slug}` (the URL slug is the document id), the store is scoped by
+  the router guard (`activate(slug)` / `deactivate()`), and writes are gated
+  on org membership — see `docs/platform-migration.md`.
 - **No image cleanup.** Removing a logo or avatar drops the reference, not the
   object in Storage. Orphans accumulate; a lifecycle rule is the fix.
 - **The venue geofence is still a constant** in `config/tenant.ts`. It needs a

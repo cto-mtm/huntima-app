@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 /**
- * Seeds the local emulator with everything needed to click around:
- * a staff account, club branding, and a published hunt — now with real images
- * pulled from ./seed-assets (see that folder's README).
+ * Seeds the local emulator with everything needed to click around the
+ * PLATFORM: an operator account and TWO orgs with distinct branding —
+ * so multi-tenancy is visibly exercised in every local session (two brand
+ * pages, two published hunts, isolation provable by eye).
  *
  *   npm run seed          (from the repo root)
  *
  * Idempotent — run it after every emulator restart. The Auth, Firestore and
- * Storage emulators start empty and do not persist, so this is the fastest path
- * from a cold start to a working app.
+ * Storage emulators start empty and do not persist, so this is the fastest
+ * path from a cold start to a working app.
  *
- * It drives the REAL admin API with a real ID token rather than writing to
+ * It drives the REAL API with a real ID token rather than writing to
  * Firestore directly, so a broken auth gate or a schema change fails the seed
- * instead of silently producing data the app cannot read. Images go straight to
- * the Storage emulator (staff-authenticated, exactly as the admin UI would).
+ * instead of silently producing data the app cannot read. Images go straight
+ * to the Storage emulator (authenticated, exactly as the admin UI would).
  *
  * Dependency-free on purpose: Node 18+ has fetch, plus the built-in fs/path.
  */
@@ -32,6 +33,12 @@ const PUBLIC_STORAGE = process.env.SEED_STORAGE_PUBLIC_URL ?? STORAGE
 const BUCKET = process.env.SEED_STORAGE_BUCKET ?? 'demo-app.appspot.com'
 const API_KEY = 'demo-api-key'
 
+// The two demo orgs. BATS is the fully-dressed club (logo, avatars, target
+// photos from seed-assets); HAWKS is deliberately minimal but PUBLISHED, so
+// switching between /louisville-bats and /harbor-hawks proves isolation.
+const BATS = 'louisville-bats'
+const HAWKS = 'harbor-hawks'
+
 const ASSETS = join(dirname(fileURLToPath(import.meta.url)), 'seed-assets')
 
 function die(message, hint) {
@@ -41,7 +48,7 @@ function die(message, hint) {
   process.exit(1)
 }
 
-async function call(path, options = {}) {
+async function call(path, options = {}, allowStatuses = []) {
   let res
   try {
     res = await fetch(`${API}${path}`, {
@@ -51,8 +58,11 @@ async function call(path, options = {}) {
   } catch {
     die(`Could not reach the functions emulator at ${API}`, 'Start it first:  npm run emulators')
   }
-  if (!res.ok) die(`${options.method ?? 'GET'} ${path} failed: HTTP ${res.status}`, await res.text())
-  return res.status === 204 ? null : res.json()
+  if (!res.ok && !allowStatuses.includes(res.status)) {
+    die(`${options.method ?? 'GET'} ${path} failed: HTTP ${res.status}`, await res.text())
+  }
+  if (res.status === 204) return null
+  return res.json().catch(() => null)
 }
 
 // ── Storage assets ────────────────────────────────────────────────────
@@ -88,10 +98,9 @@ function labelize(fileName) {
 }
 
 /**
- * Uploads one image to the Storage emulator as staff and returns its download
- * URL — or null on any problem, so a bad asset degrades to "no image" rather
- * than failing the whole seed. Read is public (storage.rules), so the URL works
- * with just `alt=media`; the token is included when the emulator returns one.
+ * Uploads one image to the Storage emulator and returns its download URL —
+ * or null on any problem, so a bad asset degrades to "no image" rather than
+ * failing the whole seed.
  */
 async function upload(idToken, file, storagePath) {
   const mime = mimeOf(file.name)
@@ -122,8 +131,10 @@ async function upload(idToken, file, storagePath) {
   return token ? `${url}&token=${token}` : url
 }
 
-// ── 1. Staff account ──────────────────────────────────────────────────
+// ── 1. Operator account ───────────────────────────────────────────────
 // Custom claims cannot be set from a client SDK, so the function does it.
+// The claim now means PLATFORM OPERATOR — it passes every org gate, which
+// is what lets this script drive both orgs with one token.
 const admin = await call('/dev/seed-admin', { method: 'POST', body: '{}' })
 
 const signIn = await fetch(
@@ -140,18 +151,31 @@ if (!idToken) die('Signed in but got no ID token.', 'Is the Auth emulator health
 
 const auth = { Authorization: `Bearer ${idToken}` }
 
-// ── 2. Images from ./seed-assets ──────────────────────────────────────
+// ── 2. The orgs ───────────────────────────────────────────────────────
+// 409 = already exists (a re-run), which is fine — the seed is idempotent.
+await call(
+  '/orgs',
+  { method: 'POST', headers: auth, body: JSON.stringify({ slug: BATS, teamName: 'Louisville Bats' }) },
+  [409],
+)
+await call(
+  '/orgs',
+  { method: 'POST', headers: auth, body: JSON.stringify({ slug: HAWKS, teamName: 'Harbor Hawks' }) },
+  [409],
+)
+
+// ── 3. Louisville Bats: images + full branding ────────────────────────
 console.log('  Uploading images from seed-assets…')
 
 const [logoFiles, avatarFiles] = await Promise.all([imagesIn('logo'), imagesIn('avatars')])
 
 const logoUrl = logoFiles.length
-  ? await upload(idToken, logoFiles[0], `tenants/default/assets/seed-${logoFiles[0].name}`)
+  ? await upload(idToken, logoFiles[0], `tenants/${BATS}/assets/seed-${logoFiles[0].name}`)
   : null
 
 const avatars = []
 for (const file of avatarFiles.slice(0, 24)) {
-  const url = await upload(idToken, file, `tenants/default/assets/seed-${file.name}`)
+  const url = await upload(idToken, file, `tenants/${BATS}/assets/seed-${file.name}`)
   if (url) {
     avatars.push({
       id: `seed-${file.name.replace(extname(file.name), '')}`.slice(0, 60),
@@ -161,11 +185,9 @@ for (const file of avatarFiles.slice(0, 24)) {
   }
 }
 
-// ── 3. Club branding ──────────────────────────────────────────────────
-// Louisville Bats — Triple-A affiliate of the Cincinnati Reds, playing at
-// Louisville Slugger Field. Since their 2015/16 rebrand the club uses a
-// red / navy / white scheme: brandBase is the navy, accentBase the red.
-const tenant = await call('/admin/tenant', {
+// Louisville Bats — Triple-A affiliate of the Cincinnati Reds. Since their
+// 2015/16 rebrand the club uses a red / navy / white scheme.
+const tenant = await call(`/t/${BATS}/admin/tenant`, {
   method: 'PUT',
   headers: auth,
   body: JSON.stringify({
@@ -181,11 +203,9 @@ const tenant = await call('/admin/tenant', {
   }),
 })
 
-// ── 4. A published hunt ───────────────────────────────────────────────
+// ── 4. The Bats' published hunt ───────────────────────────────────────
 // Staff-authored copy is literal text, never i18n keys — it is user-generated
-// content. Ten ballpark things to photograph around Slugger Field. Colors stay
-// on the Bats navy/red palette so the fallback tiles look on-brand when a
-// target photo has not been dropped in seed-assets yet.
+// content. Ten ballpark things to photograph around Slugger Field.
 const NAVY = '#14284b'
 const RED = '#c8102e'
 const STEEL = '#2f4a7c'
@@ -204,26 +224,30 @@ const MISSIONS = [
   ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', NAVY],
 ]
 
-const existing = await call('/admin/campaigns', { headers: auth })
+const existing = await call(`/t/${BATS}/admin/campaigns`, { headers: auth })
 const SEED_NAME = 'Slugger Field Safari'
 let hunt = existing.campaigns.find((c) => c.name === SEED_NAME)
 
 if (!hunt) {
-  hunt = await call('/admin/campaigns', {
+  hunt = await call(`/t/${BATS}/admin/campaigns`, {
     method: 'POST',
     headers: auth,
     body: JSON.stringify({ name: SEED_NAME, status: 'draft', badgeTarget: 8 }),
   })
 }
 
-// Prize, shown on the redeem screen when a fan wins. Its image (if any) reuses
-// the campaign target-photo path, exactly like the admin prize upload.
+// Prize, shown on the redeem screen when a fan wins. Its image (if any)
+// reuses the campaign target-photo path, exactly like the admin prize upload.
 const prizeFiles = await imagesIn('prize')
 const prizeImageUrl = prizeFiles.length
-  ? await upload(idToken, prizeFiles[0], `campaigns/${hunt.id}/targets/seed-prize-${prizeFiles[0].name}`)
+  ? await upload(
+      idToken,
+      prizeFiles[0],
+      `tenants/${BATS}/campaigns/${hunt.id}/targets/seed-prize-${prizeFiles[0].name}`,
+    )
   : null
 
-await call(`/admin/campaigns/${hunt.id}`, {
+await call(`/t/${BATS}/admin/campaigns/${hunt.id}`, {
   method: 'PATCH',
   headers: auth,
   body: JSON.stringify({
@@ -242,10 +266,14 @@ const targetFiles = await imagesIn('targets')
 const targetUrls = []
 for (let i = 0; i < MISSIONS.length; i++) {
   const file = targetFiles[i]
-  targetUrls.push(file ? await upload(idToken, file, `campaigns/${hunt.id}/targets/seed-${file.name}`) : null)
+  targetUrls.push(
+    file
+      ? await upload(idToken, file, `tenants/${BATS}/campaigns/${hunt.id}/targets/seed-${file.name}`)
+      : null,
+  )
 }
 
-await call(`/admin/campaigns/${hunt.id}/missions`, {
+await call(`/t/${BATS}/admin/campaigns/${hunt.id}/missions`, {
   method: 'PUT',
   headers: auth,
   body: JSON.stringify({
@@ -261,14 +289,77 @@ await call(`/admin/campaigns/${hunt.id}/missions`, {
   }),
 })
 
-// Publishing is exclusive server-side: making one hunt live demotes the rest.
-// So only publish the demo hunt when nothing else already is — otherwise
-// re-running the seed (e.g. to reset the staff account) would yank the live
-// slot away from a custom hunt you are in the middle of testing.
+// Publishing is exclusive PER ORG server-side: making one hunt live demotes
+// the rest of that org's hunts only. Only publish the demo hunt when nothing
+// else in this org already is — re-running the seed must not yank the live
+// slot from a custom hunt you are mid-way through testing.
 const otherLive = existing.campaigns.find((c) => c.status === 'published' && c.id !== hunt.id)
 const published = !otherLive
 if (published) {
-  await call(`/admin/campaigns/${hunt.id}`, {
+  await call(`/t/${BATS}/admin/campaigns/${hunt.id}`, {
+    method: 'PATCH',
+    headers: auth,
+    body: JSON.stringify({ status: 'published' }),
+  })
+}
+
+// ── 5. Harbor Hawks: a second, visibly different org ──────────────────
+// Minimal on purpose: no images, different palette, a small published hunt.
+// Its whole job is to make cross-org isolation obvious in local dev.
+await call(`/t/${HAWKS}/admin/tenant`, {
+  method: 'PUT',
+  headers: auth,
+  body: JSON.stringify({
+    teamName: 'Harbor Hawks',
+    prizeLocation: 'the Hawks Nest kiosk',
+    badgeTarget: 3,
+    timezone: 'America/Los_Angeles',
+    brandBase: '#0e5a4a',
+    accentBase: '#e8792b',
+    fontFamily: 'system',
+    logoUrl: null,
+    avatars: [],
+  }),
+})
+
+const HAWKS_HUNT = 'Harborfront Hunt'
+const hawksExisting = await call(`/t/${HAWKS}/admin/campaigns`, { headers: auth })
+let hawksHunt = hawksExisting.campaigns.find((c) => c.name === HAWKS_HUNT)
+if (!hawksHunt) {
+  hawksHunt = await call(`/t/${HAWKS}/admin/campaigns`, {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({ name: HAWKS_HUNT, status: 'draft', badgeTarget: 3 }),
+  })
+}
+
+const HAWKS_MISSIONS = [
+  ['The Mascot Perch', 'Find Harley Hawk and get them in frame.', 'photo', '#0e5a4a'],
+  ['Harbor View', 'Frame the water from the concourse rail.', 'photo', '#e8792b'],
+  ['Nest Noise', 'Catch the crowd mid-cheer from your seat.', 'spyglass', '#12735e'],
+]
+
+await call(`/t/${HAWKS}/admin/campaigns/${hawksHunt.id}/missions`, {
+  method: 'PUT',
+  headers: auth,
+  body: JSON.stringify({
+    missions: HAWKS_MISSIONS.map(([title, hint, kind, color], order) => ({
+      id: `seed-${order + 1}`,
+      kind,
+      title: { text: title },
+      hint: { text: hint },
+      color,
+      targetImageUrl: null,
+      order,
+    })),
+  }),
+})
+
+const hawksLive = hawksExisting.campaigns.find(
+  (c) => c.status === 'published' && c.id !== hawksHunt.id,
+)
+if (!hawksLive) {
+  await call(`/t/${HAWKS}/admin/campaigns/${hawksHunt.id}`, {
     method: 'PATCH',
     headers: auth,
     body: JSON.stringify({ status: 'published' }),
@@ -280,10 +371,12 @@ const targetCount = targetUrls.filter(Boolean).length
 console.log(`
   Seeded.
 
-    staff     ${admin.email} / ${admin.password}
-    club      ${tenant.teamName}  (logo: ${logoUrl ? 'yes' : 'none'}, avatars: ${avatars.length})
-    hunt      ${SEED_NAME} (${published ? 'published' : 'left as draft — another hunt is already live'}, ${MISSIONS.length} missions, ${targetCount} target photos)
+    operator  ${admin.email} / ${admin.password}
+    org       /${BATS}  — ${tenant.teamName} (logo: ${logoUrl ? 'yes' : 'none'}, avatars: ${avatars.length})
+              hunt "${SEED_NAME}" (${published ? 'published' : 'left as draft — another hunt is already live'}, ${MISSIONS.length} missions, ${targetCount} target photos)
+    org       /${HAWKS}  — Harbor Hawks
+              hunt "${HAWKS_HUNT}" (published, ${HAWKS_MISSIONS.length} missions)
 
-  Drop images in firebase/seed-assets/{logo,avatars,targets} and re-run to enrich this.
-  Open the app and tap "Continue as guest", or sign in at /staff-login.
+  Open /${BATS} and tap "Continue as guest" — then open /${HAWKS} and watch
+  the brand and hunt change. Organizer sign-in lives at /staff-login.
 `)

@@ -1,8 +1,11 @@
-# Photo Hunt
+# Huntima
 
-A white-label digital passport for live sporting events. Fans scan a QR code,
-walk the concourse recreating photo clues, collect badges, and redeem a prize at
-the team store. Built so any team can drop in their own colors and copy.
+A multi-tenant platform for verified photo hunts at live events. Each org
+(ball club, company, wedding) gets a branded page at `/:tenantSlug`: fans scan
+a QR code, recreate photo clues, collect badges, and redeem a prize —
+captures are verified server-side by a vision model, so completions are
+earned, not honor-system. Organizers run their own console at
+`/:tenantSlug/admin`.
 
 ## What's in the box
 

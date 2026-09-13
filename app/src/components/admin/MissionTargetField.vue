@@ -9,6 +9,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { uploadImage, UploadError } from '../../lib/storage'
+import { useTenantStore } from '../../stores/tenant'
 import AppIcon from '../AppIcon.vue'
 
 const props = defineProps<{
@@ -19,6 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [url: string | null] }>()
 
 const { t } = useI18n()
+const tenant = useTenantStore()
 
 const input = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
@@ -42,7 +44,11 @@ async function onChosen(event: Event): Promise<void> {
   error.value = null
 
   try {
-    const { url } = await uploadImage('mission-target', props.campaignId, file)
+    const { url } = await uploadImage(
+      'mission-target',
+      { slug: tenant.slug ?? '', campaignId: props.campaignId },
+      file,
+    )
     emit('update:modelValue', url)
   } catch (err) {
     // Staff are looking at a form and need a sentence, not a console entry.
