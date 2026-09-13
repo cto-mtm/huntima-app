@@ -77,6 +77,13 @@
   z-index: 20;
 }
 
+/* The full-screen cover (App.vue) opts out of the root snapshot with its own
+   name and must sit ABOVE every other group so the mask is never undercut by
+   a snapshot painting over it. */
+::view-transition-group(page-cover) {
+  z-index: 30;
+}
+
 /* ── Recipe 1c — the fixed chrome holds still, it does NOT fade ──
    The backdrop, header and nav each get their own snapshot group so
    the page-lift can't drag them (Recipe 1b). But a named group with
@@ -93,7 +100,8 @@
    shown again. Seamless — the chrome simply looks like it never moved. */
 ::view-transition-old(app-backdrop),
 ::view-transition-old(app-header),
-::view-transition-old(app-nav) {
+::view-transition-old(app-nav),
+::view-transition-old(page-cover) {
   animation: none;
   /* The old snapshot sits under the new one; hide it so there is nothing
      to fade against. */
@@ -102,7 +110,8 @@
 
 ::view-transition-new(app-backdrop),
 ::view-transition-new(app-header),
-::view-transition-new(app-nav) {
+::view-transition-new(app-nav),
+::view-transition-new(page-cover) {
   animation: none;
   opacity: 1;
 }
@@ -538,6 +547,66 @@
   .meter-fill {
     animation: none !important;
     transform: scaleX(1);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 14 — full-screen navigation cover (PageCover.vue)
+
+   The brand-colored veil the router raises while a view transition
+   commits, masking the ambient backdrop's snapshot swap. Asymmetric
+   on purpose: ON fast (90ms) so the old page is covered before it
+   starts leaving; OFF slower (180ms) so the fade-out reads as the
+   reveal of the settled new page.
+
+   Raised ONLY on the view-transition path (see router/index.ts) —
+   plain navigations swap atomically and reduced motion must never
+   get a full-screen flash. The media query here is the CSS backstop
+   for an OS setting flipped mid-session.
+   ════════════════════════════════════════════════════════════ */
+.page-cover {
+  opacity: 0;
+  transition: opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-cover--active {
+  opacity: 1;
+  transition-duration: 90ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-cover {
+    transition: none !important;
+    opacity: 0 !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 15 — skeleton pulse (MissionSkeleton.vue)
+
+   Loading placeholders for the mission list and detail page. Like
+   the scan sweep (Recipe 7), a looping progress indicator is exempt
+   from the 200–350ms rule the way a spinner is: it exists only
+   while /missions is in flight and leaves with the state. Opacity
+   only; per-element inline delays stagger the shimmer. Reduced
+   motion keeps the static placeholder boxes — only the pulse goes.
+   ════════════════════════════════════════════════════════════ */
+@keyframes skeleton-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-pulse {
+    animation: none !important;
   }
 }
 

@@ -1,6 +1,7 @@
 import { nextTick } from 'vue'
 import { createRouter, createWebHistory, START_LOCATION } from 'vue-router'
 import { useSessionStore } from '../stores/session'
+import { isNavigating } from '../lib/pageTransition'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -152,6 +153,16 @@ router.beforeResolve((_to, from) => {
   if (!start) return true // unsupported browser: navigate plainly
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return true
 
+  // Raise the full-screen cover — but ONLY on the view-transition path. It
+  // exists to mask the ambient backdrop's snapshot swap during the
+  // transition; the two paths above have no transition, their DOM swap is a
+  // single atomic frame no cover could intercept, and under reduced motion a
+  // full-screen veil is itself exactly the flash that setting asks us not to
+  // show. afterEach lowers it once the new page has painted; router.onError
+  // is the safety net for a navigation that dies in between. See
+  // lib/pageTransition.ts and components/PageCover.vue.
+  isNavigating.value = true
+
   // Any transition still open (rapid taps) is abandoned rather than nested —
   // nesting aborts the first and strands its snapshot on screen.
   finishTransition?.()
@@ -177,12 +188,29 @@ router.beforeResolve((_to, from) => {
 })
 
 router.afterEach(async () => {
-  if (!finishTransition) return
-  // One tick for RouterView to render the new component, so the browser
-  // snapshots the new page rather than the old one.
+  // Let RouterView render the new component before we do anything that
+  // depends on the new page being on screen.
   await nextTick()
-  finishTransition()
-  finishTransition = null
+
+  if (finishTransition) {
+    finishTransition()
+    finishTransition = null
+  }
+
+  // Lower the cover on the NEXT frame, after the new page has painted, so the
+  // reveal fades to a settled page rather than a mid-render one. A rAF is
+  // enough; the cover's own CSS transition carries the fade-out.
+  requestAnimationFrame(() => {
+    isNavigating.value = false
+  })
+})
+
+// afterEach fires for confirmed AND failed (aborted/cancelled) navigations,
+// but never for one that ERRORS — say, a guard throwing after beforeResolve
+// raised the cover. Lower it here too, or the app would sit behind an opaque
+// veil forever: a stuck cover is a blank app.
+router.onError(() => {
+  isNavigating.value = false
 })
 
 export default router

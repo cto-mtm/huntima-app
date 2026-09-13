@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppShell from './components/AppShell.vue'
+import PageCover from './components/PageCover.vue'
 import { useMissionsStore } from './stores/missions'
 import { useTenantStore } from './stores/tenant'
 import { useSessionStore } from './stores/session'
@@ -43,6 +44,11 @@ onMounted(() => {
 </script>
 
 <template>
+  <!-- Full-screen navigation cover. Rendered at the very top so it sits above
+       both shells and the ambient backdrop, masking the backdrop's view-
+       transition snapshot during every navigation. Toggled by the router. -->
+  <PageCover />
+
   <div v-if="isBare" class="mx-auto min-h-dvh max-w-5xl bg-canvas px-4">
     <RouterView />
   </div>
