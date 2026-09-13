@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import AppIcon from '../components/AppIcon.vue'
 import BaseButton from '../components/BaseButton.vue'
 import MissionCard from '../components/MissionCard.vue'
+import MissionSkeleton from '../components/MissionSkeleton.vue'
 import { useMissionsStore } from '../stores/missions'
 import { useProgressStore } from '../stores/progress'
 import { useFanName } from '../composables/useFanName'
@@ -136,6 +137,18 @@ watch(
     <h2 class="mt-7 text-xl font-extrabold uppercase italic tracking-tight text-brand-900">
       {{ t('hub.title') }}
     </h2>
+
+    <!-- Skeleton list while /missions is in flight (Recipe 15). Only when
+         there is nothing to show yet — a refetch with cards already on
+         screen must not blank them into placeholders. -->
+    <div
+      v-if="missionsStore.loading && !missionsStore.missions.length"
+      class="mt-3 grid grid-cols-1 gap-2.5"
+      role="status"
+      :aria-label="t('common.loading')"
+    >
+      <MissionSkeleton v-for="i in 4" :key="i" />
+    </div>
 
     <div
       v-if="missionsStore.loaded && !missionsStore.missions.length && !missionsStore.loading"

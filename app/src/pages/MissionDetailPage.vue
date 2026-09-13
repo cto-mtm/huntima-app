@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
+import MissionSkeleton from '../components/MissionSkeleton.vue'
 import { useMissionsStore } from '../stores/missions'
 import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
@@ -80,6 +81,17 @@ const earned = computed(() => progress.hasBadge(missionId.value))
         {{ t('mission.backToMissions') }}
       </BaseButton>
     </div>
+  </section>
+
+  <!-- Deep link while /missions is still in flight: a skeleton of this very
+       page, not a premature "not found" that pops into content a beat later. -->
+  <section
+    v-else-if="missionsStore.loading"
+    class="py-5"
+    role="status"
+    :aria-label="t('common.loading')"
+  >
+    <MissionSkeleton variant="detail" />
   </section>
 
   <section v-else class="py-10 text-center">

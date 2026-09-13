@@ -160,6 +160,13 @@ Vue can't tell that an item moved rather than changed.
   single frame and swap seamlessly; the live drift resumes the moment the
   transition ends. The chrome is meant to "hold still" — that means no
   transition on it at all, not a subtle one.
+- **The navigation cover runs only when a view transition does.** The
+  full-screen veil (Recipe 14, `PageCover.vue`) masks the backdrop's snapshot
+  swap, and the router raises it *only* on the view-transition path: a plain
+  navigation swaps the DOM in one atomic frame no cover could intercept, and
+  under reduced motion a full-screen veil is itself the flash the setting
+  forbids. `router.onError` lowers it if a navigation dies midway — a stuck
+  cover is a blank app.
 - **Names unique per page**, always derived from ids inside lists.
 - **Always test with reduced motion on.** Recipe 3 kills every animation under
   `prefers-reduced-motion: reduce`, and the router skips the transition entirely.
