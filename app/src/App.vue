@@ -3,6 +3,8 @@ import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AppShell from './components/AppShell.vue'
+import ConsoleShell from './components/ConsoleShell.vue'
+import BareLayout from './components/BareLayout.vue'
 import PageCover from './components/PageCover.vue'
 import { useTenantStore } from './stores/tenant'
 import { useSessionStore } from './stores/session'
@@ -26,9 +28,10 @@ const session = useSessionStore()
 // for guests and admins — the watcher gates on the fan role.
 useProgressStore()
 
-// Screens that exist outside a fan session (entry, staff login, admin)
-// render without the fan shell.
-const isBare = computed(() => route.meta.bare === true)
+// Which chrome wraps the page. Declared per-route in meta.layout; absent means
+// the two-level fan AppShell (the default). 'console' is the org console,
+// 'bare' the out-of-app surfaces. This is the ONE place layouts are chosen.
+const layout = computed(() => route.meta.layout ?? 'app')
 
 // The API said this slug does not exist: show "no team here" instead of a
 // phantom default club wearing the platform palette. Network failures never
@@ -64,9 +67,13 @@ onMounted(() => {
     </RouterLink>
   </section>
 
-  <div v-else-if="isBare" class="mx-auto min-h-dvh max-w-5xl bg-canvas px-4">
+  <ConsoleShell v-else-if="layout === 'console'">
     <RouterView />
-  </div>
+  </ConsoleShell>
+
+  <BareLayout v-else-if="layout === 'bare'">
+    <RouterView />
+  </BareLayout>
 
   <AppShell v-else>
     <RouterView />

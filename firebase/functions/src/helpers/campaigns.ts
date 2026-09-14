@@ -156,12 +156,15 @@ export async function getPublishedMissionList(slug: string): Promise<MissionList
 }
 
 /** Looks a mission up for verification — scoped to the org, so a campaignId
- *  from another tenant can never resolve here. */
+ *  from another tenant can never resolve here, and only in a PUBLISHED hunt:
+ *  a draft's mission ids are never surfaced to a fan, so accepting captures
+ *  (and the Gemini spend they cost) against one is pure abuse surface. */
 export async function findMission(
   slug: string,
   campaignId: string,
   missionId: string,
 ): Promise<Mission | null> {
   const campaign = await getCampaign(slug, campaignId)
-  return campaign?.missions.find((m) => m.id === missionId) ?? null
+  if (!campaign || campaign.status !== 'published') return null
+  return campaign.missions.find((m) => m.id === missionId) ?? null
 }

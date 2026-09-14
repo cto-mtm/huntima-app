@@ -3,8 +3,11 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 import {
   RESERVED_SLUGS,
   SEED_TENANT,
+  canBrand,
   isValidTenantSlug,
+  planSchema,
   tenantConfigSchema,
+  type Plan,
   type TenantConfig,
   type TenantKind,
 } from 'shared'
@@ -55,6 +58,41 @@ export async function tenantExists(slug: string): Promise<boolean> {
 }
 
 /**
+ * Enforces a plan's branding entitlement on a branding write.
+ *
+ * A plan that cannot brand (free) keeps the platform's neutral skin no matter
+ * what the form submits, so a free tenant is GENUINELY platform-branded rather
+ * than merely told so — the gate is the server, not the UI. Only the visual
+ * identity is coerced; functional fields (name, prize location, badge target,
+ * timezone, geofence) are content every tenant sets and are never touched.
+ */
+export function brandingForPlan(config: TenantConfig, plan: Plan): TenantConfig {
+  if (canBrand(plan)) return config
+  return {
+    ...config,
+    brandBase: SEED_TENANT.brandBase,
+    accentBase: SEED_TENANT.accentBase,
+    fontFamily: SEED_TENANT.fontFamily,
+    logoUrl: SEED_TENANT.logoUrl,
+    avatars: SEED_TENANT.avatars,
+  }
+}
+
+/**
+ * Sets a tenant's billing plan. Operator-only at the call site — the stand-in
+ * for a future payment webhook, which will write this same `_meta.plan` field.
+ * A dotted field path so the rest of `_meta` (kind, provenance) is untouched.
+ * Returns false for an unknown slug.
+ */
+export async function setTenantPlan(slug: string, plan: Plan): Promise<boolean> {
+  const ref = tenantRef(slug)
+  const doc = await ref.get()
+  if (!doc.exists) return false
+  await ref.update({ '_meta.plan': plan })
+  return true
+}
+
+/**
  * Whole-branding replace, preserving `_meta`. Returns null when the org does
  * not exist — branding cannot bring an org into being; `createOrg` does.
  */
@@ -76,15 +114,24 @@ interface TenantMeta {
   createdAt: number
   createdBy: string
   kind: TenantKind
+  /** Billing plan — the capability axis. Absent = a tenant written before the
+   *  field existed, which is free. Server-written; never touched by branding. */
+  plan: Plan
 }
 
-/** Reads the server-written kind. Absent means a tenant from before the
- *  split, and every one of those was an org. */
-export async function getTenantKind(slug: string): Promise<TenantKind | null> {
+/** The tenant's kind and plan, or null for an unknown slug. Absent metadata
+ *  resolves to the safe defaults (`org` predates the kind split; `free`
+ *  predates plans). This is the read the branding write consults to enforce
+ *  the entitlement, so it never trusts a client-supplied value. */
+export async function getTenantMeta(
+  slug: string,
+): Promise<{ kind: TenantKind; plan: Plan } | null> {
   const doc = await tenantRef(slug).get()
   if (!doc.exists) return null
   const meta = doc.data()?._meta as Partial<TenantMeta> | undefined
-  return meta?.kind === 'personal' ? 'personal' : 'org'
+  const kind: TenantKind = meta?.kind === 'personal' ? 'personal' : 'org'
+  const plan = planSchema.safeParse(meta?.plan)
+  return { kind, plan: plan.success ? plan.data : 'free' }
 }
 
 /**
@@ -107,7 +154,10 @@ export async function createOrg(
     tx.set(ref, {
       ...SEED_TENANT,
       teamName,
-      _meta: { createdAt: now, createdBy: ownerUid, kind },
+      // Every tenant starts free — including a deliberately-created org. A
+      // paid plan is a later, operator-/webhook-written flip, never granted at
+      // creation. See BUSINESS_MODEL.md (conversion is at event publish time).
+      _meta: { createdAt: now, createdBy: ownerUid, kind, plan: 'free' as Plan },
     })
     tx.set(memberRef(slug, ownerUid), {
       uid: ownerUid,
@@ -137,28 +187,65 @@ export function handleFromName(name: string): string {
 }
 
 /**
- * Claims a personal space for `uid`, trying `preferred` and then numbered
- * variants of it until one is free.
+ * Creates this account's personal space, or returns the one it already has —
+ * atomically, so a burst of "first hunt" requests can never mint two.
  *
- * Create-if-absent is already transactional in `createOrg`, so a losing racer
- * simply moves to the next candidate rather than overwriting anybody. The
- * attempt count is small on purpose: past a handful of collisions the base
- * name is too popular to keep guessing at, and the caller should ask the
- * person for one instead of minting `sarah-9`.
+ * The caller checks `findPersonalSpace` first (a strongly-consistent
+ * collection-group query) which catches an EXISTING space, including any from
+ * before this lock existed. But two near-simultaneous first hunts both see
+ * "none" — nothing is stale, the space genuinely does not exist yet — and each
+ * would claim a slug, leaving the account with two personal tenants.
+ *
+ * The fix is a per-account lock doc, `personal_spaces/{uid}`, read at the top
+ * of the transaction. The tenant, its owner membership, and the lock are all
+ * written in the SAME transaction, so there is no window between "chose the
+ * slug" and "claimed it". Firestore's optimistic concurrency does the rest:
+ * both racers read the same lock doc, the first to commit writes it, and the
+ * loser's transaction retries, sees the lock, and returns the winner's slug
+ * rather than creating a second space.
  */
-export async function claimPersonalSpace(
+export async function ensurePersonalSpace(
   uid: string,
   preferred: string,
   displayName: string,
 ): Promise<string | null> {
+  const firestore = db()
+  const lockRef = firestore.collection('personal_spaces').doc(uid)
+
   const base = isValidTenantSlug(preferred) ? preferred : handleFromName(preferred)
   const seeds = [base]
   for (let n = 2; n <= 6; n += 1) seeds.push(`${base}-${n}`)
 
-  for (const candidate of seeds) {
-    if (!isValidTenantSlug(candidate) || RESERVED_SLUGS.has(candidate)) continue
-    const result = await createOrg(candidate, displayName, uid, 'personal')
-    if (result === 'created') return candidate
-  }
-  return null
+  return firestore.runTransaction(async (tx) => {
+    // The serialization point: every concurrent first-hunt for this account
+    // reads the same lock doc, so the loser retries once the winner commits.
+    const lock = await tx.get(lockRef)
+    const claimed = lock.exists ? lock.data()?.slug : null
+    if (typeof claimed === 'string' && claimed) return claimed
+
+    // No space yet: take the first free candidate. Every tenant read happens
+    // before the writes below — Firestore requires all reads first.
+    for (const candidate of seeds) {
+      if (!isValidTenantSlug(candidate) || RESERVED_SLUGS.has(candidate)) continue
+      const ref = tenantRef(candidate)
+      const doc = await tx.get(ref)
+      if (doc.exists) continue
+
+      const now = Date.now()
+      tx.set(ref, {
+        ...SEED_TENANT,
+        teamName: displayName,
+        _meta: {
+          createdAt: now,
+          createdBy: uid,
+          kind: 'personal' as TenantKind,
+          plan: 'free' as Plan,
+        },
+      })
+      tx.set(memberRef(candidate, uid), { uid, role: 'owner', addedAt: now, addedBy: uid })
+      tx.set(lockRef, { slug: candidate, uid, createdAt: now })
+      return candidate
+    }
+    return null
+  })
 }

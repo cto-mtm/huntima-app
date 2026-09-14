@@ -11,7 +11,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import type { CampaignStats } from 'shared'
-import AdminNav from '../../components/admin/AdminNav.vue'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
 
@@ -94,8 +93,6 @@ const timeline = computed(() => {
 
 <template>
   <section class="py-5">
-    <AdminNav />
-
     <header class="mt-5">
       <button
         type="button"

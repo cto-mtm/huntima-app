@@ -2,6 +2,10 @@ const en = {
   title: 'Branding',
   subtitle: 'Set the team identity and palette. Preview here, then publish.',
 
+  lockedHeading: 'Custom branding is a paid feature',
+  lockedBody:
+    'On the free plan your page uses the standard Huntima look. A paid plan unlocks your own colors, logo and typeface.',
+
   identityHeading: 'Identity',
   teamNameLabel: 'Team name',
   teamNameHelp: 'Shown in the app header and on the entry screen.',
@@ -82,6 +86,10 @@ const en = {
 const es: typeof en = {
   title: 'Identidad de marca',
   subtitle: 'Define la identidad del equipo y la paleta. Previsualiza aquí y luego publica.',
+
+  lockedHeading: 'La personalización de marca es una función de pago',
+  lockedBody:
+    'En el plan gratuito tu página usa el aspecto estándar de Huntima. Un plan de pago desbloquea tus propios colores, logotipo y tipografía.',
 
   identityHeading: 'Identidad',
   teamNameLabel: 'Nombre del equipo',

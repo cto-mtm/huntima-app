@@ -16,6 +16,9 @@ const en = {
   runTitle: 'Run a hunt',
   openHeading: 'Open a console',
   yoursLabel: 'Yours',
+  yoursHeading: 'Your hunts',
+  orgsHeading: 'Organizations you run',
+  manageHunts: 'Manage hunts',
 
   // Starting a hunt: the common path. Never says "organization" — see
   // components/CreateHuntForm.vue.
@@ -70,6 +73,9 @@ const es: typeof en = {
   runTitle: 'Organizar una búsqueda',
   openHeading: 'Abrir una consola',
   yoursLabel: 'Tuya',
+  yoursHeading: 'Tus búsquedas',
+  orgsHeading: 'Organizaciones que gestionas',
+  manageHunts: 'Gestionar búsquedas',
 
   startHuntHeading: 'Crear una búsqueda',
   startHuntIntro: 'Para una boda, una fiesta, una clase o un día de equipo. Ponle nombre y añade tus misiones.',

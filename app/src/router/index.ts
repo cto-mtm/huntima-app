@@ -20,12 +20,18 @@ import { safeInternalPath } from '../lib/redirect'
  */
 /**
  * Route flags, declared so they are typed at every use rather than `unknown`.
- * `bare` renders without AppShell; `public` is reachable with no session;
- * `requiresOrg` needs membership of the slug in the path.
+ *
+ * `layout` picks the chrome (App.vue routes to it), defaulting to the two-level
+ * fan `AppShell` when absent:
+ *   'app'     — the fan shell (header + bottom nav), platform or brand level
+ *   'console' — the org console chrome (ConsoleShell owns the admin nav)
+ *   'bare'    — out-of-app surfaces with no shell (sign-in, welcome, 404…)
+ * `public` is reachable with no session; `requiresOrg` needs membership of the
+ * slug in the path.
  */
 declare module 'vue-router' {
   interface RouteMeta {
-    bare?: boolean
+    layout?: 'app' | 'console' | 'bare'
     public?: boolean
     requiresOrg?: boolean
   }
@@ -40,7 +46,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'landing',
-      meta: { bare: true },
+      meta: { layout: 'bare' },
       component: () => import('../pages/LandingPage.vue'),
     },
 
@@ -51,14 +57,14 @@ const router = createRouter({
     {
       path: '/staff-login',
       name: 'staff-login',
-      meta: { bare: true, public: true },
+      meta: { layout: 'bare', public: true },
       component: () => import('../pages/StaffLoginPage.vue'),
     },
     // The org picker: which console does this account open?
     {
       path: '/orgs',
       name: 'orgs',
-      meta: { bare: true, public: true },
+      meta: { layout: 'bare', public: true },
       component: () => import('../pages/OrgsPage.vue'),
     },
 
@@ -70,7 +76,7 @@ const router = createRouter({
     {
       path: '/signin',
       name: 'signin',
-      meta: { bare: true, public: true },
+      meta: { layout: 'bare', public: true },
       component: () => import('../pages/FanSignInPage.vue'),
     },
     { path: '/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
@@ -78,13 +84,13 @@ const router = createRouter({
 
     // ── Fan app, scoped to one org ──────────────────────────────────
     { path: '/:tenantSlug', name: 'home', component: () => import('../pages/HubPage.vue') },
-    // `bare: true` renders without AppShell. The fan chrome (fixed header,
+    // `layout: 'bare'` renders without AppShell. The fan chrome (fixed header,
     // bottom nav) presumes a session; showing it before you have one offers
     // navigation into pages the guard will immediately bounce you out of.
     {
       path: '/:tenantSlug/welcome',
       name: 'entry',
-      meta: { bare: true, public: true },
+      meta: { layout: 'bare', public: true },
       component: () => import('../pages/EntryPage.vue'),
     },
     { path: '/:tenantSlug/missions/:id', name: 'mission-detail', component: () => import('../pages/MissionDetailPage.vue') },
@@ -107,25 +113,25 @@ const router = createRouter({
     {
       path: '/:tenantSlug/admin/hunts',
       name: 'admin-hunts',
-      meta: { bare: true, requiresOrg: true },
+      meta: { layout: 'console', requiresOrg: true },
       component: () => import('../pages/admin/AdminHuntsPage.vue'),
     },
     {
       path: '/:tenantSlug/admin/hunts/:id',
       name: 'admin-hunt-edit',
-      meta: { bare: true, requiresOrg: true },
+      meta: { layout: 'console', requiresOrg: true },
       component: () => import('../pages/admin/AdminHuntEditPage.vue'),
     },
     {
       path: '/:tenantSlug/admin/hunts/:id/stats',
       name: 'admin-hunt-stats',
-      meta: { bare: true, requiresOrg: true },
+      meta: { layout: 'console', requiresOrg: true },
       component: () => import('../pages/admin/AdminHuntStatsPage.vue'),
     },
     {
       path: '/:tenantSlug/admin/branding',
       name: 'admin-branding',
-      meta: { bare: true, requiresOrg: true },
+      meta: { layout: 'console', requiresOrg: true },
       component: () => import('../pages/admin/AdminBrandingPage.vue'),
     },
     // Who can open this console. Adding and removing seats is owner-only,
@@ -133,7 +139,7 @@ const router = createRouter({
     {
       path: '/:tenantSlug/admin/members',
       name: 'admin-members',
-      meta: { bare: true, requiresOrg: true },
+      meta: { layout: 'console', requiresOrg: true },
       component: () => import('../pages/admin/AdminMembersPage.vue'),
     },
     // Catch-all 404. Required because Firebase Hosting rewrites every URL
@@ -142,7 +148,7 @@ const router = createRouter({
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      meta: { bare: true, public: true },
+      meta: { layout: 'bare', public: true },
       component: () => import('../pages/NotFoundPage.vue'),
     },
   ],
@@ -207,10 +213,20 @@ router.beforeEach(async (to) => {
       // back on it after signing in, not on the org picker.
       return { name: 'staff-login', query: { to: to.fullPath } }
     }
-    if (session.isAdmin) return true // platform operator bypasses membership
     const orgs = useOrgsStore()
+    // Load the org list before deciding: the console reads the active tenant's
+    // KIND (vocabulary) and PLAN (branding entitlement) from it, so an operator
+    // — who bypasses the membership check below — still needs it loaded, or
+    // their console would fall back to org/free for every tenant.
     await orgs.ensureLoaded()
+    if (session.isAdmin) return true // platform operator bypasses membership
     if (typeof slugParam === 'string' && orgs.isMemberOf(slugParam)) return true
+    // "Couldn't ask" is not "not a member": if the /me/orgs fetch failed
+    // (offline, cold function, blip) `loaded` stays false, and ejecting a real
+    // staff member to an equally-broken picker is worse than letting them
+    // through — the server's requireMember is the real gate, so the console's
+    // own authed calls will succeed for a member and 403 for a stranger.
+    if (!orgs.loaded) return true
     return { name: 'orgs' }
   }
 
@@ -223,7 +239,10 @@ router.beforeEach(async (to) => {
       // games, hunts and trophies live.
       return safeInternalPath(to.query.to) ?? { name: 'platform-home' }
     }
-    return session.isAdmin ? { name: 'orgs' } : true
+    // Already an operator: honor a same-origin ?to= (a deep-linked console
+    // login link carries the destination), else the org picker.
+    if (session.isAdmin) return safeInternalPath(to.query.to) ?? { name: 'orgs' }
+    return true
   }
 
   if (to.meta.public === true) return true

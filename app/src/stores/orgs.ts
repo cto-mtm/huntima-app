@@ -162,12 +162,27 @@ export const useOrgsStore = defineStore('orgs', () => {
 
   /** The account's own space, if it has started a hunt before. */
   const personalSlug = computed(() => orgs.value.find((o) => o.kind === 'personal')?.slug ?? null)
+  /** Personal spaces — a person's own hunt space, framed as "yours", never as
+   *  an organization. Usually one, but the picker renders a list. */
+  const personalSpaces = computed(() => orgs.value.filter((o) => o.kind === 'personal'))
   /** Real organizations only — a personal space is not one, and must never be
    *  listed as one on a screen that says "your organizations". */
   const organizations = computed(() => orgs.value.filter((o) => o.kind !== 'personal'))
 
   function isMemberOf(slug: string): boolean {
     return orgs.value.some((o) => o.slug === slug)
+  }
+
+  /**
+   * The loaded summary for one slug — the console's source of truth for the
+   * active tenant's KIND (personal vs org, drives vocabulary) and PLAN (drives
+   * branding/capability gating). The requiresOrg router guard ensures this list
+   * is loaded before any console page renders; operators get every org back, so
+   * this resolves for them too.
+   */
+  function summaryFor(slug: string | null): OrgSummary | null {
+    if (!slug) return null
+    return orgs.value.find((o) => o.slug === slug) ?? null
   }
 
   // A sign-out invalidates the list; the next console visit refetches under
@@ -185,6 +200,7 @@ export const useOrgsStore = defineStore('orgs', () => {
   return {
     orgs,
     organizations,
+    personalSpaces,
     personalSlug,
     loaded,
     loading,
@@ -192,6 +208,7 @@ export const useOrgsStore = defineStore('orgs', () => {
     load,
     ensureLoaded,
     isMemberOf,
+    summaryFor,
     create,
     createHunt,
     checkSlug,

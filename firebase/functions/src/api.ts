@@ -15,11 +15,14 @@ import {
 } from './helpers/campaigns'
 import { verifyCapture, isVerificationLive, VERIFICATION_MODEL } from './helpers/vision'
 import {
-  claimPersonalSpace,
+  brandingForPlan,
   createOrg,
+  ensurePersonalSpace,
   getTenant,
+  getTenantMeta,
   handleFromName,
   putTenant,
+  setTenantPlan,
   tenantExists,
 } from './helpers/tenant'
 import {
@@ -45,6 +48,7 @@ import {
   createHuntSchema,
   echoSchema,
   fanProgressSchema,
+  planSchema,
   slugRejection,
   tenantSlugSchema,
   verifyCaptureSchema,
@@ -78,6 +82,7 @@ const VALID_ROUTES = [
   'POST /t/:slug/verify-capture',
   'POST /t/:slug/campaigns/:id/events',
   'PUT /t/:slug/admin/tenant',
+  'PUT /t/:slug/admin/plan',
   'GET /t/:slug/admin/whoami',
   'GET /t/:slug/admin/members',
   'POST /t/:slug/admin/members',
@@ -301,7 +306,9 @@ export const api = onRequest(
           // editable on the Branding tab the moment that stops being true.
           const personName = user.name?.trim() || input.name.trim()
           const preferred = input.handle ?? handleFromName(personName)
-          slug = await claimPersonalSpace(user.uid, preferred, input.name.trim())
+          // Atomic create-or-return: a second concurrent first-hunt from this
+          // same account resolves to the winner's space, never a duplicate.
+          slug = await ensurePersonalSpace(user.uid, preferred, input.name.trim())
           if (!slug) {
             // Every candidate was taken. Asking for one beats minting a name
             // nobody would have picked.
@@ -502,18 +509,50 @@ export const api = onRequest(
           // someone else's accent color.
           if (rest[1] === 'tenant' && rest.length === 2 && req.method === 'PUT') {
             const config = tenantConfigSchema.parse(req.body)
-            const saved = await putTenant(slug, config)
+            const meta = await getTenantMeta(slug)
+            if (!meta) {
+              res.status(404).json({ error: 'Unknown organization' })
+              return
+            }
+            // Enforce the plan's branding entitlement server-side: a free
+            // tenant keeps the neutral platform skin no matter what the form
+            // submits, so "unbranded" is real, not just a UI courtesy.
+            const saved = await putTenant(slug, brandingForPlan(config, meta.plan))
             if (!saved) {
               res.status(404).json({ error: 'Unknown organization' })
               return
             }
-            logger.info('tenant updated', { slug, by: user.email, teamName: config.teamName })
+            logger.info('tenant updated', {
+              slug,
+              by: user.email,
+              teamName: config.teamName,
+              plan: meta.plan,
+            })
             res.status(200).json(saved)
             return
           }
 
           if (rest[1] === 'whoami' && rest.length === 2 && req.method === 'GET') {
             res.status(200).json({ uid: user.uid, email: user.email, role })
+            return
+          }
+
+          // Set the tenant's billing plan. Platform operators ONLY — the
+          // stand-in for a payment webhook until billing ships. An org owner
+          // must never be able to grant themselves a paid plan for free.
+          if (rest[1] === 'plan' && rest.length === 2 && req.method === 'PUT') {
+            if (role !== 'operator') {
+              res.status(403).json({ error: 'Only a platform operator can change the plan' })
+              return
+            }
+            const plan = planSchema.parse((req.body as { plan?: unknown } | null)?.plan)
+            const ok = await setTenantPlan(slug, plan)
+            if (!ok) {
+              res.status(404).json({ error: 'Unknown organization' })
+              return
+            }
+            logger.info('plan updated', { slug, plan, by: user.email })
+            res.status(200).json({ slug, plan })
             return
           }
 
@@ -535,7 +574,11 @@ export const api = onRequest(
                 res.status(404).json({ error: 'No account with that email' })
                 return
               }
-              await addMember(slug, uid, input.role, user.uid)
+              const added = await addMember(slug, uid, input.role, user.uid)
+              if (added === 'last-owner') {
+                res.status(409).json({ error: 'An organization needs at least one owner' })
+                return
+              }
               logger.info('member added', { slug, role: input.role, by: user.email })
               res.status(201).json({ uid, role: input.role })
               return

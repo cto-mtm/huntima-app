@@ -1,30 +1,34 @@
 <script setup lang="ts">
 /**
- * The org console's chrome.
+ * The org console's chrome, owned by ConsoleShell and rendered once.
  *
- * Two rows, because they answer two different questions. The identity row
- * says WHERE you are: the Huntima mark (up to the platform), a separator that
- * echoes the URL, then this org's own mark and name. The tab row says what you
- * are editing. Before this, the header said neither — it listed three tabs and
- * three text links at equal weight, and never once named the organization
- * whose branding the next screen rewrites.
+ * Two rows. The identity row says WHERE you are: the Huntima mark (up to the
+ * platform), a separator that echoes the URL, then this tenant's own mark and
+ * name — which IS the switcher (naming the current space and making the name
+ * the control beats a separate "switch" link that hid the current one).
  *
- * The org name IS the switcher. "Switch organization" as a separate link made
- * the current org invisible while offering to leave it; naming it and making
- * the name the control does both jobs in one place.
+ * The tab row says what you are editing, and it ADAPTS to the tenant:
+ *   - an ORGANIZATION gets the full surface — Hunts, Branding, Team;
+ *   - a PERSONAL space (a wedding host, a teacher) is never shown "Team" or
+ *     the word "organization", and only sees a look-and-feel surface once its
+ *     plan can actually brand. On the free plan it is just Hunts.
+ * Kind drives vocabulary; plan drives capability. See docs/shell-architecture
+ * and BUSINESS_MODEL.md.
  *
- * The platform exit is a MARK, not the words "Huntima home". The console is
- * already wearing this org's palette (the router guard themes any slugged
- * route), so a text link in club colors does not read as a way out. It also
- * mirrors the fan app, where the brand level's leading nav tab wears the
- * Huntima logo to go up a level. See docs/shell-architecture.md.
+ * The platform exit is a MARK, not the words "Huntima home": the console wears
+ * this tenant's palette, so a text link in its colors would not read as a way
+ * out. It mirrors the fan app's brand-level exit tab.
  */
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { canBrand } from 'shared'
 import AppIcon from '../AppIcon.vue'
 import TeamMark from '../TeamMark.vue'
+import LocaleSwitcher from '../LocaleSwitcher.vue'
 import { useSessionStore } from '../../stores/session'
 import { useTenantStore } from '../../stores/tenant'
+import { useOrgsStore } from '../../stores/orgs'
 import huntimaLogo from '../../assets/logo.svg'
 
 const { t } = useI18n()
@@ -32,12 +36,32 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const tenant = useTenantStore()
+const orgs = useOrgsStore()
 
-const TABS = [
-  { name: 'admin-hunts', labelKey: 'hunts.navHunts' },
-  { name: 'admin-branding', labelKey: 'hunts.navBranding' },
-  { name: 'admin-members', labelKey: 'hunts.navTeam' },
-] as const
+// The active tenant's kind + plan, from the summary the requiresOrg guard loads
+// before any console page renders. Kind → vocabulary; plan → branding gate.
+const summary = computed(() => orgs.summaryFor(tenant.slug))
+const isOrg = computed(() => (summary.value?.kind ?? 'org') === 'org')
+const canCustomizeBrand = computed(() => canBrand(summary.value?.plan ?? 'free'))
+
+interface Tab {
+  name: string
+  labelKey: string
+}
+
+const tabs = computed<Tab[]>(() => {
+  const list: Tab[] = [{ name: 'admin-hunts', labelKey: 'hunts.navHunts' }]
+  if (isOrg.value) {
+    list.push({ name: 'admin-branding', labelKey: 'hunts.navBranding' })
+    list.push({ name: 'admin-members', labelKey: 'hunts.navTeam' })
+  } else if (canCustomizeBrand.value) {
+    list.push({ name: 'admin-branding', labelKey: 'hunts.navLook' })
+  }
+  return list
+})
+
+/** The picker is where any space is switched; only the wording differs. */
+const switchLabelKey = computed(() => (isOrg.value ? 'hunts.navOrgs' : 'hunts.navSpaces'))
 
 function isActive(name: string): boolean {
   // The hunt editor and stats are children of Hunts, so they keep that tab lit.
@@ -72,7 +96,7 @@ async function signOut(): Promise<void> {
 
         <RouterLink
           :to="{ name: 'orgs' }"
-          :title="t('hunts.navOrgs')"
+          :title="t(switchLabelKey)"
           class="flex min-w-0 items-center gap-1.5 rounded-full py-1 pl-1 pr-2 hover:bg-brand-50"
         >
           <TeamMark />
@@ -80,26 +104,33 @@ async function signOut(): Promise<void> {
             {{ tenant.settings.teamName }}
           </span>
           <AppIcon name="chevronDown" class="size-4 shrink-0 text-muted" />
-          <span class="sr-only">{{ t('hunts.navOrgs') }}</span>
+          <span class="sr-only">{{ t(switchLabelKey) }}</span>
         </RouterLink>
       </div>
 
-      <!-- Account, quietly. Signing out is not navigation and should not wear
-           the same weight as a tab. -->
-      <div class="shrink-0 text-right">
-        <p v-if="session.email" class="truncate text-[11px] text-muted" translate="no">
-          {{ session.email }}
-        </p>
-        <button type="button" class="text-xs font-semibold text-muted hover:text-brand-700" @click="signOut">
-          {{ t('entry.signOut') }}
-        </button>
+      <!-- Account + language, quietly. Signing out is not navigation and should
+           not wear the same weight as a tab. -->
+      <div class="flex shrink-0 items-center gap-2">
+        <LocaleSwitcher />
+        <div class="text-right">
+          <p v-if="session.email" class="truncate text-[11px] text-muted" translate="no">
+            {{ session.email }}
+          </p>
+          <button
+            type="button"
+            class="text-xs font-semibold text-muted hover:text-brand-700"
+            @click="signOut"
+          >
+            {{ t('entry.signOut') }}
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- ── Sections ─────────────────────────────────────────────── -->
     <nav class="mt-3 flex gap-1">
       <RouterLink
-        v-for="tab in TABS"
+        v-for="tab in tabs"
         :key="tab.name"
         :to="{ name: tab.name }"
         class="rounded-full px-3 py-1.5 text-sm font-semibold"

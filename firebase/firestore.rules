@@ -61,7 +61,8 @@ service cloud.firestore {
     // endpoint — a fan who could write their own doc could write themselves
     // a prize. The same deny-all covers `rate_limits/` (cost-guard counters;
     // docs carry an `expireAt` field — configure a Firestore TTL policy on it
-    // so spent windows are reaped automatically).
+    // so spent windows are reaped automatically) and `personal_spaces/{uid}`
+    // (the per-account lock that keeps a first hunt from minting two spaces).
     match /{document=**} {
       allow read, write: if false;
     }

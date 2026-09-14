@@ -1,8 +1,10 @@
 const en = {
   navBranding: 'Branding',
+  navLook: 'Look & feel',
   navHunts: 'Hunts',
   navTeam: 'Team',
   navOrgs: 'Switch organization',
+  navSpaces: 'Switch space',
   navPlatform: 'Huntima home',
 
   title: 'Hunts',
@@ -109,9 +111,11 @@ const en = {
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
   navBranding: 'Marca',
+  navLook: 'Aspecto',
   navHunts: 'Búsquedas',
   navTeam: 'Equipo',
   navOrgs: 'Cambiar de organización',
+  navSpaces: 'Cambiar de espacio',
   navPlatform: 'Inicio de Huntima',
 
   title: 'Búsquedas',

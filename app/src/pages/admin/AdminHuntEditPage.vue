@@ -3,7 +3,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import type { Mission, Prize } from 'shared'
-import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import MissionTargetField from '../../components/admin/MissionTargetField.vue'
 import { useHuntsStore } from '../../stores/hunts'
@@ -176,8 +175,6 @@ async function save(): Promise<void> {
 
 <template>
   <section class="py-5">
-    <AdminNav />
-
     <header class="mt-5 flex flex-wrap items-start justify-between gap-3">
       <div>
         <RouterLink :to="{ name: 'admin-hunts' }" class="text-xs font-semibold text-brand-600">

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { planSchema } from './plans.js'
 
 /**
  * The wire format between the app and the Cloud Functions API.
@@ -146,6 +147,9 @@ export const orgSummarySchema = z.object({
   role: z.union([orgRoleSchema, z.literal('operator')]),
   /** Defaulted for tenants created before the split, which were all orgs. */
   kind: tenantKindSchema.default('org'),
+  /** Billing plan — the capability axis. Defaulted for tenants written before
+   *  the field existed (all free). Drives console gating (branding, caps). */
+  plan: planSchema.default('free'),
 })
 
 export type OrgSummary = z.infer<typeof orgSummarySchema>

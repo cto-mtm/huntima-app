@@ -42,6 +42,16 @@ export {
   echoSchema,
 } from './schemas.js'
 
+export {
+  PLANS,
+  planSchema,
+  PLAN_LIMITS,
+  canBrand,
+  brandingLevel,
+} from './plans.js'
+
+export type { Plan, BrandingLevel, PlanLimits } from './plans.js'
+
 export type {
   TenantSlug,
   SlugRejection,

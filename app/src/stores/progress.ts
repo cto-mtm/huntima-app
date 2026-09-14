@@ -417,15 +417,22 @@ export const useProgressStore = defineStore('progress', () => {
   )
 
   // The moment the badge target is first reached on a real published hunt:
-  // report the aggregate completion, and keep the hunt as a trophy. Fires only
-  // on the false→true transition; reportFanEvent and recordWin are both
-  // idempotent, so a reload while already complete does not double-count.
-  // Requires a real campaign id — there is no hunt to win when none is
-  // published.
+  // report the aggregate completion, and keep the hunt as a trophy. Requires a
+  // real campaign id — there is no hunt to win when none is published.
+  //
+  // Gated on the win being GENUINELY new. A reload while complete is fine (no
+  // false→true transition), but hydrateFromAccount can manufacture that
+  // transition by merging in a hunt already finished on another device — and
+  // reportFanEvent is a fire-and-forget aggregate counter with no server-side
+  // dedupe, so an already-won hunt must not report a second completion. By the
+  // time this flushes, mergeWonHunts has folded the account's trophy in, so the
+  // wonHunts check sees it. recordWin is itself idempotent.
   watch(isComplete, (complete) => {
     if (complete && missionsStore.loaded && missionsStore.campaignId && missionsStore.slug) {
-      reportFanEvent(missionsStore.slug, missionsStore.campaignId, 'completion')
-      recordWin(missionsStore.campaignId, missionsStore.name, missionsStore.slug)
+      const id = missionsStore.campaignId
+      if (wonHunts.value.some((h) => h.campaignId === id)) return
+      reportFanEvent(missionsStore.slug, id, 'completion')
+      recordWin(id, missionsStore.name, missionsStore.slug)
     }
   })
 

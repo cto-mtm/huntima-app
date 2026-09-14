@@ -71,7 +71,9 @@ export const useMembersStore = defineStore('members', () => {
   async function add(
     email: string,
     role: OrgRole,
-  ): Promise<{ ok: true } | { ok: false; reason: 'no-account' | 'forbidden' | 'error' }> {
+  ): Promise<
+    { ok: true } | { ok: false; reason: 'no-account' | 'forbidden' | 'last-owner' | 'error' }
+  > {
     saving.value = true
     const result = await authedFetch<unknown>(base(), {
       method: 'POST',
@@ -80,8 +82,17 @@ export const useMembersStore = defineStore('members', () => {
     saving.value = false
 
     if (!result.ok) {
+      // 409 here means the add would demote the org's last owner — the same
+      // invariant a remove refuses, reachable by re-adding the sole owner as an
+      // editor.
       const reason =
-        result.status === 404 ? 'no-account' : result.status === 403 ? 'forbidden' : 'error'
+        result.status === 404
+          ? 'no-account'
+          : result.status === 403
+            ? 'forbidden'
+            : result.status === 409
+              ? 'last-owner'
+              : 'error'
       return { ok: false, reason }
     }
 

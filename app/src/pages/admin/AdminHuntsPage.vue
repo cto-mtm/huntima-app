@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import PublicLinkCard from '../../components/admin/PublicLinkCard.vue'
-import type { CampaignStatus } from 'shared'
+import { canBrand, type CampaignStatus } from 'shared'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
+import { useOrgsStore } from '../../stores/orgs'
 
 const { t } = useI18n()
 const router = useRouter()
 const hunts = useHuntsStore()
 const tenant = useTenantStore()
+const orgs = useOrgsStore()
+
+// Only nudge toward Branding when the plan can actually brand — a free/personal
+// space has no branding tab, so pointing at it would be a dead end.
+const canCustomizeBrand = computed(() => canBrand(orgs.summaryFor(tenant.slug)?.plan ?? 'free'))
 
 const name = ref('')
 const badgeTarget = ref(tenant.settings.badgeTarget)
@@ -50,8 +55,6 @@ async function remove(id: string): Promise<void> {
 
 <template>
   <section class="py-5">
-    <AdminNav />
-
     <header class="mt-5">
       <h1 class="text-2xl font-extrabold text-brand-900">{{ t('hunts.title') }}</h1>
       <p class="mt-1 text-sm text-muted">{{ t('hunts.subtitle') }}</p>
@@ -117,6 +120,7 @@ async function remove(id: string): Promise<void> {
     <div v-if="!hunts.loading && !hunts.campaigns.length" class="mt-6">
       <p class="text-sm text-muted">{{ t('hunts.empty') }}</p>
       <RouterLink
+        v-if="canCustomizeBrand"
         :to="{ name: 'admin-branding' }"
         class="mt-1 inline-block text-sm font-semibold text-brand-600"
       >

@@ -180,7 +180,13 @@ async function submit(): Promise<void> {
     </BaseButton>
 
     <p v-if="error" class="text-xs font-medium text-red-600">
-      {{ error === 'rate-limited' ? t('orgs.createRateLimited') : t('orgs.createFailed') }}
+      {{
+        error === 'rate-limited'
+          ? t('orgs.createRateLimited')
+          : error === 'not-allowed'
+            ? t('orgs.createNotAllowed')
+            : t('orgs.createFailed')
+      }}
     </p>
   </form>
 </template>

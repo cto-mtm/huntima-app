@@ -98,39 +98,73 @@ async function signOut(): Promise<void> {
         <CreateHuntForm />
       </div>
 
-      <h2
-        v-if="orgs.orgs.length"
-        class="mt-8 text-sm font-bold uppercase tracking-wide text-brand-900"
-      >
-        {{ t('orgs.openHeading') }}
-      </h2>
-      <ul v-if="orgs.orgs.length" class="mt-3 grid gap-2.5">
-        <li
-          v-for="org in orgs.orgs"
-          :key="org.slug"
-          class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0">
-              <h2 class="truncate font-semibold text-brand-900" translate="no">
-                {{ org.teamName }}
-              </h2>
-              <p class="font-mono text-[11px] text-muted" translate="no">/{{ org.slug }}</p>
+      <!-- ── Your own hunt space(s): never framed as an organization ─ -->
+      <template v-if="orgs.personalSpaces.length">
+        <h2 class="mt-8 text-sm font-bold uppercase tracking-wide text-brand-900">
+          {{ t('orgs.yoursHeading') }}
+        </h2>
+        <ul class="mt-3 grid gap-2.5">
+          <li
+            v-for="space in orgs.personalSpaces"
+            :key="space.slug"
+            class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <h3 class="truncate font-semibold text-brand-900" translate="no">
+                  {{ space.teamName }}
+                </h3>
+                <p class="font-mono text-[11px] text-muted" translate="no">/{{ space.slug }}</p>
+              </div>
+              <span
+                class="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase text-brand-600"
+              >
+                {{ space.role === 'operator' ? t('orgs.role.operator') : t('orgs.yoursLabel') }}
+              </span>
             </div>
-            <span
-              class="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase text-brand-600"
-            >
-              {{ org.kind === 'personal' ? t('orgs.yoursLabel') : t(`orgs.role.${org.role}`) }}
-            </span>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <BaseButton @click="openConsole(org.slug)">{{ t('orgs.open') }}</BaseButton>
-            <BaseButton variant="ghost" @click="viewFanPage(org.slug)">
-              {{ t('orgs.view') }}
-            </BaseButton>
-          </div>
-        </li>
-      </ul>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <BaseButton @click="openConsole(space.slug)">{{ t('orgs.manageHunts') }}</BaseButton>
+              <BaseButton variant="ghost" @click="viewFanPage(space.slug)">
+                {{ t('orgs.view') }}
+              </BaseButton>
+            </div>
+          </li>
+        </ul>
+      </template>
+
+      <!-- ── Organizations you run (every org, for an operator) ────── -->
+      <template v-if="orgs.organizations.length">
+        <h2 class="mt-8 text-sm font-bold uppercase tracking-wide text-brand-900">
+          {{ t('orgs.orgsHeading') }}
+        </h2>
+        <ul class="mt-3 grid gap-2.5">
+          <li
+            v-for="org in orgs.organizations"
+            :key="org.slug"
+            class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <h3 class="truncate font-semibold text-brand-900" translate="no">
+                  {{ org.teamName }}
+                </h3>
+                <p class="font-mono text-[11px] text-muted" translate="no">/{{ org.slug }}</p>
+              </div>
+              <span
+                class="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase text-brand-600"
+              >
+                {{ t(`orgs.role.${org.role}`) }}
+              </span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <BaseButton @click="openConsole(org.slug)">{{ t('orgs.open') }}</BaseButton>
+              <BaseButton variant="ghost" @click="viewFanPage(org.slug)">
+                {{ t('orgs.view') }}
+              </BaseButton>
+            </div>
+          </li>
+        </ul>
+      </template>
 
       <!-- ── Create an organization: rarer, deliberate, folded away ─ -->
       <div class="mt-8 border-t border-brand-100 pt-6">

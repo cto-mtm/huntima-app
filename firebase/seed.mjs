@@ -164,6 +164,16 @@ await call(
   [409],
 )
 
+// Both demo orgs exist to show OFF branding, but every tenant is created on
+// the free plan (platform-branded), and the branding write is enforced against
+// the plan server-side. So put them on a paid plan first — otherwise their
+// custom colors/logo would be coerced straight back to the neutral Huntima
+// skin. Operator-only endpoint; this script holds the operator token. The
+// consumer personas (personal spaces) stay free on purpose, to show the
+// unbranded default.
+await call(`/t/${BATS}/admin/plan`, { method: 'PUT', headers: auth, body: JSON.stringify({ plan: 'business' }) })
+await call(`/t/${HAWKS}/admin/plan`, { method: 'PUT', headers: auth, body: JSON.stringify({ plan: 'business' }) })
+
 // ── 3. Louisville Bats: images + full branding ────────────────────────
 console.log('  Uploading images from seed-assets…')
 

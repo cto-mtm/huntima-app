@@ -13,7 +13,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { OrgRole } from 'shared'
-import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
 import { useMembersStore } from '../../stores/members'
 import { useOrgsStore } from '../../stores/orgs'
@@ -28,7 +27,7 @@ const tenant = useTenantStore()
 
 const email = ref('')
 const role = ref<OrgRole>('editor')
-const addError = ref<'no-account' | 'forbidden' | 'error' | null>(null)
+const addError = ref<'no-account' | 'forbidden' | 'last-owner' | 'error' | null>(null)
 const removeError = ref<'last-owner' | 'forbidden' | 'error' | null>(null)
 
 /**
@@ -71,8 +70,6 @@ async function remove(uid: string, label: string): Promise<void> {
 
 <template>
   <section class="py-5">
-    <AdminNav />
-
     <header class="mt-5">
       <h1 class="text-2xl font-extrabold text-brand-900">{{ t('team.title') }}</h1>
       <p class="mt-1 text-sm text-muted">{{ t('team.subtitle') }}</p>
@@ -186,7 +183,9 @@ async function remove(uid: string, label: string): Promise<void> {
             ? t('team.addNoAccount')
             : addError === 'forbidden'
               ? t('team.ownerOnly')
-              : t('team.addFailed')
+              : addError === 'last-owner'
+                ? t('team.removeLastOwner')
+                : t('team.addFailed')
         }}
       </p>
     </form>

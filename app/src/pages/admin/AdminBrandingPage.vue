@@ -6,14 +6,21 @@ import ColorField from '../../components/admin/ColorField.vue'
 import PhonePreview from '../../components/admin/PhonePreview.vue'
 import { contrastRatio, gradeContrast, type ContrastGrade } from '../../lib/color'
 import { useTenantStore } from '../../stores/tenant'
+import { useOrgsStore } from '../../stores/orgs'
 import { FONTS } from '../../lib/fonts'
-import { FONT_CHOICES } from 'shared'
-import AdminNav from '../../components/admin/AdminNav.vue'
+import { canBrand, FONT_CHOICES } from 'shared'
 import TenantImagesField from '../../components/admin/TenantImagesField.vue'
 import AdminDiagnostics from '../../components/admin/AdminDiagnostics.vue'
 
 const { t } = useI18n()
 const tenant = useTenantStore()
+const orgs = useOrgsStore()
+
+// Visual branding (colors, logo, typeface) is a paid capability, enforced
+// server-side on publish. When the plan can't brand, we hide those controls
+// behind an upsell rather than let staff edit values the save will discard.
+// The active tenant's plan comes from the summary the requiresOrg guard loaded.
+const canCustomizeBrand = computed(() => canBrand(orgs.summaryFor(tenant.slug)?.plan ?? 'free'))
 
 
 const GRADE_KEY: Record<ContrastGrade, string> = {
@@ -87,8 +94,6 @@ function useMyLocation(): void {
 
 <template>
   <section class="py-5">
-    <AdminNav />
-
     <header class="mt-5">
       <div>
         <h1 class="text-2xl font-extrabold text-brand-900">{{ t('admin.title') }}</h1>
@@ -232,6 +237,10 @@ function useMyLocation(): void {
           </div>
         </fieldset>
 
+        <!-- Visual branding — typeface, palette, logo/avatars — is gated on the
+             plan. Functional fields above (name, prize location, badge target,
+             geofence) are content every tenant sets and stay editable. -->
+        <template v-if="canCustomizeBrand">
         <fieldset>
           <legend class="text-sm font-bold uppercase tracking-wide text-brand-900">
             {{ t('admin.typefaceHeading') }}
@@ -315,6 +324,16 @@ function useMyLocation(): void {
         </fieldset>
 
         <TenantImagesField />
+        </template>
+
+        <!-- Non-branding plan: say so plainly and point at the upgrade. -->
+        <div
+          v-else
+          class="rounded-card border border-dashed border-brand-200 bg-surface p-5 text-center"
+        >
+          <h3 class="text-sm font-bold text-brand-900">{{ t('admin.lockedHeading') }}</h3>
+          <p class="mx-auto mt-1 max-w-sm text-xs text-muted">{{ t('admin.lockedBody') }}</p>
+        </div>
       </div>
 
       <!-- ── Live preview ──────────────────────────────────────── -->
