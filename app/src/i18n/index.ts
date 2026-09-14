@@ -5,6 +5,7 @@ import { createI18n } from 'vue-i18n'
 // Adding a namespace = one import + one line in each messages block.
 import common from './locales/configs/common'
 import shell from './locales/components/shell'
+import avatars from './locales/components/avatars'
 import missionCard from './locales/components/missionCard'
 import trophyCase from './locales/components/trophyCase'
 import hub from './locales/pages/hub'
@@ -18,7 +19,9 @@ import entry from './locales/pages/entry'
 import hunts from './locales/pages/hunts'
 import profile from './locales/pages/profile'
 import landing from './locales/pages/landing'
+import home from './locales/pages/home'
 import orgs from './locales/pages/orgs'
+import team from './locales/pages/team'
 
 export const SUPPORTED_LOCALES = ['en', 'es'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
@@ -43,6 +46,7 @@ const messages = {
   en: {
     common: common.en,
     shell: shell.en,
+    avatars: avatars.en,
     missionCard: missionCard.en,
     trophyCase: trophyCase.en,
     hub: hub.en,
@@ -56,11 +60,14 @@ const messages = {
     hunts: hunts.en,
     profile: profile.en,
     landing: landing.en,
+    home: home.en,
     orgs: orgs.en,
+    team: team.en,
   },
   es: {
     common: common.es,
     shell: shell.es,
+    avatars: avatars.es,
     missionCard: missionCard.es,
     trophyCase: trophyCase.es,
     hub: hub.es,
@@ -74,7 +81,9 @@ const messages = {
     hunts: hunts.es,
     profile: profile.es,
     landing: landing.es,
+    home: home.es,
     orgs: orgs.es,
+    team: team.es,
   },
 }
 

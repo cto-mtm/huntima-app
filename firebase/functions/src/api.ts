@@ -14,28 +14,44 @@ import {
   updateCampaign,
 } from './helpers/campaigns'
 import { verifyCapture, isVerificationLive, VERIFICATION_MODEL } from './helpers/vision'
-import { createOrg, getTenant, putTenant } from './helpers/tenant'
-import { addMember, getMembership, listMembers, listOrgs, uidByEmail } from './helpers/members'
+import {
+  claimPersonalSpace,
+  createOrg,
+  getTenant,
+  handleFromName,
+  putTenant,
+  tenantExists,
+} from './helpers/tenant'
+import {
+  addMember,
+  findPersonalSpace,
+  getMembership,
+  listMembers,
+  listOrgs,
+  removeMember,
+  uidByEmail,
+} from './helpers/members'
 import { getCampaignStats, recordCapture, recordFanEvent } from './helpers/analytics'
 import { getFanProgress, putFanProgress } from './helpers/fanProgress'
-import { callerIp, rateLimit } from './helpers/rateLimit'
+import { callerIp, rateLimitOrReject } from './helpers/rateLimit'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
 // into lib/index.js at build time. See docs/architecture.md § Shared contracts.
 import {
+  addMemberSchema,
   campaignInputSchema,
   campaignEventSchema,
   createOrgSchema,
+  createHuntSchema,
   echoSchema,
   fanProgressSchema,
-  orgRoleSchema,
+  slugRejection,
   tenantSlugSchema,
   verifyCaptureSchema,
   verifyResultSchema,
   missionListPayloadSchema,
   tenantConfigSchema,
 } from 'shared'
-import { z } from 'zod'
 
 // ── Secrets ───────────────────────────────────────────────────────────
 // GEMINI_API_KEY is read in helpers/vision.ts and DECLARED on the function
@@ -55,6 +71,8 @@ const VALID_ROUTES = [
   'PUT /me/progress',
   'GET /me/orgs',
   'POST /orgs',
+  'POST /me/hunts',
+  'GET /orgs/slug-available',
   'GET /t/:slug/tenant',
   'GET /t/:slug/missions',
   'POST /t/:slug/verify-capture',
@@ -63,6 +81,7 @@ const VALID_ROUTES = [
   'GET /t/:slug/admin/whoami',
   'GET /t/:slug/admin/members',
   'POST /t/:slug/admin/members',
+  'DELETE /t/:slug/admin/members/:uid',
   'GET /t/:slug/admin/campaigns',
   'POST /t/:slug/admin/campaigns',
   'GET /t/:slug/admin/campaigns/:id',
@@ -76,12 +95,6 @@ const VALID_ROUTES = [
 // function: the seed route is gated on isEmulator.
 const DEMO_ADMIN_EMAIL = 'admin@demo.local'
 const DEMO_ADMIN_PASSWORD = 'demo1234'
-
-/** Body of `POST /t/:slug/admin/members`. */
-const addMemberSchema = z.object({
-  email: z.string().email().max(200),
-  role: orgRoleSchema,
-})
 
 /**
  * Per-tenant daily verification budget. This is the platform's cost ceiling
@@ -121,24 +134,6 @@ export const api = onRequest(
     const route = `${req.method} ${path}`
 
     logger.info('request', { method: req.method, path })
-
-    /**
-     * Resolves the caller and enforces the PLATFORM OPERATOR claim (`admin`).
-     * Operators are us — support/ops — never a customer. Org access goes
-     * through `requireMember` below.
-     */
-    async function requireOperator(): Promise<AuthedUser | null> {
-      const user = await verifyRequest(req.headers.authorization)
-      if (!user) {
-        res.status(401).json({ error: 'Unauthenticated' })
-        return null
-      }
-      if (!user.isAdmin) {
-        res.status(403).json({ error: 'Not a platform operator' })
-        return null
-      }
-      return user
-    }
 
     /**
      * Resolves ANY authenticated caller — no claim required. Used by the
@@ -228,21 +223,133 @@ export const api = onRequest(
         return
       }
 
-      // ── Org creation ──────────────────────────────────────────────
-      // Operator-gated in Phase 1 (venues are onboarded by hand). Phase 2
-      // self-serve is exactly this gate flipping to requireAuth — slug
-      // validation, reservation and the owner membership are already here.
+      // ── Org creation — SELF-SERVE ─────────────────────────────────
+      // Any signed-in account can create a hunt of their own (the wedding
+      // host, the team-building organizer). This is the Phase 2 gate-flip
+      // the migration plan reserved: slug validation, reservation and the
+      // owner membership were already here. Guests cannot — an org needs an
+      // accountable owner, the same account-anchors-responsibility rule as
+      // everything else per-person.
       if (route === 'POST /orgs') {
-        const user = await requireOperator()
+        const user = await requireAuth()
         if (!user) return
+
+        // A quiet cap, not a product limit: org creation writes documents
+        // and claims slugs, so one scripted account must not squat a
+        // thousand names in an afternoon. Operators (us) are exempt.
+        if (
+          !user.isAdmin &&
+          (await rateLimitOrReject(
+            res,
+            { bucket: 'create-org', key: user.uid, limit: 5, windowSeconds: 86_400 },
+            'Too many new hunts today. Try again tomorrow.',
+          ))
+        ) {
+          return
+        }
+
         const input = createOrgSchema.parse(req.body)
-        const result = await createOrg(input.slug, input.teamName, user.uid)
+        const result = await createOrg(input.slug, input.teamName, user.uid, 'org')
         if (result === 'exists') {
           res.status(409).json({ error: 'That name is taken' })
           return
         }
         logger.info('org created', { slug: input.slug, by: user.email })
         res.status(201).json({ slug: input.slug, teamName: input.teamName })
+        return
+      }
+
+      // ── Start a hunt — the consumer path ──────────────────────────
+      // One field: what the hunt is called. No organization to found first,
+      // no address to negotiate. The account's personal space is created on
+      // the way through if it does not exist yet, because a person running a
+      // wedding hunt should not have to understand tenancy to type a mission.
+      //
+      // Organizations remain a separate, deliberate act (POST /orgs): that is
+      // what a club or a venue sets up, and what a plan will eventually be
+      // attached to.
+      if (route === 'POST /me/hunts') {
+        const user = await requireAuth()
+        if (!user) return
+
+        if (
+          !user.isAdmin &&
+          (await rateLimitOrReject(
+            res,
+            { bucket: 'create-hunt', key: user.uid, limit: 20, windowSeconds: 86_400 },
+            'Too many new hunts today. Try again tomorrow.',
+          ))
+        ) {
+          return
+        }
+
+        const input = createHuntSchema.parse(req.body)
+
+        let slug = await findPersonalSpace(user.uid)
+        const createdSpace = slug === null
+        if (!slug) {
+          // Two different names, and they are not interchangeable.
+          //
+          // The ADDRESS belongs to the account and outlives every hunt, so it
+          // comes from the person's own name when the provider gave us one.
+          // Never from their email: a local part is an identifier nobody chose
+          // to publish, and every `jsmith` collides.
+          //
+          // The DISPLAY name is what a guest reads in the header when they
+          // scan the code, so it starts as the hunt's name. Someone at a
+          // wedding should see the wedding, not the host's account. It is
+          // editable on the Branding tab the moment that stops being true.
+          const personName = user.name?.trim() || input.name.trim()
+          const preferred = input.handle ?? handleFromName(personName)
+          slug = await claimPersonalSpace(user.uid, preferred, input.name.trim())
+          if (!slug) {
+            // Every candidate was taken. Asking for one beats minting a name
+            // nobody would have picked.
+            res.status(409).json({ error: 'Could not find a free address. Choose one.' })
+            return
+          }
+        }
+
+        // Always a draft: creating a hunt must never change what anyone is
+        // currently looking at. The mission editor is the next screen.
+        const campaign = await createCampaign(slug, {
+          name: input.name.trim(),
+          status: 'draft',
+          badgeTarget: 1,
+        })
+
+        logger.info('hunt created', { slug, createdSpace, by: user.email })
+        res.status(201).json({ tenantSlug: slug, campaignId: campaign.id, createdSpace })
+        return
+      }
+
+      // Is this web address free? The claim-your-URL probe, answered while
+      // the organizer is still typing rather than after they submit. Signed-in
+      // only and rate-limited: it is one document read, but an open one would
+      // be a slug oracle to script against.
+      if (route === 'GET /orgs/slug-available') {
+        const user = await requireAuth()
+        if (!user) return
+
+        if (
+          !user.isAdmin &&
+          (await rateLimitOrReject(
+            res,
+            { bucket: 'slug-check', key: user.uid, limit: 300, windowSeconds: 3600 },
+            'Too many checks. Try again shortly.',
+          ))
+        ) {
+          return
+        }
+
+        const raw = typeof req.query.slug === 'string' ? req.query.slug : ''
+        const rejection = slugRejection(raw)
+        if (rejection !== 'ok') {
+          res.status(200).json({ slug: raw, available: false, reason: rejection })
+          return
+        }
+        const taken = await tenantExists(raw)
+        res.status(200).json({ slug: raw, available: !taken, reason: taken ? 'taken' : null })
         return
       }
 
@@ -283,29 +390,35 @@ export const api = onRequest(
           // platform's wallet — this bucket is also where a billing tier
           // will plug in its number. Both fail open (see helpers/rateLimit):
           // a fan must never lose a capture to our bookkeeping.
-          const ipGate = await rateLimit({
-            bucket: 'verify-capture',
-            key: callerIp(req.headers as Record<string, unknown>, req.ip),
-            limit: 30,
-            windowSeconds: 60,
-          })
-          if (!ipGate.allowed) {
+          if (
+            await rateLimitOrReject(
+              res,
+              {
+                bucket: 'verify-capture',
+                key: callerIp(req.headers as Record<string, unknown>, req.ip),
+                limit: 30,
+                windowSeconds: 60,
+              },
+              'Too many requests. Please slow down.',
+            )
+          ) {
             logger.warn('verify-capture rate limited', { ip: req.ip })
-            res.set('Retry-After', String(ipGate.retryAfterSeconds))
-            res.status(429).json({ error: 'Too many requests. Please slow down.' })
             return
           }
 
-          const tenantGate = await rateLimit({
-            bucket: 'verify-capture-tenant',
-            key: slug,
-            limit: TENANT_VERIFY_DAILY_LIMIT,
-            windowSeconds: 86_400,
-          })
-          if (!tenantGate.allowed) {
+          if (
+            await rateLimitOrReject(
+              res,
+              {
+                bucket: 'verify-capture-tenant',
+                key: slug,
+                limit: TENANT_VERIFY_DAILY_LIMIT,
+                windowSeconds: 86_400,
+              },
+              'This hunt is over its daily limit.',
+            )
+          ) {
             logger.warn('verify-capture tenant budget exhausted', { slug })
-            res.set('Retry-After', String(tenantGate.retryAfterSeconds))
-            res.status(429).json({ error: 'This hunt is over its daily limit.' })
             return
           }
 
@@ -352,15 +465,18 @@ export const api = onRequest(
         // a number.
         if (rest[0] === 'campaigns' && rest[2] === 'events' && rest.length === 3 && req.method === 'POST') {
           const campaignId = rest[1]
-          const gate = await rateLimit({
-            bucket: 'campaign-events',
-            key: callerIp(req.headers as Record<string, unknown>, req.ip),
-            limit: 60,
-            windowSeconds: 60,
-          })
-          if (!gate.allowed) {
-            res.set('Retry-After', String(gate.retryAfterSeconds))
-            res.status(429).json({ error: 'Too many requests.' })
+          if (
+            await rateLimitOrReject(
+              res,
+              {
+                bucket: 'campaign-events',
+                key: callerIp(req.headers as Record<string, unknown>, req.ip),
+                limit: 60,
+                windowSeconds: 60,
+              },
+              'Too many requests.',
+            )
+          ) {
             return
           }
           const { kind } = campaignEventSchema.parse(req.body)
@@ -420,9 +536,37 @@ export const api = onRequest(
                 return
               }
               await addMember(slug, uid, input.role, user.uid)
+              logger.info('member added', { slug, role: input.role, by: user.email })
               res.status(201).json({ uid, role: input.role })
               return
             }
+          }
+
+          // Revoking one seat. Owners (and operators) only, and never the last
+          // owner — see removeMember. The uid comes from the member list this
+          // same console just rendered, so there is nothing to look up.
+          if (rest[1] === 'members' && rest.length === 3 && req.method === 'DELETE') {
+            if (role !== 'owner' && role !== 'operator') {
+              res.status(403).json({ error: 'Only an owner can manage members' })
+              return
+            }
+            const targetUid = rest[2]
+            if (!targetUid) {
+              res.status(400).json({ error: 'Missing member id' })
+              return
+            }
+            const outcome = await removeMember(slug, targetUid)
+            if (outcome === 'not-found') {
+              res.status(404).json({ error: 'Not a member of this organization' })
+              return
+            }
+            if (outcome === 'last-owner') {
+              res.status(409).json({ error: 'An organization needs at least one owner' })
+              return
+            }
+            logger.info('member removed', { slug, by: user.email })
+            res.status(204).send('')
+            return
           }
 
           if (rest[1] === 'campaigns') {

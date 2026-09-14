@@ -1,16 +1,29 @@
 <script setup lang="ts">
 /**
- * The org picker: which console does this account open?
+ * Where you go to run something. Two doors, deliberately unequal in size.
  *
- * One account can run several orgs (and operators see every org), so signing
- * in lands here rather than on a hardcoded dashboard. Members of exactly one
- * org still pass through — a taplist of one beats a surprise redirect that
- * hides where "switch organization" lives.
+ * STARTING A HUNT is the common case and comes first: one field, no
+ * organization, no address to negotiate. A wedding host, a teacher, someone
+ * planning a birthday party — none of them are founding an institution, and
+ * making them create one before typing a mission was the confusion this page
+ * now exists to remove.
+ *
+ * CREATING AN ORGANIZATION is the rarer, deliberate case, folded away at the
+ * bottom: a club, company or venue that wants its own name in the URL, its
+ * own branding and a team of staff. That is also the surface a plan will
+ * eventually attach to, which is another reason it is not the default path.
+ *
+ * The list in between is whatever this account can already open. Operators
+ * see every org on the platform, which is why the heading is scoped rather
+ * than possessive.
  */
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { ref } from 'vue'
 import BaseButton from '../components/BaseButton.vue'
+import CreateHuntForm from '../components/CreateHuntForm.vue'
+import CreateOrgForm from '../components/CreateOrgForm.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { useOrgsStore } from '../stores/orgs'
 import { useSessionStore } from '../stores/session'
@@ -26,7 +39,9 @@ onMounted(async () => {
     void router.replace({ name: 'staff-login' })
     return
   }
-  await orgs.load()
+  // The store clears itself on sign-out and refreshes itself after a create,
+  // so a cached list here is a current one.
+  await orgs.ensureLoaded()
 })
 
 function openConsole(slug: string): void {
@@ -37,9 +52,13 @@ function viewFanPage(slug: string): void {
   void router.push({ name: 'home', params: { tenantSlug: slug } })
 }
 
+/** The organization form stays folded until asked for. Most people never
+ *  open it, and an empty branded-page form is not a welcome. */
+const showOrgForm = ref(false)
+
 async function signOut(): Promise<void> {
   await session.signOutAll()
-  void router.replace({ name: 'staff-login' })
+  void router.replace({ name: 'landing' })
 }
 </script>
 
@@ -47,7 +66,7 @@ async function signOut(): Promise<void> {
   <section class="mx-auto flex min-h-dvh max-w-md flex-col px-5 py-10">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-extrabold text-brand-900">{{ t('orgs.title') }}</h1>
+        <h1 class="text-2xl font-extrabold text-brand-900">{{ t('orgs.runTitle') }}</h1>
         <p v-if="session.email" class="mt-0.5 text-xs text-muted" translate="no">
           {{ t('entry.signedInAs', { email: session.email }) }}
         </p>
@@ -70,7 +89,22 @@ async function signOut(): Promise<void> {
     </p>
 
     <template v-else>
-      <ul v-if="orgs.orgs.length" class="mt-6 grid gap-2.5">
+      <!-- ── Start a hunt: the common case, first and largest ────── -->
+      <div class="mt-6 rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+        <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
+          {{ t('orgs.startHuntHeading') }}
+        </h2>
+        <p class="mt-0.5 mb-3 text-xs text-muted">{{ t('orgs.startHuntIntro') }}</p>
+        <CreateHuntForm />
+      </div>
+
+      <h2
+        v-if="orgs.orgs.length"
+        class="mt-8 text-sm font-bold uppercase tracking-wide text-brand-900"
+      >
+        {{ t('orgs.openHeading') }}
+      </h2>
+      <ul v-if="orgs.orgs.length" class="mt-3 grid gap-2.5">
         <li
           v-for="org in orgs.orgs"
           :key="org.slug"
@@ -86,7 +120,7 @@ async function signOut(): Promise<void> {
             <span
               class="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase text-brand-600"
             >
-              {{ t(`orgs.role.${org.role}`) }}
+              {{ org.kind === 'personal' ? t('orgs.yoursLabel') : t(`orgs.role.${org.role}`) }}
             </span>
           </div>
           <div class="mt-3 flex flex-wrap gap-2">
@@ -98,12 +132,31 @@ async function signOut(): Promise<void> {
         </li>
       </ul>
 
-      <div v-else class="mt-10 text-center">
-        <p class="text-sm text-muted">{{ t('orgs.empty') }}</p>
+      <!-- ── Create an organization: rarer, deliberate, folded away ─ -->
+      <div class="mt-8 border-t border-brand-100 pt-6">
+        <button
+          v-if="!showOrgForm"
+          type="button"
+          class="text-sm font-semibold text-brand-600"
+          @click="showOrgForm = true"
+        >
+          {{ t('orgs.createPrompt') }}
+        </button>
+
+        <div v-else class="rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+          <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
+            {{ t('orgs.createHeading') }}
+          </h2>
+          <p class="mt-0.5 mb-3 text-xs text-muted">{{ t('orgs.createIntro') }}</p>
+          <CreateOrgForm />
+        </div>
       </div>
     </template>
 
-    <footer class="mt-auto pt-10 text-center">
+    <footer class="mt-auto flex items-center justify-between gap-3 pt-10">
+      <RouterLink :to="{ name: 'platform-home' }" class="text-sm font-semibold text-brand-600">
+        {{ t('orgs.platformHome') }}
+      </RouterLink>
       <button type="button" class="text-sm font-semibold text-brand-600" @click="signOut">
         {{ t('entry.signOut') }}
       </button>

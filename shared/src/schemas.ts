@@ -42,6 +42,7 @@ export const RESERVED_SLUGS = new Set([
   'explore',
   'health',
   'help',
+  'home',
   'me',
   'missions',
   'orgs',
@@ -73,6 +74,24 @@ export function isValidTenantSlug(value: string): boolean {
   return tenantSlugSchema.safeParse(value).success
 }
 
+/**
+ * Why a slug was refused, as a code the UI can turn into its own sentence.
+ *
+ * `tenantSlugSchema` deliberately conflates the two failures into one parse
+ * error, which makes for a misleading form: someone typing `help` is told to
+ * use 3–50 letters and numbers, which is exactly what they did. A reserved
+ * word is a different problem from a malformed one, and the person fixing it
+ * needs to know which.
+ */
+export type SlugRejection = 'ok' | 'format' | 'reserved'
+
+export function slugRejection(value: string): SlugRejection {
+  if (RESERVED_SLUGS.has(value)) return 'reserved'
+  return value.length >= 3 && value.length <= 50 && TENANT_SLUG_PATTERN.test(value)
+    ? 'ok'
+    : 'format'
+}
+
 // ── Org membership ────────────────────────────────────────────────────
 /**
  * Access to an org is a MEMBERSHIP DOCUMENT (`tenants/{slug}/members/{uid}`),
@@ -90,6 +109,25 @@ export function isValidTenantSlug(value: string): boolean {
 export const orgRoleSchema = z.enum(['owner', 'editor'])
 export type OrgRole = z.infer<typeof orgRoleSchema>
 
+/**
+ * What a tenant IS, which is not the same question as who can edit it.
+ *
+ * `personal` — one person's own space, created implicitly the first time they
+ *   start a hunt. They never asked for an organization and are never shown the
+ *   word: a wedding host has an address and some hunts, not a company.
+ * `org`      — a club, company or venue, created deliberately. It is the thing
+ *   that wants branding, a team of staff and, in time, a bill.
+ *
+ * Both are the same document with the same subcollections, because everything
+ * a hunt needs (an address, branding, storage, analytics, membership) hangs
+ * off a tenant. Splitting them into two entities would duplicate all of it to
+ * express what is really a difference in VOCABULARY and in how much setup a
+ * person should be asked for. Server-written and never editable through the
+ * branding form, so an org cannot quietly become a personal space.
+ */
+export const tenantKindSchema = z.enum(['personal', 'org'])
+export type TenantKind = z.infer<typeof tenantKindSchema>
+
 export const orgMemberSchema = z.object({
   uid: z.string().min(1).max(128),
   role: orgRoleSchema,
@@ -106,6 +144,8 @@ export const orgSummarySchema = z.object({
   slug: z.string().min(1).max(50),
   teamName: z.string().max(60),
   role: z.union([orgRoleSchema, z.literal('operator')]),
+  /** Defaulted for tenants created before the split, which were all orgs. */
+  kind: tenantKindSchema.default('org'),
 })
 
 export type OrgSummary = z.infer<typeof orgSummarySchema>
@@ -120,6 +160,84 @@ export const createOrgSchema = z.object({
 })
 
 export type CreateOrgInput = z.infer<typeof createOrgSchema>
+
+/**
+ * Body of `POST /me/hunts` — the consumer path, and deliberately one field.
+ *
+ * Starting a hunt used to mean creating an "organization" first: a second
+ * name, and a web address to negotiate, before you could type a single
+ * mission. A person running a wedding hunt has one thing in their head, and
+ * being asked to found an institution around it is the wrong question.
+ *
+ * The server finds this account's personal space or creates one, then puts a
+ * draft hunt inside it. `handle` is only consulted when there is no personal
+ * space yet: it is the address that account's page will live at forever, so
+ * it is offered as a prefilled suggestion rather than a demand. Omitted, the
+ * server derives one.
+ */
+export const createHuntSchema = z.object({
+  name: z.string().min(1).max(80),
+  handle: tenantSlugSchema.optional(),
+})
+
+export type CreateHuntInput = z.infer<typeof createHuntSchema>
+
+/** What `POST /me/hunts` answers: where the new draft lives. */
+export const createdHuntSchema = z.object({
+  tenantSlug: z.string().min(1).max(50),
+  campaignId: z.string().min(1).max(200),
+  /** True when this call also created the account's personal space. */
+  createdSpace: z.boolean(),
+})
+
+export type CreatedHunt = z.infer<typeof createdHuntSchema>
+
+/**
+ * `GET /orgs/slug-available?slug=…` — the claim-your-URL probe.
+ *
+ * Answered before the form is submitted so a taken or reserved address is a
+ * correction while the organizer is still typing the name, not a rejection
+ * after they committed to it. `reason` is null exactly when available.
+ */
+export const slugAvailabilitySchema = z.object({
+  slug: z.string().max(50),
+  available: z.boolean(),
+  reason: z.union([z.literal('taken'), z.literal('reserved'), z.literal('format'), z.null()]),
+})
+
+export type SlugAvailability = z.infer<typeof slugAvailabilitySchema>
+
+/**
+ * Body of `POST /t/:slug/admin/members` — an owner invites a colleague by
+ * the email their account already uses. There is no invitation email and no
+ * pending state: the account must exist, which keeps the member list a list of
+ * real people rather than a list of hopes.
+ */
+export const addMemberSchema = z.object({
+  email: z.string().email().max(200),
+  role: orgRoleSchema,
+})
+
+export type AddMemberInput = z.infer<typeof addMemberSchema>
+
+/**
+ * One row of `GET /t/:slug/admin/members`.
+ *
+ * `email` is resolved from Auth at read time rather than copied onto the
+ * membership document: a stored address goes stale the day someone changes
+ * theirs, and a console showing a stale address is how the wrong person keeps
+ * access. Null when the account has since been deleted.
+ */
+export const orgMemberRowSchema = z.object({
+  uid: z.string().min(1).max(128),
+  email: z.string().max(200).nullable(),
+  role: orgRoleSchema,
+})
+
+export type OrgMemberRow = z.infer<typeof orgMemberRowSchema>
+
+export const orgMembersSchema = z.object({ members: z.array(orgMemberRowSchema).max(100) })
+export type OrgMembers = z.infer<typeof orgMembersSchema>
 
 // ── Mission text ──────────────────────────────────────────────────────
 /**
@@ -336,6 +454,30 @@ export const wonHuntSchema = z.object({
 
 export type WonHunt = z.infer<typeof wonHuntSchema>
 
+/**
+ * A hunt the fan has JOINED but may not have finished — the "ongoing games"
+ * on their platform home. Distinct from `wonHunts` (finished) and from
+ * `earned` (per-campaign badge ids): this is the shortlist of brands worth
+ * a "Continue" button, with just enough snapshot to render a card without
+ * re-fetching every org.
+ *
+ * `badgeTarget` is snapshotted at join time so the card can show "3 / 8"
+ * offline; the live hub is still authoritative once entered. Optional on
+ * fanProgress so a doc written before this existed still parses.
+ */
+export const joinedHuntSchema = z.object({
+  tenantSlug: z.string().min(1).max(60),
+  /** The org's name at join time, for the card. */
+  teamName: z.string().max(60),
+  campaignId: z.string().min(1).max(200),
+  /** Badges needed to win, snapshotted so the card renders offline. */
+  badgeTarget: z.number().int().nonnegative().max(50),
+  /** Epoch ms when first joined. */
+  joinedAt: z.number().int().nonnegative(),
+})
+
+export type JoinedHunt = z.infer<typeof joinedHuntSchema>
+
 export const fanProgressSchema = z.object({
   /** Fan-chosen display name. Empty string when they never set one. */
   nickname: z.string().max(60),
@@ -347,6 +489,9 @@ export const fanProgressSchema = z.object({
   claimed: z.record(z.string().max(200), z.boolean()),
   /** Finished hunts — the trophy shelf. */
   wonHunts: z.array(wonHuntSchema).max(200),
+  /** Joined hunts — the "ongoing games" on platform home. Optional so a
+   *  document written before this field existed still parses. */
+  joinedHunts: z.array(joinedHuntSchema).max(200).optional(),
 })
 
 export type FanProgress = z.infer<typeof fanProgressSchema>
@@ -379,8 +524,11 @@ export type TenantAvatar = z.infer<typeof tenantAvatarSchema>
  * one. A closed set also means the app can ship the matching CSS stack and
  * weights, so a font either works properly or is not offered.
  *
- * `system` loads NOTHING. It is the default on purpose — a webfont is a
- * render-blocking round trip on stadium wifi, and most clubs will not miss it.
+ * `system` loads NOTHING — the zero-cost escape hatch for orgs that care
+ * about every round trip. The platform DEFAULT is `inter` (the Huntima body
+ * face); on stadium wifi that cost is paid once and mitigated with subset +
+ * `font-display: swap` + preload in lib/fonts.ts, so text renders in the
+ * fallback stack while it loads rather than blocking.
  */
 export const FONT_CHOICES = [
   'system',
@@ -466,8 +614,10 @@ export type TenantConfig = z.infer<typeof tenantConfigSchema>
  * must read as "Huntima, loading", never as the wrong team. Demo-club
  * branding (Louisville Bats etc.) lives in firebase/seed.mjs.
  *
- * The amber accent grades ~3.3:1 on white — "large text only", which is the
- * accent's documented role (badge numerals, win states; see docs/branding.md).
+ * Deep indigo (body ink) + electric orange (accent; the CTA gradient's far
+ * end is DERIVED from it by hue rotation — orange→magenta). The orange
+ * grades ~3:1 on white — "large text only", which is the accent's documented
+ * role (badge numerals, CTAs, win states; see docs/branding.md).
  */
 export const SEED_TENANT: TenantConfig = {
   teamName: 'Huntima',
@@ -475,8 +625,8 @@ export const SEED_TENANT: TenantConfig = {
   badgeTarget: 5,
   timezone: 'America/New_York',
   brandBase: '#312e63',
-  accentBase: '#d97706',
-  fontFamily: 'system',
+  accentBase: '#f97316',
+  fontFamily: 'inter',
   logoUrl: null,
   avatars: [],
   venue: null,

@@ -1,7 +1,6 @@
 const en = {
   title: 'Branding',
-  subtitle: 'Set the team identity and palette. Changes apply instantly.',
-  backToApp: 'Back to the fan app',
+  subtitle: 'Set the team identity and palette. Preview here, then publish.',
 
   identityHeading: 'Identity',
   teamNameLabel: 'Team name',
@@ -12,8 +11,8 @@ const en = {
   badgeTargetHelp: 'Prefills the target for new hunts. Each hunt then keeps its own.',
 
   venueHeading: 'Location check',
-  venueHelp: 'Optionally require fans to be at the stadium to capture a photo.',
-  venueEnableLabel: 'Only allow captures at the stadium',
+  venueHelp: 'Optionally require fans to be at the event location to capture a photo.',
+  venueEnableLabel: 'Only allow captures at the event location',
   venueLatLabel: 'Latitude',
   venueLngLabel: 'Longitude',
   venueRadiusLabel: 'Radius (m)',
@@ -24,7 +23,7 @@ const en = {
     "A fan's location is only compared to this point on their own device — never stored or sent anywhere.",
 
   typefaceHeading: 'Typeface',
-  typefaceHelp: 'Applies across the app. "System default" loads nothing extra, which is fastest on stadium wifi.',
+  typefaceHelp: 'Applies across the app. "System default" loads nothing extra, which is fastest on a slow connection.',
   typefaceLabel: 'Font',
   typefacePreview: 'The quick brown fox jumps over the lazy dog',
 
@@ -82,8 +81,7 @@ const en = {
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
   title: 'Identidad de marca',
-  subtitle: 'Define la identidad del equipo y la paleta. Los cambios se aplican al instante.',
-  backToApp: 'Volver a la app',
+  subtitle: 'Define la identidad del equipo y la paleta. Previsualiza aquí y luego publica.',
 
   identityHeading: 'Identidad',
   teamNameLabel: 'Nombre del equipo',
@@ -94,8 +92,8 @@ const es: typeof en = {
   badgeTargetHelp: 'Prerrellena el objetivo de las nuevas búsquedas. Cada una guarda el suyo.',
 
   venueHeading: 'Comprobación de ubicación',
-  venueHelp: 'Opcionalmente, exige que los aficionados estén en el estadio para capturar una foto.',
-  venueEnableLabel: 'Permitir capturas solo en el estadio',
+  venueHelp: 'Opcionalmente, exige que los aficionados estén en el lugar del evento para capturar una foto.',
+  venueEnableLabel: 'Permitir capturas solo en el lugar del evento',
   venueLatLabel: 'Latitud',
   venueLngLabel: 'Longitud',
   venueRadiusLabel: 'Radio (m)',
@@ -106,7 +104,7 @@ const es: typeof en = {
     'La ubicación del aficionado solo se compara con este punto en su propio dispositivo: nunca se almacena ni se envía a ningún sitio.',
 
   typefaceHeading: 'Tipografía',
-  typefaceHelp: 'Se aplica a toda la app. «Predeterminada del sistema» no descarga nada, lo más rápido en el wifi del estadio.',
+  typefaceHelp: 'Se aplica a toda la app. «Predeterminada del sistema» no descarga nada, lo más rápido con una conexión lenta.',
   typefaceLabel: 'Fuente',
   typefacePreview: 'El veloz murciélago hindú comía feliz cardillo y kiwi',
 

@@ -134,6 +134,13 @@ Vue can't tell that an item moved rather than changed.
   transform-only, fan shell only) and the one-away beacon (Recipe 11, which
   earns its pulse by marking the near-win). Don't add per-element ambient
   loops beyond these; a third would start dulling the payoffs.
+- **Scoping a loop to a state does not make it state-scoped.** The test is
+  whether the fan can sit in that state indefinitely. The scan sweep marks an
+  operation they are waiting on and dies with it; the badge float rides a
+  reward that passes. A loop running through a RESTING state — the capture
+  page while someone composes a shot — is ambient in everything but name, and
+  counts against the two above. Recipe 17 is the worked example: the same
+  brackets now breathe a few times to say where to aim, then settle.
 - **The fixed chrome opts out of the page transition.** AppShell's header,
   bottom nav, and backdrop each carry a static `view-transition-name`
   (`app-header`, `app-nav`, `app-backdrop`), which removes them from the root

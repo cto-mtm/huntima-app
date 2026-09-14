@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AdminNav from '../../components/admin/AdminNav.vue'
 import BaseButton from '../../components/BaseButton.vue'
+import PublicLinkCard from '../../components/admin/PublicLinkCard.vue'
 import type { CampaignStatus } from 'shared'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
@@ -56,6 +57,12 @@ async function remove(id: string): Promise<void> {
       <p class="mt-1 text-sm text-muted">{{ t('hunts.subtitle') }}</p>
     </header>
 
+    <!-- The address fans actually open. First thing on the screen an organizer
+         lands on after claiming it, because otherwise they never see it. -->
+    <div class="mt-5">
+      <PublicLinkCard />
+    </div>
+
     <p v-if="hunts.error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
       {{ t('hunts.loadFailed') }}
     </p>
@@ -104,9 +111,18 @@ async function remove(id: string): Promise<void> {
     </form>
 
     <!-- ── List ────────────────────────────────────────────────── -->
-    <p v-if="!hunts.loading && !hunts.campaigns.length" class="mt-6 text-sm text-muted">
-      {{ t('hunts.empty') }}
-    </p>
+    <!-- A fresh org lands here wearing the platform's default palette, with
+         nothing pointing at the screen that changes it. One sentence is enough
+         to close that loop; a full onboarding checklist is not this change. -->
+    <div v-if="!hunts.loading && !hunts.campaigns.length" class="mt-6">
+      <p class="text-sm text-muted">{{ t('hunts.empty') }}</p>
+      <RouterLink
+        :to="{ name: 'admin-branding' }"
+        class="mt-1 inline-block text-sm font-semibold text-brand-600"
+      >
+        {{ t('hunts.emptyBranding') }}
+      </RouterLink>
+    </div>
 
     <ul class="mt-6 grid gap-2.5">
       <!-- Name/status on top, actions on their own wrapping row below. The old

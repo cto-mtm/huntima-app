@@ -28,9 +28,6 @@ const ACCOUNT_SEEN_KEY = 'huntima:has-account'
  */
 export type Role = 'anonymous' | 'guest' | 'fan' | 'admin'
 
-/** Sentinel for "authenticated, but no admin claim". Not user-facing copy. */
-export const NOT_STAFF = 'app/not-staff'
-
 /**
  * Stable per-device identifier.
  *
@@ -232,6 +229,32 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
+  /**
+   * Sends a password-reset email.
+   *
+   * Always reports success, whatever Firebase says. A form that distinguishes
+   * "sent" from "no such account" is an account-enumeration oracle, and the
+   * person who mistyped their address learns the same thing from the email
+   * that never arrives. Errors are still surfaced for the one case worth
+   * separating: the service being unreachable.
+   */
+  async function sendPasswordReset(address: string): Promise<boolean> {
+    busy.value = true
+    authError.value = null
+    try {
+      const auth = await getFirebaseAuth()
+      const { sendPasswordResetEmail } = await import('firebase/auth')
+      await sendPasswordResetEmail(auth, address)
+      return true
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code
+      if (code === 'auth/network-request-failed') return captureError(err)
+      return true
+    } finally {
+      busy.value = false
+    }
+  }
+
   async function createAccount(address: string, password: string): Promise<boolean> {
     busy.value = true
     authError.value = null
@@ -287,6 +310,7 @@ export const useSessionStore = defineStore('session', () => {
     signInWithGoogle,
     signInWithEmail,
     createAccount,
+    sendPasswordReset,
     getIdToken,
     signOutAll,
   }

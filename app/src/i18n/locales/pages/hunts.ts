@@ -1,12 +1,22 @@
 const en = {
   navBranding: 'Branding',
   navHunts: 'Hunts',
+  navTeam: 'Team',
   navOrgs: 'Switch organization',
+  navPlatform: 'Huntima home',
 
   title: 'Hunts',
   subtitle: 'Build the missions fans work through on game day.',
   empty: 'No hunts yet. Create one to get started.',
+  emptyBranding: 'New here? Set your colors and logo in Branding.',
   loadFailed: 'Could not load hunts.',
+
+  shareHeading: 'Your fan page',
+  shareHelp: 'The address fans open. Print the code, or put it on a screen.',
+  copyLink: 'Copy link',
+  linkCopied: 'Copied.',
+  downloadQr: 'Download QR',
+  viewFanPage: 'Open fan page',
 
   newHuntHeading: 'New hunt',
   nameLabel: 'Hunt name',
@@ -53,8 +63,8 @@ const en = {
   missionHintLabel: 'Hint',
   missionHintPlaceholder: 'e.g. Find the bronze statue near the main gate.',
   kindLabel: 'Where',
-  kindPhoto: 'Concourse',
-  kindSpyglass: 'On the field',
+  kindPhoto: 'Nearby',
+  kindSpyglass: 'Far away',
   colorLabel: 'Placeholder color',
   moveUp: 'Move up',
   moveDown: 'Move down',
@@ -70,11 +80,6 @@ const en = {
   uploadNotImage: 'That file is not an image.',
   uploadTooLarge: 'Images must be under 5 MB.',
   removeTarget: 'Remove photo',
-
-  assetsHeading: 'Team assets',
-  assetsHelp: 'Logos and marks for this team. Uploaded files are public.',
-  uploadAsset: 'Upload asset',
-  assetUploaded: 'Uploaded. Copy the link where you need it.',
 
   save: 'Save missions',
   saving: 'Saving…',
@@ -105,12 +110,22 @@ const en = {
 const es: typeof en = {
   navBranding: 'Marca',
   navHunts: 'Búsquedas',
+  navTeam: 'Equipo',
   navOrgs: 'Cambiar de organización',
+  navPlatform: 'Inicio de Huntima',
 
   title: 'Búsquedas',
   subtitle: 'Crea las misiones que los aficionados completan el día del partido.',
   empty: 'Aún no hay búsquedas. Crea una para empezar.',
+  emptyBranding: '¿Acabas de empezar? Define tus colores y tu logotipo en Marca.',
   loadFailed: 'No se pudieron cargar las búsquedas.',
+
+  shareHeading: 'Tu página de fans',
+  shareHelp: 'La dirección que abren los aficionados. Imprime el código o muéstralo en una pantalla.',
+  copyLink: 'Copiar enlace',
+  linkCopied: 'Copiado.',
+  downloadQr: 'Descargar QR',
+  viewFanPage: 'Abrir página de fans',
 
   newHuntHeading: 'Nueva búsqueda',
   nameLabel: 'Nombre de la búsqueda',
@@ -157,8 +172,8 @@ const es: typeof en = {
   missionHintLabel: 'Pista',
   missionHintPlaceholder: 'ej. Busca la estatua de bronce junto a la entrada principal.',
   kindLabel: 'Dónde',
-  kindPhoto: 'Pasillo',
-  kindSpyglass: 'En el campo',
+  kindPhoto: 'Cerca',
+  kindSpyglass: 'Lejos',
   colorLabel: 'Color provisional',
   moveUp: 'Subir',
   moveDown: 'Bajar',
@@ -174,11 +189,6 @@ const es: typeof en = {
   uploadNotImage: 'Ese archivo no es una imagen.',
   uploadTooLarge: 'Las imágenes deben pesar menos de 5 MB.',
   removeTarget: 'Quitar foto',
-
-  assetsHeading: 'Recursos del equipo',
-  assetsHelp: 'Logotipos y marcas de este equipo. Los archivos subidos son públicos.',
-  uploadAsset: 'Subir recurso',
-  assetUploaded: 'Subido. Copia el enlace donde lo necesites.',
 
   save: 'Guardar misiones',
   saving: 'Guardando…',

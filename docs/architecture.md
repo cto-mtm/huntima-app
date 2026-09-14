@@ -31,7 +31,7 @@ Vue 3 (`<script setup>`, TypeScript strict) + vue-router with `createWebHistory`
   through CSS; the router file never changes per-page. Unsupported browsers and
   `prefers-reduced-motion` users get instant navigation, which is the designed
   fallback, not a bug. See [`animations.md`](animations.md).
-- **State** — `stores/missions.ts` hydrates the campaign from `GET /missions`
+- **State** — `stores/missions.ts` hydrates the campaign from `GET /t/:slug/missions`
   (falling back to the seed when the network fails); `stores/progress.ts` holds
   the fan's nickname, avatar and earned badges. That one is device-local
   (`localStorage`) for guests; a signed-in fan also has it synced to the server
@@ -139,7 +139,7 @@ A **hunt** is a Firestore document in `campaigns/`, with its missions embedded
 rather than in a subcollection: a hunt has a handful of steps, every read
 wants all of them, and publishing must be atomic — a fan must never see a
 half-edited hunt. Only a `published` hunt is served; everything else is a
-draft nobody can see. With no published hunt, `GET /missions` falls back to
+draft nobody can see. With no published hunt, `GET /t/:slug/missions` falls back to
 the built-in demo campaign, so a fresh install never shows an empty app to a
 family that just scanned a QR code.
 
@@ -156,7 +156,7 @@ is shown AND the reference their capture is compared against.
 
 **Fan captures are never stored.** The photo is downscaled to 1024px in the
 browser (which also strips the GPS coordinates phones embed by default), sent
-in the body of `POST /verify-capture`, forwarded to Gemini, and discarded with
+in the body of `POST /t/:slug/verify-capture`, forwarded to Gemini, and discarded with
 the request. These are photographs of children in a public venue: what you do
 not store cannot leak, and there is no deletion request to service.
 `storage.rules` denies the write path outright rather than relying on the

@@ -6,15 +6,38 @@
  * badge progress lives on the hub. Keeping the two distinct is the whole point
  * of this rewrite: this page is a record of past wins, the hub is today's game.
  */
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import BaseButton from '../components/BaseButton.vue'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
+import { useTenantStore } from '../stores/tenant'
 
 const { t, d } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const progress = useProgressStore()
 const session = useSessionStore()
+const tenant = useTenantStore()
+
+/**
+ * This page is GLOBAL, but the redeem CTA targets a tenant route — a prize
+ * is collected at a venue. `progress.isComplete` refers to the last loaded
+ * hunt, which belongs to the last-visited org, so that slug is the right
+ * target; with no slug ever visited there is no hunt to have completed.
+ */
+const redeemSlug = computed(() => {
+  const p = route.params.tenantSlug
+  return typeof p === 'string' ? p : tenant.lastSlug
+})
+
+function goRedeem(): void {
+  if (redeemSlug.value) {
+    void router.push({ name: 'redeem', params: { tenantSlug: redeemSlug.value } })
+  }
+}
 </script>
 
 <template>
@@ -68,8 +91,8 @@ const session = useSessionStore()
     </ul>
 
     <!-- A win the fan hasn't claimed yet: send them to the prize screen. -->
-    <div v-if="progress.isComplete && !progress.redeemed" class="mt-6">
-      <BaseButton size="lg" icon="prize" @click="$router.push({ name: 'redeem' })">
+    <div v-if="progress.isComplete && !progress.redeemed && redeemSlug" class="mt-6">
+      <BaseButton size="lg" icon="prize" @click="goRedeem">
         {{ t('trophyCase.complete') }}
       </BaseButton>
     </div>

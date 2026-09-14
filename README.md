@@ -21,8 +21,10 @@ earned, not honor-system. Organizers run their own console at
 - **i18n** — vue-i18n in Composition API mode, per-feature TypeScript modules
   with compile-time key parity between locales. See [`docs/i18n.md`](docs/i18n.md).
 - **Domain shell** — the fan flow (hub → mission → capture → trophy case →
-  redeem) runs on seeded local state. Firestore, camera, geofencing and the
-  admin dashboard are deliberately not built; see
+  redeem) and the org console (branding, hunt builder, analytics, team) are
+  real routes backed by Firestore, Cloud Storage and Firebase Auth, with
+  captures judged by a vision model. A native camera viewfinder, geofencing
+  and a server-authoritative badge ledger are deliberately still open; see
   [`docs/architecture.md`](docs/architecture.md) § "Seams left open".
 
 ## Quick start — fully local, no Firebase account
@@ -30,7 +32,7 @@ earned, not honor-system. Organizers run their own console at
 You do **not** need a Firebase project, `firebase login`, or any credentials.
 The emulator scripts use the project id `demo-app`; any id prefixed `demo-`
 makes the Emulator Suite run completely offline and never touch real resources.
-That is why the `REPLACE_ME` in `.firebaserc` can stay untouched on day one.
+That is why the project id in `.firebaserc` is irrelevant on day one.
 
 ```bash
 # 0. One-time: the emulators are driven by the global CLI
@@ -59,8 +61,11 @@ npm run seed
 npm run dev
 ```
 
-Open the app (the dev server prints the URL). Visit `/about` — it calls `GET /health` on the
-emulated function and renders the response, proving the whole app → API path.
+Open the app (the dev server prints the URL). To prove the whole app → API
+path, open an org console and look at the **System** card on its Branding tab:
+it calls `GET /health` on the emulated function and renders the response. (The
+card used to sit on the fan-facing About screen, which is why that page no
+longer shows one.)
 
 The seed is idempotent — re-run it after every emulator restart, since the
 Auth and Firestore emulators start empty.
@@ -99,16 +104,22 @@ The Emulator UI is on :5000.
 
 ## Signing in
 
-Every session starts at the entry screen.
+`/` is the signed-out marketing page. A fan normally arrives instead by
+scanning an org's QR code, which lands them on that org's entry screen at
+`/:tenantSlug/welcome`.
 
 **Fans** tap *Continue as guest*. No account, no password — they get a device
-id generated on-device (so it works with no signal) plus a nickname. *Switch
-user* is on the About tab.
+id generated on-device (so it works with no signal) plus a nickname. An
+account is optional and keeps their name and trophies across devices; *Switch
+user* is on the org's About tab.
 
-**Staff** use the quiet *Staff sign-in* link at the foot of the entry screen —
-deliberately understated, since almost everyone on that screen is a family.
-It is real Firebase Auth. The Auth emulator
-starts empty, so seed the account first — either from a terminal:
+**Organizers** use the *Organizer sign in* link at the foot of the marketing
+page, or the quieter *Staff sign-in* at the foot of an org's entry screen —
+understated there because almost everyone on that screen is a family. It is
+real Firebase Auth, and it creates accounts as well as signing them in: an
+account that runs no org lands on `/orgs`, where it can start one. The Auth
+emulator starts empty, so to get the pre-seeded operator account, seed it
+first — either from a terminal:
 
 ```bash
 npm run seed
@@ -120,13 +131,18 @@ or with the **Create demo admin** button on the login screen. Both create:
 admin@demo.local / demo1234
 ```
 
-Access is granted by the `admin` **custom claim**, never the email address.
+That demo account carries the `admin` **custom claim**, which means *platform
+operator* — support and ops, never a customer. Ordinary access to an org
+console is a membership document at `tenants/{slug}/members/{uid}`, granted by
+an owner on the console's Team tab. Neither is ever an email address: anyone
+who can register that address would inherit the access.
+
 The router guard only decides what UI to draw; the real gate is server-side
-token verification, so forcing your way to `/admin` yields a dashboard whose
+token verification, so forcing your way to a console yields a dashboard whose
 privileged calls return 401/403. Try it:
 
 ```bash
-curl -i http://127.0.0.1:6001/demo-app/us-central1/api/admin/whoami
+curl -i http://127.0.0.1:6001/demo-app/us-central1/api/t/demo/admin/whoami
 ```
 
 In dev, the entry screen also offers persona shortcuts that jump a fan
@@ -188,7 +204,7 @@ cd app && npm run cap:assets && npx cap sync && npx cap open ios
 
 Two things are already handled for you:
 
-- **CORS** — the API allow-list in `functions/src/api.ts` already includes
+- **CORS** — the API allow-list in `functions/src/helpers/cors.ts` already includes
   `capacitor://localhost` and `http://localhost`, which is what the iOS and
   Android shells send as `Origin`. Don't delete those entries.
 - **Android back button** — handled in `app/src/lib/native.ts`. Without it the
@@ -196,7 +212,9 @@ Two things are already handled for you:
 
 ## Deploy
 
-1. Put your real project id in `.firebaserc` (replacing `REPLACE_ME_FIREBASE_PROJECT_ID`).
+1. Put your real project id in `.firebaserc` (it currently reads
+   `stadium-photo-hunt`, the name this repo carried before the product was
+   renamed to Huntima).
 2. Set `VITE_API_URL` in `app/.env` to the deployed function URL
    (`https://us-central1-<project-id>.cloudfunctions.net/api`). Vite inlines this
    at build time, so it must be right *before* you build.

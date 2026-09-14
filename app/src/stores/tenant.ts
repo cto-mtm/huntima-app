@@ -1,15 +1,35 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { tenantConfigSchema, type TenantConfig } from 'shared'
-import { ACCENT_STOPS, BRAND_STOPS, generateRamp, isValidHex, normalizeHex } from '../lib/color'
+import {
+  ACCENT_ALT_HUE_SHIFT,
+  ACCENT_STOPS,
+  BRAND_STOPS,
+  generateRamp,
+  isValidHex,
+  normalizeHex,
+  rotateHue,
+} from '../lib/color'
 import { DEFAULT_TENANT } from '../config/tenant'
 import { applyFont } from '../lib/fonts'
 import { apiFetch } from '../lib/api'
-import { useSessionStore } from './session'
+import { authedFetch } from '../lib/authedFetch'
 
 /** Per-org cache key: one browser can hold several clubs' brands at once. */
 function cacheKey(slug: string): string {
   return `huntima:tenant:${slug}`
+}
+
+/** The last org this device played. Lets the global consumer pages (shelf,
+ *  profile) keep a "Missions" tab that points back somewhere real. */
+const LAST_SLUG_KEY = 'huntima:last-slug'
+
+function readLastSlug(): string | null {
+  try {
+    return localStorage.getItem(LAST_SLUG_KEY)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -52,10 +72,10 @@ function writeCache(slug: string, config: TenantConfig): void {
 }
 
 export const useTenantStore = defineStore('tenant', () => {
-  const session = useSessionStore()
-
   /** The org this browser tab is currently scoped to. Null on platform pages. */
   const slug = ref<string | null>(null)
+  /** The most recent org this device visited — survives leaving tenant scope. */
+  const lastSlug = ref<string | null>(readLastSlug())
   const settings = ref<TenantConfig>({ ...DEFAULT_TENANT })
   /** The last state known to be on the server, for dirty tracking. */
   const published = ref<TenantConfig>({ ...settings.value })
@@ -83,6 +103,18 @@ export const useTenantStore = defineStore('tenant', () => {
     ),
   )
 
+  /** The far end of the candy gradient, DERIVED from the accent by hue
+   *  rotation (lib/color.ts) — no second color pick, no new schema field. */
+  const accentAltRamp = computed(() =>
+    generateRamp(
+      rotateHue(
+        isValidHex(settings.value.accentBase) ? settings.value.accentBase : DEFAULT_TENANT.accentBase,
+        ACCENT_ALT_HUE_SHIFT,
+      ),
+      ACCENT_STOPS,
+    ),
+  )
+
   function applyTheme(): void {
     applyFont(settings.value.fontFamily)
 
@@ -93,6 +125,13 @@ export const useTenantStore = defineStore('tenant', () => {
     for (const [stop, hex] of Object.entries(accentRamp.value)) {
       root.style.setProperty(`--color-accent-${stop}`, hex)
     }
+    for (const [stop, hex] of Object.entries(accentAltRamp.value)) {
+      root.style.setProperty(`--color-accent-alt-${stop}`, hex)
+    }
+    // Body text follows the brand: deep club ink instead of harsh black,
+    // per the candy palette. brand-900's lightness is fixed by the ramp
+    // table, so this stays readable whatever hue an org picks.
+    root.style.setProperty('--color-ink', brandRamp.value[900])
   }
 
   /**
@@ -104,6 +143,12 @@ export const useTenantStore = defineStore('tenant', () => {
   function activate(nextSlug: string): void {
     if (slug.value === nextSlug) return
     slug.value = nextSlug
+    lastSlug.value = nextSlug
+    try {
+      localStorage.setItem(LAST_SLUG_KEY, nextSlug)
+    } catch {
+      // Private browsing: the tab still works, the tab-out nav just forgets.
+    }
     notFound.value = false
     error.value = null
     settings.value = readCache(nextSlug)
@@ -163,16 +208,10 @@ export const useTenantStore = defineStore('tenant', () => {
     saving.value = true
     error.value = null
 
-    const token = await session.getIdToken()
-    if (!token) {
-      error.value = 'Not signed in'
-      saving.value = false
-      return false
-    }
-
-    const result = await apiFetch<unknown>(`/t/${slug.value}/admin/tenant`, {
+    // A missing token comes back as a failed result, handled by the branch
+    // below like any other failure.
+    const result = await authedFetch<unknown>(`/t/${slug.value}/admin/tenant`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify(settings.value),
     })
 
@@ -206,6 +245,7 @@ export const useTenantStore = defineStore('tenant', () => {
 
   return {
     slug,
+    lastSlug,
     settings,
     published,
     loading,
@@ -215,6 +255,7 @@ export const useTenantStore = defineStore('tenant', () => {
     dirty,
     brandRamp,
     accentRamp,
+    accentAltRamp,
     applyTheme,
     activate,
     deactivate,

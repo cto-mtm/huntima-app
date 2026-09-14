@@ -9,8 +9,7 @@ import {
   type CampaignStats,
   type Mission,
 } from 'shared'
-import { apiFetch } from '../lib/api'
-import { useSessionStore } from './session'
+import { authedFetch } from '../lib/authedFetch'
 import { useTenantStore } from './tenant'
 
 /**
@@ -22,7 +21,6 @@ import { useTenantStore } from './tenant'
  * server already decided this person may touch.
  */
 export const useHuntsStore = defineStore('hunts', () => {
-  const session = useSessionStore()
   const tenant = useTenantStore()
 
   const campaigns = ref<Campaign[]>([])
@@ -50,22 +48,12 @@ export const useHuntsStore = defineStore('hunts', () => {
     return `/t/${tenant.slug}/admin/campaigns`
   }
 
-  async function authed<T>(path: string, init?: RequestInit) {
-    const token = await session.getIdToken()
-    if (!token) return { ok: false as const, error: 'Not signed in' }
-
-    return apiFetch<T>(path, {
-      ...init,
-      headers: { ...init?.headers, Authorization: `Bearer ${token}` },
-    })
-  }
-
   async function loadAll(): Promise<void> {
     syncOrg()
     loading.value = true
     error.value = null
 
-    const result = await authed<{ campaigns: unknown[] }>(base())
+    const result = await authedFetch<{ campaigns: unknown[] }>(base())
     if (result.ok) {
       campaigns.value = result.data.campaigns
         .map((c) => campaignSchema.safeParse(c))
@@ -83,7 +71,7 @@ export const useHuntsStore = defineStore('hunts', () => {
     loading.value = true
     error.value = null
 
-    const result = await authed<unknown>(`${base()}/${id}`)
+    const result = await authedFetch<unknown>(`${base()}/${id}`)
     if (result.ok) {
       const parsed = campaignSchema.safeParse(result.data)
       current.value = parsed.success ? parsed.data : null
@@ -100,7 +88,7 @@ export const useHuntsStore = defineStore('hunts', () => {
     saving.value = true
     error.value = null
 
-    const result = await authed<unknown>(base(), {
+    const result = await authedFetch<unknown>(base(), {
       method: 'POST',
       body: JSON.stringify(input),
     })
@@ -123,7 +111,7 @@ export const useHuntsStore = defineStore('hunts', () => {
     saving.value = true
     error.value = null
 
-    const result = await authed<unknown>(`${base()}/${id}`, {
+    const result = await authedFetch<unknown>(`${base()}/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     })
@@ -164,7 +152,7 @@ export const useHuntsStore = defineStore('hunts', () => {
       return false
     }
 
-    const result = await authed<unknown>(`${base()}/${id}/missions`, {
+    const result = await authedFetch<unknown>(`${base()}/${id}/missions`, {
       method: 'PUT',
       body: JSON.stringify(payload.data),
     })
@@ -187,7 +175,7 @@ export const useHuntsStore = defineStore('hunts', () => {
    * renderable shape.
    */
   async function loadStats(id: string): Promise<CampaignStats | null> {
-    const result = await authed<unknown>(`${base()}/${id}/stats`)
+    const result = await authedFetch<unknown>(`${base()}/${id}/stats`)
     if (!result.ok) {
       error.value = result.error
       return null
@@ -197,7 +185,7 @@ export const useHuntsStore = defineStore('hunts', () => {
   }
 
   async function remove(id: string): Promise<boolean> {
-    const result = await authed<unknown>(`${base()}/${id}`, { method: 'DELETE' })
+    const result = await authedFetch<unknown>(`${base()}/${id}`, { method: 'DELETE' })
     if (!result.ok) {
       error.value = result.error
       return false

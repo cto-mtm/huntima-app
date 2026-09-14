@@ -19,19 +19,25 @@ export function registerNative(router: Router): void {
   //
   // Three cases:
   //   1. Router has history → go back.
-  //   2. No history but we're NOT at the hub (e.g. a QR deep-link opened the
-  //      app straight on a mission page, so window.history has no `back`) →
-  //      route to the hub rather than exiting, so the first back press lands
-  //      the fan somewhere sensible instead of dumping them out.
-  //   3. No history AND already at the hub → exit, the expected Android
+  //   2. No history but not at a root (e.g. a QR deep-link opened the app
+  //      straight on a mission page) → route UP to the nearest root rather
+  //      than exiting. In brand context that root is the org hub; on a
+  //      platform page it is the platform home. `{ name: 'home' }` needs a
+  //      tenantSlug, so we resolve the target from the current route — a
+  //      bare `{ name: 'home' }` here would throw on a platform page.
+  //   3. No history AND already at a root → exit, the expected Android
   //      behaviour at a task's root.
+  const ROOTS = new Set(['home', 'platform-home'])
   App.addListener('backButton', () => {
+    const current = router.currentRoute.value
     if (window.history.state?.back) {
       router.back()
-    } else if (router.currentRoute.value.name !== 'home') {
-      void router.replace({ name: 'home' })
-    } else {
+    } else if (ROOTS.has(String(current.name))) {
       App.exitApp()
+    } else if (typeof current.params.tenantSlug === 'string') {
+      void router.replace({ name: 'home', params: { tenantSlug: current.params.tenantSlug } })
+    } else {
+      void router.replace({ name: 'platform-home' })
     }
   })
 

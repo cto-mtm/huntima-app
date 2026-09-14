@@ -1,16 +1,34 @@
 # Huntima
 
-A multi-tenant platform for verified photo hunts at live events. Each org
-(ball club, company, wedding) gets a branded page at `/:tenantSlug` — fans
-scan a QR code, get a list of photo missions, capture them, and collect
-badges toward a redeemable prize. Organizers run their own console at
-`/:tenantSlug/admin`; org access is a membership document
-(`tenants/{slug}/members/{uid}`), while the `admin` custom claim means
-*platform operator*. See `docs/platform-migration.md` for the pivot design
+A multi-tenant platform for verified photo hunts at live events. Every hunt
+lives in a tenant with its own page at `/:tenantSlug` — fans scan a QR code,
+get a list of photo missions, capture them, and collect badges toward a
+redeemable prize. Organizers run their own console at `/:tenantSlug/admin`;
+access is a membership document (`tenants/{slug}/members/{uid}`), while the
+`admin` custom claim means *platform operator*.
+
+A tenant comes in two kinds, which differ in vocabulary and in how much setup
+someone is asked for, never in structure (`_meta.kind`, server-written):
+
+- **personal** — one person's own space, created implicitly by their first
+  hunt via `POST /me/hunts`. They are never shown the word "organization" and
+  never asked to found one: a wedding host has an address and some hunts.
+  The address is derived from their account name, assigned once, and is per
+  account rather than per hunt.
+- **org** — a club, company or venue, created deliberately via `POST /orgs`.
+  It picks its own address, wants branding and a staff team, and is where a
+  paid plan will eventually attach. See `docs/platform-migration.md` for the pivot design
 and `docs/business-plan.md` / `BUSINESS_MODEL.md` for who pays.
 
 Mobile-first browser app today; ships as an iOS/Android app via Capacitor with
 zero restructuring.
+
+The app is one shell at **two levels** (see `docs/shell-architecture.md`):
+the *platform* level (Huntima brand — `/home`, `/trophies`, `/profile`) and
+the *brand* level (an org's brand — `/:tenantSlug` and its hunt pages). One
+`AppShell` renders both, swapping only the header identity and nav tabs; the
+theme flips exactly at the boundary, in the router guard, never within a
+level. `/` is the signed-out marketing hero only.
 
 ## Project Structure
 
@@ -27,21 +45,24 @@ zero restructuring.
 ## Current state
 
 The fan-facing flow (hub → mission → capture → trophy case → redeem) and the
-staff admin (branding, hunt builder, per-hunt analytics) are real routes and
-components backed by the Cloud Functions `api` and Firestore. Running against
-the Emulator Suite is the local dev workflow — it is the same code that
+org console (branding, hunt builder, per-hunt analytics, team) are real routes
+and components backed by the Cloud Functions `api` and Firestore. The organizer
+funnel is self-serve and continuous: sign up at `/signin` or `/staff-login`,
+claim a slug (checked as you type), and land in that org's console, which shows
+the public fan-page URL and its QR code. Running against the
+Emulator Suite is the local dev workflow — it is the same code that
 deploys, not a mock.
 
 Wired up:
 
 - **Firestore** — tenant branding, hunts/campaigns, and the published mission
-  list (`GET /missions`, which returns an empty list when no hunt is
+  list (`GET /t/:slug/missions`, which returns an empty list when no hunt is
   published; the fan hub shows an empty state rather than seeded content).
   **Cloud Storage** holds team assets and mission target photos.
 - **Auth** — Firebase Auth; the verified `admin` custom claim gates staff.
   Fans sign in with Google/email or play as a guest.
 - **Capture verification** — a real photo (file input, `capture="environment"`)
-  is posted to `POST /verify-capture` and judged server-side by Gemini. The
+  is posted to `POST /t/:slug/verify-capture` and judged server-side by Gemini. The
   image is never stored.
 - **Per-hunt analytics** — aggregate participation/capture counters in
   Firestore, surfaced at `/admin/hunts/:id/stats`. Counters only — no

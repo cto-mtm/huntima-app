@@ -15,8 +15,12 @@ const props = withDefaults(
 )
 
 const classes = computed(() => {
+  // Tactile 3D keys: the bottom "edge" is a hard 0-blur shadow, and pressing
+  // translates the button down onto it — a physical key you push, not a flat
+  // control that dims. Only transform animates (the rules); the shadow swap
+  // is an instant state change hidden under the finger.
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-full font-bold transition-[transform,opacity] duration-150 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100'
+    'inline-flex items-center justify-center gap-2 rounded-full font-bold transition-transform duration-150 disabled:opacity-50 disabled:active:translate-y-0 disabled:active:scale-100'
 
   // 44px minimum height on the large size: this is tapped one-handed by
   // someone walking a crowded concourse.
@@ -25,13 +29,19 @@ const classes = computed(() => {
     lg: 'w-full px-6 py-3.5 text-base',
   }
 
-  // Primary gets gradient depth and a colored shadow — a game button, not a
-  // form control. Still pure brand tokens, so it re-skins per tenant.
+  // Primary is the candy CTA: accent→accent-alt gradient (the tenant's one
+  // accent pick, hue-rotated — see lib/color.ts), pressed down onto its
+  // darker edge. Pure tokens throughout, so it re-skins per tenant.
   const variants = {
     primary:
-      'bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-md shadow-brand-600/30',
-    secondary: 'bg-brand-50 text-brand-700 border border-brand-200',
-    ghost: 'text-brand-700',
+      'bg-gradient-to-r from-accent-500 to-accent-alt-600 text-white ' +
+      'shadow-[0_4px_0_0_var(--color-accent-alt-600)] active:translate-y-[3px] ' +
+      'active:shadow-[0_1px_0_0_var(--color-accent-alt-600)]',
+    secondary:
+      'bg-surface text-brand-700 border border-brand-200 ' +
+      'shadow-[0_3px_0_0_var(--color-brand-200)] active:translate-y-[2px] ' +
+      'active:shadow-[0_1px_0_0_var(--color-brand-200)]',
+    ghost: 'text-brand-700 active:scale-[0.96]',
   }
 
   return [base, sizes[props.size], variants[props.variant]].join(' ')

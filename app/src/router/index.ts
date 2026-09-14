@@ -6,6 +6,7 @@ import { useTenantStore } from '../stores/tenant'
 import { useMissionsStore } from '../stores/missions'
 import { useOrgsStore } from '../stores/orgs'
 import { isNavigating } from '../lib/pageTransition'
+import { safeInternalPath } from '../lib/redirect'
 
 /**
  * Multi-tenant routing: the fan app lives under `/:tenantSlug` — the brand
@@ -17,30 +18,63 @@ import { isNavigating } from '../lib/pageTransition'
  * `tenantSlug` param into named navigations, so pages never thread the slug
  * by hand — they say `{ name: 'home' }` and stay inside their org.
  */
+/**
+ * Route flags, declared so they are typed at every use rather than `unknown`.
+ * `bare` renders without AppShell; `public` is reachable with no session;
+ * `requiresOrg` needs membership of the slug in the path.
+ */
+declare module 'vue-router' {
+  interface RouteMeta {
+    bare?: boolean
+    public?: boolean
+    requiresOrg?: boolean
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // Platform landing. Minimal by design in Phase 1 (the front door is a QR
-    // code on a jumbotron); becomes discovery in Phase 3.
+    // The marketing front door — signed-out ONLY. A poster, not the app, so
+    // it stays bare (no shell). Anyone with a session is redirected to
+    // `/home` by the guard below.
     {
       path: '/',
       name: 'landing',
       meta: { bare: true },
       component: () => import('../pages/LandingPage.vue'),
     },
+
+    // ── Platform level — inside the unified shell, Huntima brand ────
+    // The consumer home: your ongoing games and the hunts you run. Reached
+    // by anyone with a session; the guard bounces the signed-out to `/`.
+    { path: '/home', name: 'platform-home', component: () => import('../pages/HomePage.vue') },
     {
       path: '/staff-login',
       name: 'staff-login',
-      meta: { bare: true },
+      meta: { bare: true, public: true },
       component: () => import('../pages/StaffLoginPage.vue'),
     },
     // The org picker: which console does this account open?
     {
       path: '/orgs',
       name: 'orgs',
-      meta: { bare: true },
+      meta: { bare: true, public: true },
       component: () => import('../pages/OrgsPage.vue'),
     },
+
+    // ── Consumer identity, global ───────────────────────────────────
+    // A fan is a cross-club consumer: their account, trophy shelf and
+    // profile belong to THEM, not to any org — so these live at the top
+    // level and are reachable straight from the landing page, no QR code
+    // required. Playing a hunt is what needs an org.
+    {
+      path: '/signin',
+      name: 'signin',
+      meta: { bare: true, public: true },
+      component: () => import('../pages/FanSignInPage.vue'),
+    },
+    { path: '/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
+    { path: '/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue') },
 
     // ── Fan app, scoped to one org ──────────────────────────────────
     { path: '/:tenantSlug', name: 'home', component: () => import('../pages/HubPage.vue') },
@@ -50,21 +84,18 @@ const router = createRouter({
     {
       path: '/:tenantSlug/welcome',
       name: 'entry',
-      meta: { bare: true },
+      meta: { bare: true, public: true },
       component: () => import('../pages/EntryPage.vue'),
     },
-    {
-      path: '/:tenantSlug/signin',
-      name: 'signin',
-      meta: { bare: true },
-      component: () => import('../pages/FanSignInPage.vue'),
-    },
-    { path: '/:tenantSlug/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue') },
     { path: '/:tenantSlug/missions/:id', name: 'mission-detail', component: () => import('../pages/MissionDetailPage.vue') },
     { path: '/:tenantSlug/missions/:id/capture', name: 'mission-capture', component: () => import('../pages/CapturePage.vue') },
-    { path: '/:tenantSlug/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
     { path: '/:tenantSlug/redeem', name: 'redeem', component: () => import('../pages/RedeemPage.vue') },
-    { path: '/:tenantSlug/about', name: 'about', component: () => import('../pages/AboutPage.vue') },
+    {
+      path: '/:tenantSlug/about',
+      name: 'about',
+      meta: { public: true },
+      component: () => import('../pages/AboutPage.vue'),
+    },
 
     // ── Org console, under the same slug ────────────────────────────
     {
@@ -97,13 +128,21 @@ const router = createRouter({
       meta: { bare: true, requiresOrg: true },
       component: () => import('../pages/admin/AdminBrandingPage.vue'),
     },
+    // Who can open this console. Adding and removing seats is owner-only,
+    // enforced server-side; the page only decides what to draw.
+    {
+      path: '/:tenantSlug/admin/members',
+      name: 'admin-members',
+      meta: { bare: true, requiresOrg: true },
+      component: () => import('../pages/admin/AdminMembersPage.vue'),
+    },
     // Catch-all 404. Required because Firebase Hosting rewrites every URL
     // to index.html — without this, typos render an empty RouterView. Also
     // where malformed slugs land.
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      meta: { bare: true },
+      meta: { bare: true, public: true },
       component: () => import('../pages/NotFoundPage.vue'),
     },
   ],
@@ -113,7 +152,10 @@ const router = createRouter({
 // ── SESSION + TENANT GATE ───────────────────────────────────────────
 // A fan arrives by scanning a QR code, so ANY route can be the entry
 // point. Tiers:
-//   public      — reachable with no session at all
+//   public      — reachable with no session at all (`meta.public`, declared
+//                 on the route itself: an allow-list of route NAMES here
+//                 would be a second place to remember, and the route that
+//                 gets forgotten is the one that starts bouncing people)
 //   fan         — needs a guest session (or any signed-in account)
 //   org console — needs a signed-in account that is a MEMBER of this org
 //                 (tenants/{slug}/members/{uid}), or the platform operator
@@ -122,8 +164,6 @@ const router = createRouter({
 // The org check here is convenience, not security: it decides what UI to
 // render. The real gate is server-side in functions/src/api.ts —
 // requireMember() refuses every privileged call.
-const PUBLIC_ROUTES = new Set(['landing', 'orgs', 'entry', 'signin', 'staff-login', 'about', 'not-found'])
-
 router.beforeEach(async (to) => {
   const session = useSessionStore()
   const tenant = useTenantStore()
@@ -133,8 +173,10 @@ router.beforeEach(async (to) => {
   // ── Tenant scope ──
   // Entering any slugged route activates that org: cached brand applies
   // synchronously (no default-palette flash), then the API reconciles.
-  // Leaving tenant scope restores the platform default theme so /orgs and
-  // the landing page never wear the last-visited club's colors.
+  // Leaving tenant scope restores the platform default theme so platform
+  // pages never wear the last-visited club's colors. This is the ONLY place
+  // the theme flips — the two-level shell (docs/shell-architecture.md) means
+  // it happens exactly at the platform⇄brand boundary, never within a level.
   const slugParam = to.params.tenantSlug
   if (typeof slugParam === 'string') {
     if (!isValidTenantSlug(slugParam)) return { name: 'not-found' }
@@ -142,6 +184,18 @@ router.beforeEach(async (to) => {
     missions.activate(slugParam)
   } else {
     tenant.deactivate()
+  }
+
+  // ── Landing ⇄ home ──
+  // The marketing hero is for visitors with no session; anyone who can play
+  // (guest, fan, operator) belongs on their home. Await auth restore only
+  // when an account has been used here — a returning guest's role is already
+  // in storage, so it costs them no Auth SDK.
+  if (name === 'landing' || name === 'platform-home') {
+    if (session.hasUsedAccount()) await session.ensureAuthReady()
+    if (name === 'landing' && session.canPlay) return { name: 'platform-home' }
+    if (name === 'platform-home' && !session.canPlay) return { name: 'landing' }
+    return true
   }
 
   if (to.meta.requiresOrg) {
@@ -162,14 +216,17 @@ router.beforeEach(async (to) => {
 
   if (name === 'signin' || name === 'staff-login') {
     await session.ensureAuthReady()
-    if (name === 'signin')
-      return session.isFan
-        ? { name: 'home', params: { tenantSlug: String(to.params.tenantSlug ?? '') } }
-        : true
+    if (name === 'signin') {
+      if (!session.isFan) return true
+      // Already signed in: honor a same-origin ?to= (a tenant entry sends
+      // fans back to its hub), else the consumer home, where their ongoing
+      // games, hunts and trophies live.
+      return safeInternalPath(to.query.to) ?? { name: 'platform-home' }
+    }
     return session.isAdmin ? { name: 'orgs' } : true
   }
 
-  if (PUBLIC_ROUTES.has(name)) return true
+  if (to.meta.public === true) return true
 
   // Fan routes. A guest and any signed-in account are equally entitled to
   // play — including org members and operators; running an org and playing
@@ -180,10 +237,15 @@ router.beforeEach(async (to) => {
   // first and bounce them to the entry screen. Wait for auth, but only if an
   // account has been used here: a guest must never pay for the Auth SDK.
   if (!session.canPlay && session.hasUsedAccount()) await session.ensureAuthReady()
-  // Only the slug crosses into the entry route — a mission id from a deep
-  // link is not an entry param, and passing it would log a router warning.
-  if (!session.canPlay)
-    return { name: 'entry', params: { tenantSlug: String(to.params.tenantSlug ?? '') } }
+  if (!session.canPlay) {
+    const slug = typeof to.params.tenantSlug === 'string' ? to.params.tenantSlug : null
+    // Inside an org: the tenant entry, where guest stays one tap away. On
+    // the global consumer pages there is no org to be a guest OF — the
+    // account sign-in is the door, with the destination carried through.
+    return slug
+      ? { name: 'entry', params: { tenantSlug: slug } }
+      : { name: 'signin', query: { to: to.fullPath } }
+  }
   return true
 })
 

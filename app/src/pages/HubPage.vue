@@ -7,12 +7,14 @@ import MissionCard from '../components/MissionCard.vue'
 import MissionSkeleton from '../components/MissionSkeleton.vue'
 import { useMissionsStore } from '../stores/missions'
 import { useProgressStore } from '../stores/progress'
+import { useTenantStore } from '../stores/tenant'
 import { useFanName } from '../composables/useFanName'
 import { reportFanEvent } from '../lib/analytics'
 
 const { t } = useI18n()
 const missionsStore = useMissionsStore()
 const progress = useProgressStore()
+const tenant = useTenantStore()
 const { displayName } = useFanName()
 
 // Split the one list into pending and collected on the client — no second
@@ -43,6 +45,15 @@ watch(
   (campaignId) => {
     if (campaignId && missionsStore.slug) {
       reportFanEvent(missionsStore.slug, campaignId, 'participant')
+      // Landing on a real published hub IS joining — record it as an ongoing
+      // game so it surfaces on the platform home with a Continue button.
+      progress.recordJoin({
+        tenantSlug: missionsStore.slug,
+        teamName: tenant.settings.teamName,
+        campaignId,
+        badgeTarget: missionsStore.badgeTarget,
+        joinedAt: Date.now(),
+      })
     }
   },
   { immediate: true },
@@ -51,8 +62,9 @@ watch(
 
 <template>
   <section class="py-5">
-    <!-- The greeting IS the headline — this is their game, say hi like it. -->
-    <h1 class="text-2xl font-extrabold tracking-tight text-brand-900">
+    <!-- The greeting IS the headline — this is their game, say hi like it.
+         Display skin: chunky face, candy gradient, brand outline (main.css). -->
+    <h1 class="display-title display-title--sm text-3xl">
       {{ t('hub.greeting', { nickname: displayName }) }}
     </h1>
     <div

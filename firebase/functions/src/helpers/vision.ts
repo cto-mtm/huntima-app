@@ -89,7 +89,7 @@ function buildImagePrompt(mission: Mission): string {
   const hint = 'text' in mission.hint ? mission.hint.text : null
 
   return [
-    'You are judging a stadium photo scavenger hunt played by families.',
+    'You are judging a photo scavenger hunt played by families.',
     'The FIRST image is the target a staff member uploaded.',
     'The SECOND image is a photo a fan just took on their phone.',
     '',
@@ -113,7 +113,7 @@ function buildImagePrompt(mission: Mission): string {
  */
 function buildHintPrompt(hint: string): string {
   return [
-    'You are judging a stadium photo scavenger hunt played by families.',
+    'You are judging a photo scavenger hunt played by families.',
     'The image is a photo a fan just took on their phone.',
     '',
     `Decide whether the photo plausibly shows: ${hint}`,

@@ -21,16 +21,42 @@
   --color-brand-700: #24446a;
   --color-brand-900: #14273d;
 
-  --color-accent-400: #e0b34a;
-  --color-accent-500: #d09a2c;
-  --color-accent-600: #ad7e1f;
+  /* Electric orange — SEED_TENANT's accent; overwritten at runtime like
+     every brand stop. */
+  --color-accent-400: #f2904a;
+  --color-accent-500: #f77112;
+  --color-accent-600: #cb5b0b;
 
+  /* The far end of the candy CTA gradient. DERIVED at runtime by the tenant
+     store (accent hue-rotated -60°, lib/color.ts) — an org picks ONE accent
+     and gets orange→magenta, red→violet, teal→blue for free. These statics
+     only cover the moment before the store boots. */
+  --color-accent-alt-400: #f24aac;
+  --color-accent-alt-500: #f71298;
+  --color-accent-alt-600: #cb0b7b;
+
+  /* Mint — reserved STRICTLY for success states (a verified capture, a won
+     hunt). Platform-semantic like the error reds, so it is NOT tenant-themed:
+     success looks like success on every org's page. */
+  --color-success-100: #d9f8ec;
+  --color-success-500: #2fd699;
+  --color-success-700: #0f8a61;
+
+  /* Overwritten at runtime with the tenant's brand-900: body text is deep
+     club ink, not harsh black. This static is only the pre-boot frame. */
   --color-ink: #0f172a;
   --color-muted: #64748b;
   --color-surface: #ffffff;
-  --color-canvas: #f6f7f9;
+  /* Cloud white: bright and clean so the chunky display headers and
+     colorful badges pop; a hint of blue keeps it from reading clinical. */
+  --color-canvas: #fafaff;
 
   --radius-card: 1rem;
+
+  /* The product's display face, linked from index.html. One weight (400) —
+     never bolded. Falls back to the tenant body stack while the webfont
+     loads (display=swap). */
+  --font-display: 'Bagel Fat One', var(--font-brand, system-ui, sans-serif);
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
@@ -72,6 +98,67 @@
   :focus-visible {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   DISPLAY TITLES — the Huntima product skin
+
+   Chunky display-font headlines with a candy gradient fill, a dark
+   brand outline and a sticker shadow. One recipe, used by the hub
+   greeting, the entry hero, the landing mark and the capture
+   celebration — never rebuilt inline. All colors are tenant tokens,
+   so every org's titles wear that org's palette.
+
+   Mechanics worth knowing:
+   - Solid brand-900 is the FALLBACK; the gradient+transparent-fill
+     combo only applies under @supports, so a browser that can't clip
+     a background to text shows solid dark text, never invisible text.
+   - `paint-order: stroke fill` pushes the outline OUTSIDE the glyph
+     (sticker look). Engines without it center the stroke — chunky
+     Bagel Fat One survives that; thin fonts would not, which is one
+     more reason the display face is not configurable.
+   - drop-shadow (a filter) not text-shadow: text-shadow bleeds
+     through transparent gradient fills; the filter respects the
+     rendered pixels. Static filter — nothing here animates.
+   - Stroke scales with the size: the base recipe is for hero sizes
+     (4xl+); --sm is for card/section titles. Below that, use plain
+     text — a stroked 14px label is mud in daylight.
+   ════════════════════════════════════════════════════════════ */
+@layer components {
+  .display-title {
+    font-family: var(--font-display);
+    /* Bagel Fat One has exactly one weight; font-bold would faux-bold it. */
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: var(--color-brand-900);
+    filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--color-brand-900) 30%, transparent));
+  }
+
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .display-title {
+      background-image: linear-gradient(
+        to right,
+        var(--color-accent-400),
+        var(--color-accent-alt-500)
+      );
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      -webkit-text-stroke: 2px var(--color-brand-900);
+      paint-order: stroke fill;
+    }
+  }
+
+  .display-title--sm {
+    letter-spacing: 0.01em;
+    filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--color-brand-900) 25%, transparent));
+  }
+
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .display-title--sm {
+      -webkit-text-stroke-width: 1px;
+    }
   }
 }
 

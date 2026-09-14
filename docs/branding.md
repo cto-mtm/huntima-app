@@ -35,6 +35,41 @@ The store applies the theme synchronously during setup, before first paint. A
 flash of the default palette on every load is the one thing a white-label
 product cannot afford.
 
+## The Huntima product skin
+
+On top of the per-org palette sits the platform's own look — global for
+every tenant, because the fat-font game feel is what makes Huntima
+recognizable; only the **colors inside it** are the tenant's:
+
+- **Display face: Bagel Fat One** (`--font-display`, linked from
+  `app/index.html` so the preload scanner finds it during HTML parse rather
+  than after the bundle runs; `lib/fonts.ts` owns only the per-tenant body
+  faces, which are the ones that change at runtime). ONE weight — never pair with
+  `font-bold`. Titles, badges and celebrations only; body text stays on the
+  tenant's `fontFamily` choice (default Inter).
+- **`.display-title` / `.display-title--sm`** (`main.css`): candy gradient
+  fill (`accent-400 → accent-alt-500`), dark `brand-900` outline
+  (`paint-order: stroke fill` keeps it outside the glyph), sticker
+  drop-shadow. Solid `brand-900` fallback under `@supports`, so unsupported
+  browsers get dark text, never invisible text. Base recipe for hero sizes,
+  `--sm` (1px stroke) for card titles; below ~2xl use plain text.
+- **The `accent-alt` ramp is derived, not picked**: `rotateHue(accentBase,
+  -60°)` in `lib/color.ts`, applied by the tenant store like every other
+  stop. An org picks one accent and gets orange→magenta (Huntima),
+  red→violet, teal→blue for free — same philosophy as the ramp itself.
+- **Body ink follows the brand**: `--color-ink` is set at runtime to the
+  tenant's `brand-900` — deep club ink instead of harsh black.
+- **Mint (`--color-success-*`) is platform-semantic**, reserved strictly for
+  success states (a verified capture, a won hunt). It is deliberately NOT
+  tenant-themed — success must look like success on every org's page — and
+  must never be used decoratively.
+- **Tactile buttons** (`BaseButton.vue`): 3D keys with a hard bottom-edge
+  shadow that press down on tap (transform-only animation). Primary is the
+  candy CTA gradient (`accent-500 → accent-alt-600`).
+- Motion: celebration headlines bounce (Recipe 16), the capture viewfinder
+  pulses while framing (Recipe 17, state-scoped) — both in
+  `transitions.css`, both dead under reduced motion.
+
 ## The palette is derived, not hand-picked
 
 The admin picks **one** brand color and **one** accent color.

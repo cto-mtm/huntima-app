@@ -11,7 +11,7 @@
  */
 import { computed, defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import GoogleButton from '../components/GoogleButton.vue'
 import TeamMark from '../components/TeamMark.vue'
@@ -22,6 +22,7 @@ import { useTenantStore } from '../stores/tenant'
 import { IS_LOCAL_API } from '../lib/api'
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const progress = useProgressStore()
 const session = useSessionStore()
@@ -62,18 +63,12 @@ async function withGoogle(): Promise<void> {
     equal visual weight suggests to a parent that they might need it.
   -->
   <section class="mx-auto flex min-h-dvh max-w-md flex-col px-5 py-10">
-    <!-- First thing on the page, and first in the tab order: someone who
-         cannot read this screen needs to fix that before anything else. -->
-    <div class="flex justify-end">
-      <LocaleSwitcher variant="expanded" />
-    </div>
-
     <div class="flex flex-1 flex-col justify-center">
       <div class="text-center">
         <div class="flex justify-center">
           <TeamMark size="lg" />
         </div>
-        <h1 class="mt-3 text-3xl font-extrabold text-brand-900" translate="no">
+        <h1 class="display-title mt-3 text-4xl" translate="no">
           {{ tenant.settings.teamName }}
         </h1>
         <p class="mt-1 text-sm text-muted">{{ t('entry.subtitle') }}</p>
@@ -130,10 +125,12 @@ async function withGoogle(): Promise<void> {
         </BaseButton>
         <p class="mt-2 text-center text-xs text-muted">{{ t('entry.guestHint') }}</p>
 
+        <!-- Sign-in is a GLOBAL page now; carry this org's hub as the
+             return destination so the fan lands back in the game. -->
         <button
           type="button"
           class="mt-3 w-full text-center text-xs font-semibold text-brand-600"
-          @click="router.push({ name: 'signin' })"
+          @click="router.push({ name: 'signin', query: { to: `/${route.params.tenantSlug}` } })"
         >
           {{ t('entry.signInEmail') }}
         </button>
@@ -143,6 +140,12 @@ async function withGoogle(): Promise<void> {
     </div>
 
     <footer class="pt-10 text-center">
+      <!-- Bottom, like every funnel screen: locale detection is automatic
+           (device language, English fallback), so the switcher is a
+           correction, not a gate — it doesn't need to outrank Play. -->
+      <div class="mb-4 flex justify-center">
+        <LocaleSwitcher variant="expanded" />
+      </div>
       <RouterLink
         :to="{ name: 'staff-login' }"
         class="text-xs text-muted underline-offset-4 hover:underline"

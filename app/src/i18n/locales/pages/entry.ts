@@ -1,5 +1,5 @@
 const en = {
-  subtitle: 'Collect badges around the stadium and claim a prize.',
+  subtitle: 'Collect badges around the event and claim a prize.',
 
   guestHeading: 'Playing today?',
   guestNameLabel: 'Your name (optional)',
@@ -26,15 +26,18 @@ const en = {
   passwordTooShort: 'Use at least 6 characters.',
   emailInUse: 'That email already has an account.',
 
-  loginTitle: 'Staff sign-in',
-  loginSubtitle: 'Use your team account.',
+  organizerTitle: 'Organizer sign-in',
+  organizerSignUpTitle: 'Create an organizer account',
+  organizerSubtitle: 'Run photo hunts for your club, company or event.',
+  organizerNewHere: 'Running your first hunt?',
+  forgotPassword: 'Forgot your password?',
+  resetSent: 'If that address has an account, a reset link is on its way.',
   emailLabel: 'Email',
   passwordLabel: 'Password',
   signIn: 'Sign in',
   signingIn: 'Signing in…',
   signInFailed: 'Those credentials did not work.',
   signInUnavailable: 'Could not reach the sign-in service. Check the emulator is running.',
-  notStaff: 'That account is not a staff account.',
   backToEntry: 'Back',
 
   signOut: 'Sign out',
@@ -44,7 +47,7 @@ const en = {
 
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
-  subtitle: 'Consigue insignias por el estadio y reclama un premio.',
+  subtitle: 'Consigue insignias por el evento y reclama un premio.',
 
   guestHeading: '¿Juegas hoy?',
   guestNameLabel: 'Tu nombre (opcional)',
@@ -71,15 +74,18 @@ const es: typeof en = {
   passwordTooShort: 'Usa al menos 6 caracteres.',
   emailInUse: 'Ese correo ya tiene una cuenta.',
 
-  loginTitle: 'Acceso para personal',
-  loginSubtitle: 'Usa tu cuenta del equipo.',
+  organizerTitle: 'Acceso para organizadores',
+  organizerSignUpTitle: 'Crear una cuenta de organizador',
+  organizerSubtitle: 'Organiza búsquedas fotográficas para tu club, empresa o evento.',
+  organizerNewHere: '¿Es tu primera búsqueda?',
+  forgotPassword: '¿Olvidaste tu contraseña?',
+  resetSent: 'Si esa dirección tiene una cuenta, le llegará un enlace para restablecerla.',
   emailLabel: 'Correo',
   passwordLabel: 'Contraseña',
   signIn: 'Entrar',
   signingIn: 'Entrando…',
   signInFailed: 'Esas credenciales no funcionaron.',
   signInUnavailable: 'No se pudo contactar con el servicio de acceso. Comprueba que el emulador esté funcionando.',
-  notStaff: 'Esa cuenta no es una cuenta del personal.',
   backToEntry: 'Volver',
 
   signOut: 'Cerrar sesión',

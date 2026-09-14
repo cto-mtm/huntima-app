@@ -36,6 +36,21 @@ export const FONTS: Record<FontChoice, FontSpec> = {
 const LINK_ID = 'tenant-font'
 const WEIGHTS = '400;600;800'
 
+// ── The display face ──────────────────────────────────────────────────
+// Huntima's product skin: one chunky display font for titles, badges and
+// celebration moments, the same for every tenant. Deliberately not part of
+// the tenant catalogue above — the fat-font game feel is what makes the
+// product recognizable across orgs; only the colors inside it are tenant's.
+//
+// Bagel Fat One ships a SINGLE 400 weight: never pair it with font-bold
+// (faux-bold distorts it), and no wght@ axis in its URL. Swapping the
+// product's display face means editing that <link> in index.html.
+//
+// It is NOT loaded from here. A face every tenant needs is a static
+// <link> in index.html, where the preload scanner finds it during HTML
+// parse rather than after the bundle runs. This module owns only the faces
+// that change at runtime, which is the one thing markup cannot express.
+
 /**
  * Applies a typeface at runtime.
  *

@@ -610,6 +610,81 @@
   }
 }
 
+/* ════════════════════════════════════════════════════════════
+   Recipe 16 — display-title bounce (CapturePage reward header)
+
+   A celebration header doesn't fade in — it scales up fast and
+   bounces into place. Covered by the celebration exception
+   (docs/animations.md §4): a flourish over an already-committed
+   award, transform/opacity only, one shot, no loop. Pair with
+   .display-title on reward headlines; never on navigation.
+   ════════════════════════════════════════════════════════════ */
+@keyframes title-bounce-in {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.title-bounce {
+  animation: title-bounce-in 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 17 — viewfinder attention beat (CapturePage framing state)
+
+   The aim brackets glow in the accent color and breathe a few times
+   when the framing phase opens, then settle and stay put.
+
+   It was an infinite loop, scoped to the phase, on the argument that
+   state-scoped loops are sanctioned like the scan sweep (Recipe 7).
+   That argument does not hold here. The scan sweep marks an operation
+   the fan is WAITING on and ends when it does; framing is the capture
+   page's resting state, where someone composing a shot may sit for a
+   minute or more. A loop that runs through a resting state is ambient
+   in everything but name, and § 4 sanctions exactly two of those.
+
+   A finite beat keeps what the pulse was actually for — pointing at
+   where to aim — and then gets out of the way. The glow is a static
+   drop-shadow on the brackets; only the container's OPACITY animates,
+   the same compositor-only trick as the badge halo. Ending on the
+   full-opacity keyframe means the resting state needs no fill mode.
+   ════════════════════════════════════════════════════════════ */
+@keyframes viewfinder-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.viewfinder-pulse {
+  animation: viewfinder-pulse 2.2s ease-in-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-bounce,
+  .viewfinder-pulse {
+    animation: none !important;
+  }
+  /* The brackets stay visible and still — only the breathing goes. */
+  .viewfinder-pulse {
+    opacity: 1;
+  }
+}
+
 /* Reduced motion for recipes 9–12. Beats whose 0% frame is visible
    (flash, confetti, gleam, beacon) must be hidden outright, not just
    frozen — animation: none leaves them stuck at full opacity. The

@@ -8,18 +8,30 @@
  * silently give somebody a different face.
  */
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useProgressStore } from '../stores/progress'
 import { useFanName } from '../composables/useFanName'
 import { useTenantStore } from '../stores/tenant'
+import { avatarLabel, platformAvatarById } from '../lib/avatars'
 
 const props = withDefaults(defineProps<{ size?: 'sm' | 'lg' }>(), { size: 'sm' })
 
+const { t } = useI18n()
 const progress = useProgressStore()
 const tenant = useTenantStore()
 
+// Platform set first (global consumer identity, resolves everywhere), then
+// the active org's uploads (only resolvable inside that org — elsewhere an
+// org avatar falls back to the monogram rather than a broken image).
 const avatar = computed(
-  () => tenant.settings.avatars.find((a) => a.id === progress.avatarId) ?? null,
+  () =>
+    platformAvatarById(progress.avatarId) ??
+    tenant.settings.avatars.find((a) => a.id === progress.avatarId) ??
+    null,
 )
+
+// Translated for the platform set, verbatim for an org's upload.
+const label = computed(() => (avatar.value ? avatarLabel(avatar.value, t) : ''))
 
 const { initial } = useFanName()
 
@@ -30,7 +42,7 @@ const box = computed(() => (props.size === 'lg' ? 'size-14 text-lg' : 'size-7 te
   <img
     v-if="avatar"
     :src="avatar.url"
-    :alt="avatar.label"
+    :alt="label"
     class="shrink-0 rounded-full object-cover"
     :class="box"
   />

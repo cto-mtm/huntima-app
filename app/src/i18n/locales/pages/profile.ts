@@ -10,7 +10,6 @@ const en = {
 
   save: 'Save',
   saved: 'Saved.',
-  done: 'Done',
 
   accountHeading: 'Account',
   signedInAs: 'Signed in as {email}',
@@ -32,7 +31,6 @@ const es: typeof en = {
 
   save: 'Guardar',
   saved: 'Guardado.',
-  done: 'Listo',
 
   accountHeading: 'Cuenta',
   signedInAs: 'Sesión iniciada como {email}',

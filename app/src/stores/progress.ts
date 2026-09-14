@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, ref, watch } from 'vue'
+import { joinedHuntSchema, type JoinedHunt } from 'shared'
 import { useSessionStore } from './session'
 import { useMissionsStore } from './missions'
 import { reportFanEvent } from '../lib/analytics'
@@ -37,6 +38,8 @@ interface PersistedProgress {
   earned: Record<string, string[]>
   claimed: Record<string, boolean>
   wonHunts: WonHunt[]
+  /** Joined-but-maybe-unfinished hunts — the "ongoing games" on home. */
+  joinedHunts: JoinedHunt[]
 }
 
 function parseWonHunts(value: unknown): WonHunt[] {
@@ -57,6 +60,25 @@ function parseWonHunts(value: unknown): WonHunt[] {
       // Optional provenance; drop anything that isn't a plain string.
       ...(typeof h.tenantSlug === 'string' ? { tenantSlug: h.tenantSlug } : {}),
     }))
+}
+
+/**
+ * Reads the joined-hunt list back out of storage.
+ *
+ * Parsed with the SHARED schema rather than a hand-rolled type guard. A guard
+ * that only checks `typeof` accepts what the contract rejects — a negative
+ * badge target, a slug of any length, a campaign id the size of the document —
+ * and this data is round-tripped to `/me/progress`, so the client would be the
+ * one introducing values the server's own schema refuses. Rows that no longer
+ * fit the contract are dropped, not repaired: a half-valid card is worse than
+ * an absent one.
+ */
+function parseJoinedHunts(value: unknown): JoinedHunt[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((h) => joinedHuntSchema.safeParse(h))
+    .filter((r): r is { success: true; data: JoinedHunt } => r.success)
+    .map((r) => r.data)
 }
 
 function parseEarned(value: unknown): Record<string, string[]> {
@@ -114,6 +136,19 @@ function mergeWonHunts(a: WonHunt[], b: WonHunt[]): WonHunt[] {
   return [...byId.values()]
 }
 
+/** Keyed by SLUG, not campaign id: "ongoing games" is a per-brand list — a
+ *  club that publishes a new hunt replaces the fan's card for that club
+ *  rather than stacking a second. Newest join wins so the snapshot (team
+ *  name, current campaign, badge target) tracks the live hunt. */
+function mergeJoinedHunts(a: JoinedHunt[], b: JoinedHunt[]): JoinedHunt[] {
+  const bySlug = new Map<string, JoinedHunt>()
+  for (const hunt of [...a, ...b]) {
+    const existing = bySlug.get(hunt.tenantSlug)
+    if (!existing || hunt.joinedAt > existing.joinedAt) bySlug.set(hunt.tenantSlug, hunt)
+  }
+  return [...bySlug.values()]
+}
+
 function load(): PersistedProgress {
   const empty: PersistedProgress = {
     nickname: '',
@@ -121,6 +156,7 @@ function load(): PersistedProgress {
     earned: {},
     claimed: {},
     wonHunts: [],
+    joinedHunts: [],
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -137,6 +173,7 @@ function load(): PersistedProgress {
       earned: parseEarned(parsed.earned),
       claimed: parseClaimed(parsed.claimed),
       wonHunts: parseWonHunts(parsed.wonHunts),
+      joinedHunts: parseJoinedHunts(parsed.joinedHunts),
     }
   } catch {
     // Corrupt or unavailable storage — start clean rather than crash on boot.
@@ -165,6 +202,7 @@ export const useProgressStore = defineStore('progress', () => {
   const earned = ref<Record<string, string[]>>(initial.earned)
   const claimed = ref<Record<string, boolean>>(initial.claimed)
   const wonHunts = ref<WonHunt[]>(initial.wonHunts)
+  const joinedHunts = ref<JoinedHunt[]>(initial.joinedHunts)
 
   /** The hunt in play. Everything current-hunt is scoped to this. */
   const campaignId = computed(() => missionsStore.campaignId)
@@ -185,6 +223,17 @@ export const useProgressStore = defineStore('progress', () => {
 
   /** Won hunts, newest first — the trophy shelf. */
   const trophies = computed(() => [...wonHunts.value].sort((a, b) => b.wonAt - a.wonAt))
+
+  /** Ongoing games for the platform home, newest first, finished ones
+   *  dropped. Keyed by CAMPAIGN id, not slug: a club whose last hunt you won
+   *  can publish a NEW one, and re-joining updates the card's campaignId — so
+   *  the fresh hunt reappears as ongoing while the won one stays a trophy. */
+  const ongoing = computed(() => {
+    const wonCampaigns = new Set(wonHunts.value.map((h) => h.campaignId))
+    return [...joinedHunts.value]
+      .filter((h) => !wonCampaigns.has(h.campaignId))
+      .sort((a, b) => b.joinedAt - a.joinedAt)
+  })
 
   /**
    * Four-digit claim code, derived from the DEVICE ID so it is stable across
@@ -239,12 +288,40 @@ export const useProgressStore = defineStore('progress', () => {
     ]
   }
 
+  /**
+   * Records (or refreshes) a joined hunt — an "ongoing game" on home. Called
+   * when the fan lands on a real published hub. Keyed by slug: re-entering
+   * the same club updates the snapshot (new campaign, new badge target)
+   * rather than stacking a duplicate. A no-op once nothing changed, so the
+   * deep-watch persist doesn't fire on every hub visit.
+   */
+  function recordJoin(hunt: JoinedHunt): void {
+    const existing = joinedHunts.value.find((h) => h.tenantSlug === hunt.tenantSlug)
+    if (
+      existing &&
+      existing.campaignId === hunt.campaignId &&
+      existing.teamName === hunt.teamName &&
+      existing.badgeTarget === hunt.badgeTarget
+    ) {
+      return
+    }
+    // Preserve the ORIGINAL joinedAt for an existing card (ordering by first
+    // encounter reads better than jumping to the top on every revisit),
+    // while taking the fresh campaign/name/target snapshot.
+    const joinedAt = existing?.joinedAt ?? hunt.joinedAt
+    joinedHunts.value = [
+      ...joinedHunts.value.filter((h) => h.tenantSlug !== hunt.tenantSlug),
+      { ...hunt, joinedAt },
+    ]
+  }
+
   function reset(): void {
     nickname.value = ''
     avatarId.value = null
     earned.value = {}
     claimed.value = {}
     wonHunts.value = []
+    joinedHunts.value = []
   }
 
   // ── Cross-device sync (signed-in fans only) ──────────────────────────
@@ -261,6 +338,7 @@ export const useProgressStore = defineStore('progress', () => {
       earned: earned.value,
       claimed: claimed.value,
       wonHunts: wonHunts.value,
+      joinedHunts: joinedHunts.value,
     }
   }
 
@@ -319,6 +397,7 @@ export const useProgressStore = defineStore('progress', () => {
       earned.value = mergeEarned(earned.value, parseEarned(r.earned))
       claimed.value = mergeClaimed(claimed.value, parseClaimed(r.claimed))
       wonHunts.value = mergeWonHunts(wonHunts.value, parseWonHunts(r.wonHunts))
+      joinedHunts.value = mergeJoinedHunts(joinedHunts.value, parseJoinedHunts(r.joinedHunts))
     }
 
     // Explicit (not scheduled): converge immediately, and cover the empty-server
@@ -351,7 +430,7 @@ export const useProgressStore = defineStore('progress', () => {
   })
 
   watch(
-    [nickname, avatarId, earned, claimed, wonHunts],
+    [nickname, avatarId, earned, claimed, wonHunts, joinedHunts],
     () => {
       const payload: PersistedProgress = {
         nickname: nickname.value,
@@ -359,6 +438,7 @@ export const useProgressStore = defineStore('progress', () => {
         earned: earned.value,
         claimed: claimed.value,
         wonHunts: wonHunts.value,
+        joinedHunts: joinedHunts.value,
       }
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
@@ -387,8 +467,10 @@ export const useProgressStore = defineStore('progress', () => {
     remaining,
     hasBadge,
     trophies,
+    ongoing,
     claimCode,
     setProfile,
+    recordJoin,
     awardBadge,
     markRedeemed,
     recordWin,

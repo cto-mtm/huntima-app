@@ -16,6 +16,7 @@ import { useFanName } from '../composables/useFanName'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
+import { avatarLabel, PLATFORM_AVATARS } from '../lib/avatars'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -28,7 +29,14 @@ const name = ref(progress.nickname)
 const avatarId = ref<string | null>(progress.avatarId)
 const savedAt = ref<number | null>(null)
 
-const hasAvatars = computed(() => tenant.settings.avatars.length > 0)
+// The platform set is every fan's, everywhere; an org's uploaded set joins
+// it while that org is in scope (this page is global, so usually it isn't).
+// What this account RUNS is not listed here — this page is who you are, not
+// what you run — but the account card links across to it, because a durable
+// entry point on the identity surface is how someone finds their console
+// again a month later.
+const avatarChoices = computed(() => [...PLATFORM_AVATARS, ...tenant.settings.avatars])
+const hasAvatars = computed(() => avatarChoices.value.length > 0)
 const dirty = computed(() => name.value !== progress.nickname || avatarId.value !== progress.avatarId)
 
 function save(): void {
@@ -40,7 +48,9 @@ function save(): void {
 
 async function signOut(): Promise<void> {
   await session.signOutAll()
-  void router.push({ name: 'entry' })
+  // Profile is global — there is no tenant entry to return to. The landing
+  // page is the neutral ground after signing out.
+  void router.push('/')
 }
 </script>
 
@@ -79,7 +89,7 @@ async function signOut(): Promise<void> {
         </legend>
         <div class="mt-2 grid grid-cols-4 gap-2">
           <button
-            v-for="option in tenant.settings.avatars"
+            v-for="option in avatarChoices"
             :key="option.id"
             type="button"
             class="overflow-hidden rounded-xl border-2 p-0.5"
@@ -89,7 +99,7 @@ async function signOut(): Promise<void> {
           >
             <img
               :src="option.url"
-              :alt="option.label"
+              :alt="avatarLabel(option, t)"
               class="aspect-square w-full rounded-lg object-cover"
             />
           </button>
@@ -115,9 +125,14 @@ async function signOut(): Promise<void> {
         <p class="mt-1 text-xs text-muted" translate="no">
           {{ t('profile.signedInAs', { email: session.email }) }}
         </p>
-        <button type="button" class="mt-2 text-sm font-semibold text-brand-600" @click="signOut">
-          {{ t('profile.signOut') }}
-        </button>
+        <div class="mt-2 flex flex-wrap items-center gap-4">
+          <RouterLink :to="{ name: 'orgs' }" class="text-sm font-semibold text-brand-600">
+            {{ t('orgs.title') }}
+          </RouterLink>
+          <button type="button" class="text-sm font-semibold text-brand-600" @click="signOut">
+            {{ t('profile.signOut') }}
+          </button>
+        </div>
       </template>
 
       <template v-else>

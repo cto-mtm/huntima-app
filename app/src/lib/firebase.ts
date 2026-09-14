@@ -1,5 +1,5 @@
 import type { Auth } from 'firebase/auth'
-import { API_BASE_URL, IS_LOCAL_API } from './api'
+import { IS_LOCAL_API } from './api'
 
 /**
  * Firebase Auth, used for STAFF only.
@@ -38,12 +38,14 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? 'demo-app.appspot.com',
 }
 
-/** True when we are talking to the local Auth emulator rather than a project. */
+/**
+ * True when we are talking to the local Auth emulator rather than a project.
+ *
+ * Derived from the same IS_LOCAL_API that decides the API base, because the
+ * two must agree: auth pointing at the emulator while data points at a
+ * deployed function is a session the backend has never heard of.
+ */
 export const USING_AUTH_EMULATOR = import.meta.env.DEV && IS_LOCAL_API
-
-// Referenced so the emulator decision and the API base stay visibly coupled:
-// both must point at the same place or sign-in and data disagree.
-export const API_TARGET = API_BASE_URL
 
 let authPromise: Promise<Auth> | null = null
 

@@ -7,7 +7,7 @@ copy-pasted week to week.
 It generates **only the missions**. Staff still create the hunt itself — its
 name, badge target, and prize — in the editor; generation just fills the mission
 list. That keeps the model out of anything with real-world stakes (prizes, win
-conditions) and maps exactly onto the app's `PUT /admin/campaigns/:id/missions`
+conditions) and maps exactly onto the app's `PUT /t/:slug/admin/campaigns/:id/missions`
 endpoint.
 
 It's a plain prompt today: fill in the inputs, paste it into an LLM, get JSON,

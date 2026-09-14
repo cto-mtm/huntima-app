@@ -16,6 +16,13 @@ function ensureApp(): void {
 export interface AuthedUser {
   uid: string
   email: string | null
+  /**
+   * The name on the account, when the provider supplied one (Google does;
+   * email sign-up does not). Used to suggest a personal web address, which is
+   * why it is read here and the email address deliberately is not: an email
+   * local part is an identifier nobody chose to publish.
+   */
+  name: string | null
   isAdmin: boolean
 }
 
@@ -37,6 +44,7 @@ export async function verifyRequest(authorization: string | undefined): Promise<
     return {
       uid: decoded.uid,
       email: decoded.email ?? null,
+      name: typeof decoded.name === 'string' ? decoded.name : null,
       // The claim is the authority, NOT the email address. Checking a
       // domain or an allow-list of addresses here would be bypassable by
       // anyone who can create an account with that address.
@@ -78,5 +86,5 @@ export async function seedDemoAdmin(email: string, password: string): Promise<Au
   }
 
   await auth.setCustomUserClaims(uid, { admin: true })
-  return { uid, email, isAdmin: true }
+  return { uid, email, name: null, isAdmin: true }
 }

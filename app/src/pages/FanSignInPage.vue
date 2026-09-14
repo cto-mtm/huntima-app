@@ -8,20 +8,29 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import GoogleButton from '../components/GoogleButton.vue'
 import { useSessionStore } from '../stores/session'
+import { safeInternalPath } from '../lib/redirect'
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
+
+/** A tenant entry sends its hub here so sign-in lands the fan back in the
+ *  game. The `?to=` is attacker-writable; safeInternalPath is the one gate. */
+function destination(): string | null {
+  return safeInternalPath(route.query.to)
+}
 
 const mode = ref<'signin' | 'signup'>('signin')
 const email = ref('')
 const password = ref('')
 const submitted = ref(false)
+const resetSent = ref(false)
 
 const title = computed(() =>
   mode.value === 'signup' ? t('entry.fanSignUpTitle') : t('entry.fanSignInTitle'),
@@ -44,6 +53,7 @@ const errorMessage = computed(() => {
 
 async function submit(): Promise<void> {
   submitted.value = true
+  resetSent.value = false
   const ok =
     mode.value === 'signup'
       ? await session.createAccount(email.value.trim(), password.value)
@@ -53,26 +63,46 @@ async function submit(): Promise<void> {
 
 async function google(): Promise<void> {
   submitted.value = true
+  resetSent.value = false
   await session.signInWithGoogle()
 }
 
+/** A forgotten password should not cost someone their trophy shelf. Reports
+ *  sent whatever the outcome — see session.sendPasswordReset. */
+async function resetPassword(): Promise<void> {
+  submitted.value = true
+  const address = email.value.trim()
+  if (!address) return
+  resetSent.value = await session.sendPasswordReset(address)
+}
+
 // Navigate only once the auth listener has actually granted the role —
-// signing in resolves before the session is settled.
+// signing in resolves before the session is settled. Destination: the
+// carried ?to= (a tenant hub), else the trophy shelf — the consumer home.
 watch(
   () => session.isFan,
   (isFan) => {
-    if (isFan) void router.push({ name: 'home' })
+    if (isFan) {
+      const dest = destination()
+      // Default landing: the consumer home, which greets them with their
+      // ongoing games, hunts and trophies — not a bare shelf.
+      if (dest) void router.push(dest)
+      else void router.push({ name: 'platform-home' })
+    }
   },
   { immediate: true },
 )
+
+/** This page is global now; "back" means wherever you came from — a tenant
+ *  welcome screen or the landing page — not a hardcoded route. */
+function goBack(): void {
+  if (window.history.length > 1) router.back()
+  else void router.push('/')
+}
 </script>
 
 <template>
   <section class="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-    <div class="mb-6 flex justify-end">
-      <LocaleSwitcher variant="expanded" />
-    </div>
-
     <h1 class="text-2xl font-extrabold text-brand-900">{{ title }}</h1>
     <p class="mt-1 text-sm text-muted">{{ t('entry.accountHelp') }}</p>
 
@@ -113,6 +143,9 @@ watch(
       <p v-if="submitted && errorMessage" class="text-sm font-medium text-red-600">
         {{ errorMessage }}
       </p>
+      <p v-else-if="resetSent" class="text-sm font-medium text-green-700">
+        {{ t('entry.resetSent') }}
+      </p>
 
       <BaseButton type="submit" size="lg" :disabled="session.busy">
         {{
@@ -124,6 +157,17 @@ watch(
         }}
       </BaseButton>
     </form>
+
+    <!-- Needs the address above and nothing else, so no screen of its own. -->
+    <button
+      v-if="mode === 'signin'"
+      type="button"
+      class="mt-3 w-full text-center text-xs font-semibold text-brand-600 disabled:opacity-60"
+      :disabled="session.busy || !email.trim()"
+      @click="resetPassword"
+    >
+      {{ t('entry.forgotPassword') }}
+    </button>
 
     <p class="mt-5 text-center text-sm text-muted">
       {{ mode === 'signup' ? t('entry.haveAccount') : t('entry.accountHeading') }}
@@ -139,9 +183,15 @@ watch(
     <button
       type="button"
       class="mt-6 text-center text-sm font-semibold text-brand-600"
-      @click="router.push({ name: 'entry' })"
+      @click="goBack"
     >
       {{ t('entry.backToEntry') }}
     </button>
+
+    <!-- Bottom of every funnel screen: detection is automatic (device
+         language, English fallback), so switching is a correction. -->
+    <div class="mt-8 flex justify-center">
+      <LocaleSwitcher variant="expanded" />
+    </div>
   </section>
 </template>

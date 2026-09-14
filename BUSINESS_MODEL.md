@@ -284,7 +284,8 @@ same month as the usage that generates them — but Venue cash arrives
 *ahead* of usage (annual fee + event blocks invoiced up front), so the cash
 curve leads the cost curve at exactly the stage (Pilot) where that matters
 most. There is no infra cliff to pre-buy; `maxInstances: 10` (verified,
-`api.ts:82`) is the only scaling knob and it's a config line.
+the `maxInstances` option on the `api` function) is the only scaling knob and
+it's a config line.
 
 **What the ~92% gross margin actually pays for, in arrival order:**
 (1) **event-day support** — a venue hunt failing live is the churn event,

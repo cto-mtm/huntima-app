@@ -276,16 +276,21 @@ function tryAgain(): void {
         </div>
       </template>
 
-      <!-- Aim frame: corner brackets, tighter for spyglass. -->
+      <!-- Aim frame: thick rounded corner brackets glowing in the accent,
+           pulsing gently while the fan frames the shot (Recipe 17 — the
+           pulse is the container's opacity; the glow is a STATIC
+           drop-shadow, never an animated box-shadow). The pulse only runs
+           in the framing phase; once a photo is in, the frame holds still
+           over it. -->
       <div
-        class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        :class="isSpyglass ? 'size-40' : 'size-56'"
+        class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_0_6px_var(--color-accent-400)]"
+        :class="[isSpyglass ? 'size-40' : 'size-56', phase === 'framing' ? 'viewfinder-pulse' : '']"
         aria-hidden="true"
       >
-        <span class="absolute left-0 top-0 size-6 rounded-tl-lg border-l-2 border-t-2 border-white/80" />
-        <span class="absolute right-0 top-0 size-6 rounded-tr-lg border-r-2 border-t-2 border-white/80" />
-        <span class="absolute bottom-0 left-0 size-6 rounded-bl-lg border-b-2 border-l-2 border-white/80" />
-        <span class="absolute bottom-0 right-0 size-6 rounded-br-lg border-b-2 border-r-2 border-white/80" />
+        <span class="absolute left-0 top-0 size-7 rounded-tl-2xl border-l-4 border-t-4 border-accent-400" />
+        <span class="absolute right-0 top-0 size-7 rounded-tr-2xl border-r-4 border-t-4 border-accent-400" />
+        <span class="absolute bottom-0 left-0 size-7 rounded-bl-2xl border-b-4 border-l-4 border-accent-400" />
+        <span class="absolute bottom-0 right-0 size-7 rounded-br-2xl border-b-4 border-r-4 border-accent-400" />
       </div>
 
       <!-- Checking: a scan band sweeps the frame while /verify-capture runs. -->
@@ -372,9 +377,11 @@ function tryAgain(): void {
     </Transition>
 
     <Transition name="reward">
+      <!-- Mint ring: success states — and only success states — wear mint,
+           so a verified capture is unmistakable next to the accent CTAs. -->
       <div
         v-if="phase === 'reward'"
-        class="mt-6 rounded-card bg-surface p-5 text-center shadow-lg shadow-accent-500/20 ring-1 ring-accent-400"
+        class="mt-6 rounded-card bg-surface p-5 text-center shadow-lg shadow-success-500/25 ring-2 ring-success-500"
       >
         <div class="relative mx-auto size-20">
           <!-- Mission-colored halo, breathing via opacity (Recipe 9). A
@@ -402,7 +409,9 @@ function tryAgain(): void {
             aria-hidden="true"
           />
         </div>
-        <h2 class="mt-3 text-xl font-extrabold text-brand-900">
+        <!-- The celebration headline bounces into place (Recipe 16) in the
+             display skin — the loudest text moment in the app, on purpose. -->
+        <h2 class="display-title display-title--sm title-bounce mt-3 text-2xl">
           {{ justCompleted ? t('capture.huntCompleteTitle') : t('capture.successTitle') }}
         </h2>
         <p class="mt-1 text-sm text-muted">

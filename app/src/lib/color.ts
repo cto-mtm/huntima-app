@@ -11,13 +11,13 @@
  * swap the interior of `generateRamp` for OKLCH and nothing else changes.
  */
 
-export interface Rgb {
+interface Rgb {
   r: number
   g: number
   b: number
 }
 
-export interface Hsl {
+interface Hsl {
   h: number
   s: number
   l: number
@@ -60,7 +60,7 @@ export function normalizeHex(value: string): string {
   return `#${hex.toLowerCase()}`
 }
 
-export function hexToRgb(hex: string): Rgb {
+function hexToRgb(hex: string): Rgb {
   const h = normalizeHex(hex).slice(1)
   return {
     r: parseInt(h.slice(0, 2), 16),
@@ -69,12 +69,12 @@ export function hexToRgb(hex: string): Rgb {
   }
 }
 
-export function rgbToHex({ r, g, b }: Rgb): string {
+function rgbToHex({ r, g, b }: Rgb): string {
   const to2 = (n: number) => Math.round(Math.min(255, Math.max(0, n))).toString(16).padStart(2, '0')
   return `#${to2(r)}${to2(g)}${to2(b)}`
 }
 
-export function rgbToHsl({ r, g, b }: Rgb): Hsl {
+function rgbToHsl({ r, g, b }: Rgb): Hsl {
   const rn = r / 255
   const gn = g / 255
   const bn = b / 255
@@ -94,7 +94,7 @@ export function rgbToHsl({ r, g, b }: Rgb): Hsl {
   return { h, s, l }
 }
 
-export function hslToRgb({ h, s, l }: Hsl): Rgb {
+function hslToRgb({ h, s, l }: Hsl): Rgb {
   if (s === 0) {
     const v = l * 255
     return { r: v, g: v, b: v }
@@ -119,6 +119,22 @@ export function hslToRgb({ h, s, l }: Hsl): Rgb {
     b: channel(h - 1 / 3) * 255,
   }
 }
+
+/**
+ * Rotate a color's hue, keeping saturation and lightness. Used to DERIVE the
+ * far end of the CTA gradient from the tenant's single accent pick — orange
+ * becomes orange→magenta, a club red becomes red→violet — so the candy
+ * gradient re-skins per tenant without asking anyone to pick a second color.
+ * Same philosophy as the ramp: derived, not hand-picked.
+ */
+export function rotateHue(baseHex: string, degrees: number): string {
+  const hsl = rgbToHsl(hexToRgb(baseHex))
+  const h = (((hsl.h + degrees / 360) % 1) + 1) % 1
+  return rgbToHex(hslToRgb({ ...hsl, h }))
+}
+
+/** The accent→accent-alt hue shift. -60° turns electric orange into magenta. */
+export const ACCENT_ALT_HUE_SHIFT = -60
 
 /**
  * Derive a full ramp from one base hex.
@@ -152,7 +168,7 @@ function channelLuminance(c: number): number {
   return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
 }
 
-export function relativeLuminance(hex: string): number {
+function relativeLuminance(hex: string): number {
   const { r, g, b } = hexToRgb(hex)
   return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b)
 }

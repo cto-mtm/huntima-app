@@ -12,7 +12,18 @@
     <meta name="theme-color" content="#0f172a" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <meta name="description" content="Collect badges around the stadium and claim your prize." />
+    <!-- The product's display face (titles, badges, celebrations). Loaded for
+         every tenant, so it belongs here rather than being injected by JS: the
+         browser's preload scanner finds it while parsing this file, instead of
+         after the bundle has downloaded, parsed and run. That is a round trip
+         earlier on the stadium wifi this app is designed around. Bagel Fat One
+         ships a single 400 weight, so there is no wght axis to request; see
+         src/lib/fonts.ts, which owns the per-tenant faces. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&display=swap"
+    />
+    <meta name="description" content="Collect badges around the event and claim your prize." />
     <title>Huntima</title>
   </head>
   <body>

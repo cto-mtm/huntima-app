@@ -1,14 +1,46 @@
 # Platform migration — Phase 1: Multi-tenancy
 
 > **STATUS: IMPLEMENTED** (prelaunch big-bang, no backward compatibility, as
-> decided). Deviations from the plan below, all simplifications:
-> the whole fan surface (trophies/profile/about included) lives under
-> `/:tenantSlug` rather than splitting global fan pages out — named
-> navigation inherits the slug, so no page threads it by hand; there are NO
-> legacy route aliases, no `LEGACY_TENANT_SLUG`, and no production migration
-> script (nothing deployed to migrate); `POST /t/:slug/admin/members` shipped
-> in Phase 1 (an org's second staff account needed a door). The rest of this
-> document is kept as the design rationale.
+> decided). Deviations from the plan below: there are NO legacy route
+> aliases, no `LEGACY_TENANT_SLUG`, and no production migration script
+> (nothing deployed to migrate); `POST /t/:slug/admin/members` shipped in
+> Phase 1 (an org's second staff account needed a door). Route split landed
+> as planned after one detour: consumer identity (`/signin`, `/trophies`,
+> `/profile`) is GLOBAL — a fan signs in from the landing page, no QR
+> needed — while play (`hub/missions/capture/redeem/about/welcome`) is
+> slug-scoped. The shell nav bridges the two via the last-visited org
+> (`huntima:last-slug`), and tenant tabs carry their slug explicitly.
+> **Phase 2's first slice also shipped early:** `POST /orgs` is flipped to
+> any signed-in account (rate-limited 5/day/uid; operators exempt), and the
+> global profile page carries "Your hunts" — a consumer creates their own
+> org + console from a name and a slug. A platform avatar set (bundled
+> SVGs, `platform:*` ids, `lib/avatars.ts`) gives fans a face on every
+> org's page; org uploads join the picker inside their org.
+> **The organizer funnel is now continuous end to end.** `/staff-login` was a
+> staff-only gate that signed out any account with no org — the one link
+> labelled for organizers was the one place you could not become one. It is
+> now a front door (Google, sign-up, password reset), and an account with no
+> orgs lands on `/orgs`, which carries the create form (`CreateOrgForm.vue`,
+> shared with the consumer home) rather than a dead end. `GET
+> /orgs/slug-available` answers the claim-your-URL question while the name is
+> still being typed, and `slugRejection()` in `shared` separates "reserved"
+> from "malformed" so the form stops blaming a reserved word on its length.
+> **Starting a hunt no longer means founding an organization.** `POST
+> /me/hunts` takes one field, the hunt's name, and puts a draft in this
+> account's personal space — creating that space on the way through if it is
+> their first. `tenants/{slug}._meta.kind` (`personal` | `org`) carries the
+> distinction and is surfaced on `GET /me/orgs`; `POST /orgs` still exists for
+> the deliberate case and is folded away at the bottom of `/orgs`. One entity,
+> two vocabularies: everything a hunt needs (address, branding, storage,
+> analytics, membership) already hangs off a tenant, so a second entity would
+> have duplicated all of it to express what is a difference in how much setup
+> to ask for.
+> The console gained the two things it was missing: `/admin/members`, an
+> owner-only Team page on the Phase 1 member API (plus `DELETE
+> /t/:slug/admin/members/:uid`, which refuses the last owner in a
+> transaction), and `PublicLinkCard.vue` — the org's public address, a copy
+> button and a printable QR code, which no screen had ever shown.
+> The rest of this document is kept as the design rationale.
 
 The pivot: from a white-label single-club deployment to a platform where
 `huntima.app/louisville-bats` is one brand page among many. This document is

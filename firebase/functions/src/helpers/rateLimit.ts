@@ -98,6 +98,36 @@ export async function rateLimit(opts: RateLimitOptions): Promise<RateLimitResult
   }
 }
 
+/** The slice of an Express-style response this helper writes. Structural, so
+ *  it does not pin a firebase-functions major version. */
+interface LimitedResponse {
+  set(field: string, value: string): unknown
+  status(code: number): { json(body: unknown): unknown }
+}
+
+/**
+ * Records a hit and, when the caller is over the limit, answers 429 for you.
+ *
+ * Returns true when the request has been REJECTED and the caller should stop.
+ * Every endpoint that guards its cost was repeating the same three lines —
+ * set Retry-After, send 429, return — and the Retry-After header is exactly
+ * the kind of detail that gets left out of the fourth copy. The message stays
+ * per-endpoint because it is the only part that differs: "come back tomorrow"
+ * and "please slow down" are not the same advice.
+ */
+export async function rateLimitOrReject(
+  res: LimitedResponse,
+  opts: RateLimitOptions,
+  message: string,
+): Promise<boolean> {
+  const gate = await rateLimit(opts)
+  if (gate.allowed) return false
+
+  res.set('Retry-After', String(gate.retryAfterSeconds))
+  res.status(429).json({ error: message })
+  return true
+}
+
 /**
  * Best-effort caller fingerprint for anonymous requests.
  *

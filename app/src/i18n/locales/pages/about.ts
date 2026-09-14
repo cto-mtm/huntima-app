@@ -1,10 +1,10 @@
 const en = {
   title: 'How it works',
-  intro: 'A digital passport for game day — the whole game in a few steps.',
+  intro: 'A digital passport for the event — the whole thing in a few steps.',
   step1Title: 'Scan to start',
-  step1Body: "Scan the QR code on the jumbotron to open today's hunt on your phone.",
+  step1Body: "Scan the QR code at the event to open today's hunt on your phone.",
   step2Title: 'Find the missions',
-  step2Body: 'Each mission is a photo to recreate somewhere around the concourse.',
+  step2Body: 'Each mission is a photo to recreate somewhere around the venue.',
   step3Title: 'Snap the photo',
   step3Body: 'Take the picture and we check it on the spot — a match earns you a badge.',
   step4Title: 'Fill your trophy case',
@@ -25,11 +25,11 @@ const en = {
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
   title: 'Cómo funciona',
-  intro: 'Un pasaporte digital para el día del partido: todo el juego en unos pasos.',
+  intro: 'Un pasaporte digital para el evento: todo en unos pasos.',
   step1Title: 'Escanea para empezar',
-  step1Body: 'Escanea el código QR de la pantalla gigante para abrir la búsqueda de hoy en tu teléfono.',
+  step1Body: 'Escanea el código QR en el evento para abrir la búsqueda de hoy en tu teléfono.',
   step2Title: 'Encuentra las misiones',
-  step2Body: 'Cada misión es una foto que debes recrear en algún punto del estadio.',
+  step2Body: 'Cada misión es una foto que debes recrear en algún punto del lugar.',
   step3Title: 'Haz la foto',
   step3Body: 'Toma la foto y la comprobamos al momento: si coincide, ganas una insignia.',
   step4Title: 'Llena tu vitrina de trofeos',
