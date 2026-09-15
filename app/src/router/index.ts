@@ -1,11 +1,11 @@
 import { nextTick } from 'vue'
-import { createRouter, createWebHistory, START_LOCATION } from 'vue-router'
+import { createRouter, createWebHistory, START_LOCATION, type RouteRecordRaw } from 'vue-router'
 import { isValidTenantSlug } from 'shared'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
 import { useMissionsStore } from '../stores/missions'
 import { useOrgsStore } from '../stores/orgs'
-import { isNavigating } from '../lib/pageTransition'
+import { closeCover, openCover, revealPage } from '../lib/pageTransition'
 import { safeInternalPath } from '../lib/redirect'
 
 /**
@@ -54,11 +54,16 @@ const router = createRouter({
     // The consumer home: your ongoing games and the hunts you run. Reached
     // by anyone with a session; the guard bounces the signed-out to `/`.
     { path: '/home', name: 'platform-home', component: () => import('../pages/HomePage.vue') },
+    // The organizer door is no longer a separate page: fans and organizers
+    // authenticate the same account at /signin. This alias survives for old
+    // bookmarks and printed links, defaulting to the org picker as the
+    // destination so /staff-login still means "in to manage a hunt".
     {
       path: '/staff-login',
-      name: 'staff-login',
-      meta: { layout: 'bare', public: true },
-      component: () => import('../pages/StaffLoginPage.vue'),
+      redirect: (to) => ({
+        name: 'signin',
+        query: { to: typeof to.query.to === 'string' ? to.query.to : '/orgs' },
+      }),
     },
     // The org picker: which console does this account open?
     {
@@ -77,7 +82,7 @@ const router = createRouter({
       path: '/signin',
       name: 'signin',
       meta: { layout: 'bare', public: true },
-      component: () => import('../pages/FanSignInPage.vue'),
+      component: () => import('../pages/SignInPage.vue'),
     },
     { path: '/trophies', name: 'trophies', component: () => import('../pages/TrophyCasePage.vue') },
     { path: '/profile', name: 'profile', component: () => import('../pages/ProfilePage.vue') },
@@ -142,6 +147,23 @@ const router = createRouter({
       meta: { layout: 'console', requiresOrg: true },
       component: () => import('../pages/admin/AdminMembersPage.vue'),
     },
+    // ── Dev-only ────────────────────────────────────────────────────
+    // The reward-art gallery (src/dev/RewardGallery.vue). Spread from a
+    // conditional array rather than pushed later, so Vite's literal `false`
+    // substitution for import.meta.env.DEV leaves `...[]` and Rollup drops
+    // the dynamic import with it. Hidden is not the same as absent —
+    // CLAUDE.md § Dev tooling.
+    ...(import.meta.env.DEV
+      ? ([
+          {
+            path: '/dev/rewards',
+            name: 'dev-rewards',
+            meta: { layout: 'bare', public: true },
+            component: () => import('../dev/RewardGallery.vue'),
+          },
+        ] satisfies RouteRecordRaw[])
+      : []),
+
     // Catch-all 404. Required because Firebase Hosting rewrites every URL
     // to index.html — without this, typos render an empty RouterView. Also
     // where malformed slugs land.
@@ -211,7 +233,7 @@ router.beforeEach(async (to) => {
     if (!session.user) {
       // Carry the destination: someone deep-linking an org console must land
       // back on it after signing in, not on the org picker.
-      return { name: 'staff-login', query: { to: to.fullPath } }
+      return { name: 'signin', query: { to: to.fullPath } }
     }
     const orgs = useOrgsStore()
     // Load the org list before deciding: the console reads the active tenant's
@@ -230,18 +252,12 @@ router.beforeEach(async (to) => {
     return { name: 'orgs' }
   }
 
-  if (name === 'signin' || name === 'staff-login') {
+  if (name === 'signin') {
     await session.ensureAuthReady()
-    if (name === 'signin') {
-      if (!session.isFan) return true
-      // Already signed in: honor a same-origin ?to= (a tenant entry sends
-      // fans back to its hub), else the consumer home, where their ongoing
-      // games, hunts and trophies live.
-      return safeInternalPath(to.query.to) ?? { name: 'platform-home' }
-    }
-    // Already an operator: honor a same-origin ?to= (a deep-linked console
-    // login link carries the destination), else the org picker.
-    if (session.isAdmin) return safeInternalPath(to.query.to) ?? { name: 'orgs' }
+    // Already signed in (a fan OR an operator): skip the form and honor a
+    // same-origin ?to= (a tenant hub, or /orgs from an organizer link), else
+    // the consumer home, where ongoing games, hunts and trophies live.
+    if (session.user) return safeInternalPath(to.query.to) ?? { name: 'platform-home' }
     return true
   }
 
@@ -268,13 +284,43 @@ router.beforeEach(async (to) => {
   return true
 })
 
-// ── VIEW TRANSITION WRAPPER ─────────────────────────────────────────
-// Every navigation becomes a view transition when the browser supports
-// it. Pages opt into specific effects purely via CSS in
+// ── NAVIGATION ANIMATION ────────────────────────────────────────────
+// Exactly ONE of two systems runs per navigation, chosen here. They must
+// never overlap: a view transition swaps every captured element for a frozen
+// snapshot, so a shutter animating underneath one is animating where nobody
+// can see it. See lib/pageTransition.ts for the full account.
+//
+//   HERO navigations — inside the mission flow, where a thumbnail really does
+//   become the next page's header. These get the View Transitions API and no
+//   cover, because the morph is the entire point and an opaque cover would
+//   hide it.
+//
+//   EVERYTHING ELSE — tab to tab, level to level. These get the shutter and
+//   no view transition: there is no shared element to morph, and the blades
+//   are the transition.
+//
+// Pages opt into specific effects purely via CSS in
 // assets/css/transitions.css — this file never changes per-page.
 //
 // Never call document.startViewTransition anywhere else in the app.
 // See docs/animations.md.
+
+/**
+ * Routes that share `view-transition-name` pairs with each other: the hub's
+ * mission cards morph into the mission page's header (Recipe 2), and capture
+ * continues the same mission. A navigation BETWEEN any two of these is a hero
+ * navigation; anything else is a section change.
+ */
+const HERO_ROUTES = new Set(['home', 'mission-detail', 'mission-capture'])
+
+function isHeroNavigation(toName: unknown, fromName: unknown): boolean {
+  return (
+    typeof toName === 'string' &&
+    typeof fromName === 'string' &&
+    HERO_ROUTES.has(toName) &&
+    HERO_ROUTES.has(fromName)
+  )
+}
 
 type StartViewTransition = (callback: () => void | Promise<void>) => { finished: Promise<void> }
 
@@ -291,22 +337,33 @@ function getStartViewTransition(): StartViewTransition | null {
  */
 let finishTransition: (() => void) | null = null
 
-router.beforeResolve((_to, from) => {
+router.beforeResolve(async (to, from) => {
   if (from === START_LOCATION) return true // initial load: nothing to morph from
 
-  const start = getStartViewTransition()
-  if (!start) return true // unsupported browser: navigate plainly
+  // Reduced motion gets neither system: no morph, and no full-screen shutter,
+  // which is itself exactly the flash that setting asks us not to show.
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return true
 
-  // Raise the full-screen cover — but ONLY on the view-transition path. It
-  // exists to mask the ambient backdrop's snapshot swap during the
-  // transition; the two paths above have no transition, their DOM swap is a
-  // single atomic frame no cover could intercept, and under reduced motion a
-  // full-screen veil is itself exactly the flash that setting asks us not to
-  // show. afterEach lowers it once the new page has painted; router.onError
-  // is the safety net for a navigation that dies in between. See
-  // lib/pageTransition.ts and components/PageCover.vue.
-  isNavigating.value = true
+  const start = getStartViewTransition()
+
+  // ── Shutter path ──────────────────────────────────────────────────
+  // Also the fallback when the browser has no View Transitions API: the
+  // blades are plain CSS, so an unsupported browser now gets the same
+  // transition instead of a hard cut.
+  if (!start || !isHeroNavigation(to.name, from.name)) {
+    // Any view transition still open (a hero nav interrupted by a tab tap)
+    // is closed out, or its snapshot is stranded on screen.
+    finishTransition?.()
+    finishTransition = null
+    // AWAIT the close: the route must not commit until the screen is
+    // covered, or the swap shows through. afterEach opens the blades once
+    // the new page has painted.
+    await closeCover()
+    return true
+  }
+
+  // ── Hero path ─────────────────────────────────────────────────────
+  // No cover here: the morph is the whole point and a cover would hide it.
 
   // Any transition still open (rapid taps) is abandoned rather than nested —
   // nesting aborts the first and strands its snapshot on screen.
@@ -342,12 +399,10 @@ router.afterEach(async () => {
     finishTransition = null
   }
 
-  // Lower the cover on the NEXT frame, after the new page has painted, so the
-  // reveal fades to a settled page rather than a mid-render one. A rAF is
-  // enough; the cover's own CSS transition carries the fade-out.
-  requestAnimationFrame(() => {
-    isNavigating.value = false
-  })
+  // Hand back to the shutter once Vue has painted. How long it then holds
+  // before opening is lib/pageTransition.ts's business, not the router's —
+  // the router only knows WHEN the new page is ready.
+  requestAnimationFrame(revealPage)
 })
 
 // afterEach fires for confirmed AND failed (aborted/cancelled) navigations,
@@ -355,7 +410,7 @@ router.afterEach(async () => {
 // raised the cover. Lower it here too, or the app would sit behind an opaque
 // veil forever: a stuck cover is a blank app.
 router.onError(() => {
-  isNavigating.value = false
+  openCover()
 })
 
 export default router

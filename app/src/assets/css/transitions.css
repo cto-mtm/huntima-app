@@ -485,33 +485,19 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   Recipe 12 — ambient backdrop drift (AmbientBackdrop.vue)
+   Recipe 12 — RETIRED (was: ambient backdrop drift)
 
-   The always-on floating layer behind fan pages. A sanctioned
-   ambient loop (docs/animations.md §4) held to three limits: low
-   opacity, glacial durations (var(--drift-duration), 20s+), and
-   transform only. `alternate` makes each shape wander out and back
-   forever without a seam; per-shape negative delays desync them.
+   AmbientBackdrop.vue used to float four blobs and two oversized
+   stroked icons on 20-40s loops. It read as clip-art drifting behind
+   the product, and it spent one of the two ambient-loop slots
+   docs/animations.md allows on motion behind a screen whose job is a
+   list you read while walking.
 
-   --drift-rot is the shape's resting tilt — it must live in the
-   keyframes because an animation's transform replaces any static
-   rotate utility on the element.
+   The backdrop is now a static tinted wash. Static decor is explicitly
+   fine under the rules; motion is the thing that has to earn its place.
+   The number is left here rather than reused, so the recipe numbering
+   in existing comments keeps meaning what it says.
    ════════════════════════════════════════════════════════════ */
-@keyframes ambient-drift {
-  0% {
-    transform: translate(0, 0) rotate(var(--drift-rot, 0deg));
-  }
-  50% {
-    transform: translate(16px, -24px) rotate(calc(var(--drift-rot, 0deg) + 9deg));
-  }
-  100% {
-    transform: translate(-12px, 14px) rotate(calc(var(--drift-rot, 0deg) - 7deg));
-  }
-}
-
-.ambient-drift {
-  animation: ambient-drift var(--drift-duration, 30s) ease-in-out infinite alternate;
-}
 
 /* ════════════════════════════════════════════════════════════
    Recipe 13 — meter segment fill (HubPage.vue badge meter)
@@ -551,33 +537,177 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   Recipe 14 — full-screen navigation cover (PageCover.vue)
+   Recipe 14 — the shutter (PageCover.vue)
 
-   The brand-colored veil the router raises while a view transition
-   commits, masking the ambient backdrop's snapshot swap. Asymmetric
-   on purpose: ON fast (90ms) so the old page is covered before it
-   starts leaving; OFF slower (180ms) so the fade-out reads as the
-   reveal of the settled new page.
+   Six colored wedges twist shut over the viewport while a
+   navigation commits, then twist open on the new page. Huntima's
+   mark is a lens aperture, so this is the app's own logo in motion
+   — and it still does the plain job the cover was built for:
+   hiding the view-transition snapshot swap.
 
-   Raised ONLY on the view-transition path (see router/index.ts) —
-   plain navigations swap atomically and reduced motion must never
-   get a full-screen flash. The media query here is the CSS backstop
-   for an OS setting flipped mid-session.
+   ── The geometry, DERIVED ─────────────────────────────────
+   Each blade is a box whose transform-origin is its own top-left
+   corner, and that corner is pinned to the centre of the screen.
+   The box is clipped to a WEDGE with its apex at that corner.
+
+   Everything below derives from `--blades`, which PageCover.vue
+   sets from the length of its color array — the single place the
+   blade count exists. Add a seventh color and the wedge angle, the
+   box height and every rotation re-cut themselves to match. The
+   first version hardcoded `60deg` here while the count lived in
+   TypeScript: two sources that had to agree, with nothing to catch
+   them drifting apart.
+
+     --step    360deg / --blades           each blade's share
+     --overlap 2deg                        cut wider than its share
+                                           so neighbours overlap and
+                                           no antialiasing hairline
+                                           shows at the seam
+     --reach   75vmax                      apex-to-edge distance
+     height    --reach * tan(step+overlap) puts the wedge's far
+                                           corner exactly at
+                                           (100%, 100%), so the clip
+                                           is a plain right triangle
+                                           and no magic percentage
+                                           is left in the file
+
+   75vmax is the smallest reach that is always enough: the furthest
+   point of a viewport from its centre is half its diagonal, and
+   0.5 * sqrt(w^2 + h^2) peaks at 70.7vmax on a square viewport —
+   every other aspect ratio needs less.
+
+   Real wedges, NOT the overlapping half-planes this started as.
+   Six identical half-planes meant five were permanently hidden
+   behind the sixth: the colors could not show, and the thing read
+   as a slab sliding in rather than blades closing. The visible
+   seams between differently-colored wedges ARE the mechanism.
+
+   ── The motion ────────────────────────────────────────────
+   Closed  rotate(k * step)                        apexes meet at
+                                                  the centre; the
+                                                  screen is solid.
+   Open    rotate(k * step + spin) translate(park, 0)
+                                                  every blade spun
+                                                  and flung out
+                                                  past any corner.
+
+   The 34 degrees of spin is the whole point: an aperture twists as
+   it closes. Without it the blades merely slide, which is a wipe,
+   not a shutter.
+
+   Only `transform` animates. No clip-path animation (it is not
+   reliably composited) — the clip is static per blade.
+
+   ── Cost ──────────────────────────────────────────────────
+   `will-change` is deliberately NOT set. It was, and six permanent
+   composited layers of 200vmax square — around 1480x1480px each on
+   a 740px-tall phone — is a lot of GPU memory pinned for the life
+   of the app, for an element that is invisible almost all of it.
+   The browser promotes these for the duration of a transform
+   transition anyway.
+
+   The shutter also no longer shares a navigation with a view
+   transition, which is where its jank actually came from: measured
+   on a tab change, the worst frame fell from ~55-72ms to ~33ms once
+   the two stopped running together. See the note below.
+
+   ── The timing ────────────────────────────────────────────
+   Close 300ms, HOLD 180ms, open 320ms — about 800ms end to end.
+   The hold and the whole sequence belong to lib/pageTransition.ts;
+   this file owns only how the blades look getting there.
+   That is
+   well ABOVE the 200-350ms navigation budget in docs/animations.md.
+   A deliberate, requested exception for the one transition that is
+   the product's signature.
+
+   The hold is the important number and the one that was missing.
+   Without it the router opened the blades on the first painted
+   frame of the new page, so on a warm route the screen was covered
+   for 17ms: the blades swept in, touched, and swept out. That reads
+   as a FLASH, not as a page changing behind a shutter. A cover has
+   to be seen to be closed. (COVER_HOLD_MS, lib/pageTransition.ts.)
+
+   Both swings ease OUT, so the blades arrive and settle rather than
+   accelerating into the meeting point. An ease-IN close plus an
+   instant reversal was most of why this felt like a snap.
+
+   ── It never runs WITH a view transition ──────────────────
+   The router picks one system per navigation, and this is the
+   not-a-view-transition one. That is not a preference, it is a
+   correctness requirement: a view transition swaps every element it
+   captures for a frozen snapshot, and the cover carries its own
+   name, so `::view-transition-new(page-cover)` is a still image
+   pinned at `animation: none`. Running both meant the blades
+   animated on an element nobody was painting and the real element
+   reappeared mid-swing — a shutter that stalled, jumped, then
+   finished. A full-screen cover also makes a morph pointless: once
+   the blades are shut there is nothing to see.
+
+   So: hero navigations (inside the mission flow) get the view
+   transition and no cover; everything else gets the cover and no
+   view transition. Reduced motion gets neither — a full-screen
+   shutter is itself the flash that setting forbids, and the media
+   query below is the CSS backstop for an OS setting flipped
+   mid-session.
+
+   The close ends when VUE says it has, via `<Transition>`'s
+   `@after-enter` — not a timer. A stopwatch drifts: the class starts
+   the transition on Vue's next render while the router resolves a
+   route across the same window, and a 280ms timer caught the blades
+   about three quarters shut and yanked them back open. Vue watches
+   `transitionend` for us; `:duration` is what points it at the
+   blades rather than at their bare container.
    ════════════════════════════════════════════════════════════ */
 .page-cover {
-  opacity: 0;
-  transition: opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* `--blades` is deliberately NOT defaulted here: PageCover.vue is its only
+     owner, and a fallback would quietly become a second source of truth. */
+  --step: calc(360deg / var(--blades));
+  --overlap: 2deg;
+  --reach: 75vmax;
+  /* Parked beyond the furthest corner while open. */
+  --park: 80vmax;
+  /* How far each blade twists between open and shut. An aperture turns as it
+     closes; without this the blades merely slide, which is a wipe. */
+  --spin: 34deg;
 }
 
-.page-cover--active {
-  opacity: 1;
-  transition-duration: 90ms;
+.shutter-blade {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--reach);
+  height: calc(var(--reach) * tan(var(--step) + var(--overlap)));
+  transform-origin: 0 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  background: var(--blade);
+  /* Resting state is SHUT: the overlay only exists while it is covering. */
+  transform: rotate(calc(var(--i) * var(--step)));
+}
+
+/* Parked. Vue applies enter-from as the overlay mounts and leave-to as it
+   goes, so one declaration is both where the blades come from and where they
+   go back to. */
+.shutter-enter-from .shutter-blade,
+.shutter-leave-to .shutter-blade {
+  transform: rotate(calc(var(--i) * var(--step) + var(--spin))) translate(var(--park), 0);
+}
+
+/* Durations come from lib/pageTransition.ts via PageCover, so the time Vue
+   waits and the time the blades move are the same number. */
+.shutter-enter-active .shutter-blade {
+  transition: transform var(--close-ms) cubic-bezier(0.32, 0, 0.16, 1);
+}
+
+.shutter-leave-active .shutter-blade {
+  transition: transform var(--open-ms) cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-cover {
+  /* The router does not raise the cover under reduced motion anyway; this is
+     the backstop if the setting is flipped mid-session. */
+  .shutter-enter-active .shutter-blade,
+  .shutter-leave-active .shutter-blade {
     transition: none !important;
-    opacity: 0 !important;
   }
 }
 
@@ -702,10 +832,151 @@
     animation: none !important;
   }
 
-  /* The backdrop shapes and badge halo stay as static decor — only their
-     motion goes. The halo holds its base element opacity. */
-  .ambient-drift,
+  /* The badge halo stays as static decor — only its motion goes; it
+     holds its base element opacity. */
   .badge-halo {
+    animation: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 18 — accordion reveal (<Transition name="accordion">)
+
+   Used by MissionGroup.vue when a level opens or closes.
+
+   The panel's HEIGHT changes instantly; only its CONTENT animates,
+   by fading and lifting. That is the whole recipe, and the reason
+   is the rule in docs/animations.md: transform and opacity only.
+
+   Animating height (or the grid-rows 0fr->1fr trick, or
+   interpolate-size) asks the browser to lay out every mission card
+   in the level on every frame. On the phone this app is actually
+   used on, a ten-card level does that at well under 60fps — and the
+   cards below the accordion judder along with it. A panel that
+   appears at full height with its contents easing in reads as
+   deliberate; a janky height slide reads as broken.
+
+   Leave is quicker than enter (140ms vs 200ms): closing is a
+   dismissal and should feel like one.
+   ════════════════════════════════════════════════════════════ */
+.accordion-enter-active {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+}
+
+.accordion-leave-active {
+  transition:
+    opacity 140ms ease-in,
+    transform 140ms ease-in;
+}
+
+.accordion-enter-from,
+.accordion-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 19 — chest lid (RewardChest.vue)
+
+   The lid swings back on its hinge. One rotation on one group, with
+   the transform-origin set inline to the hinge point in viewBox
+   units — an SVG group rotates about its own user-space origin, so
+   the origin has to be expressed there, not as a percentage.
+
+   `open` is a prop, so this is a state transition rather than a
+   keyframed beat: the chest can be opened, closed, and re-opened
+   without a class having to be removed and re-added.
+
+   The overshoot in the easing is the entire character of the thing.
+   A lid that eases politely to 112 degrees is a hatch; a lid that
+   flies past and settles is treasure.
+   ════════════════════════════════════════════════════════════ */
+.chest-lid {
+  transition: transform 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chest-lid--open {
+  transform: rotate(-108deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-enter-active,
+  .accordion-leave-active,
+  .chest-lid {
+    transition: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Recipe 20 — full-screen celebration (CaptureCelebration.vue)
+
+   The verified-capture payoff, teleported to <body> and covering
+   everything. It replaced a card in the page flow, which on a 740px
+   phone sat below the fold behind the nav bar — the biggest moment in
+   the product was something you had to scroll to find.
+
+   Two parts:
+
+   `.celebrate-*` is the overlay's own entrance. It scales up from
+   slightly small rather than down from large: the screen should feel
+   like it is arriving, not like it is being dropped on the fan. The
+   leave is quick and plain, because by then they have pressed a button
+   and are waiting on a navigation.
+
+   `.celebrate-rays` is what makes a full screen read as a celebration
+   rather than as a page with a badge on it — a repeating conic
+   gradient turning slowly behind the badge. One transform, composited,
+   no repaint. The sweep is 40s for a quarter turn: at that speed it is
+   never something you catch moving, only something that was not quite
+   where you left it.
+
+   Both are state-scoped in the strict sense of docs/animations.md §4 —
+   the fan CANNOT sit in this state, it ends when they press one of two
+   buttons — so the loop does not count against the ambient budget.
+   ════════════════════════════════════════════════════════════ */
+.celebrate-enter-active {
+  transition:
+    transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    opacity 200ms ease-out;
+}
+
+.celebrate-leave-active {
+  transition:
+    transform 180ms ease-in,
+    opacity 180ms ease-in;
+}
+
+.celebrate-enter-from,
+.celebrate-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+@keyframes celebrate-rays {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+}
+
+.celebrate-rays {
+  animation: celebrate-rays 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-enter-active,
+  .celebrate-leave-active {
+    transition: none !important;
+  }
+
+  /* The rays are not rendered at all under reduced motion (the component
+     drops them), but belt and braces: a rotating full-screen gradient is
+     exactly what this query exists to stop. */
+  .celebrate-rays {
     animation: none !important;
   }
 }

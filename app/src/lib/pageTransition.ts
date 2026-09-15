@@ -1,29 +1,115 @@
 import { ref } from 'vue'
 
 /**
- * A tiny module-level signal for the full-screen navigation cover.
+ * The navigation shutter: its signal, and the whole of its timing.
  *
- * WHY A COVER AT ALL
- * The ambient backdrop (AppShell) is an always-on `position: fixed` decorative
- * layer that drifts continuously. It carries its own `view-transition-name` so
- * the page-lift doesn't drag it — but that also means the View Transitions API
- * snapshots it, freezes its drift for the duration, and cross-fades two
- * near-identical frames, which reads as a flicker no amount of per-group CSS
- * fully removes across engines.
+ * ── One navigation, ONE animation system ─────────────────────
+ * This app has two ways of animating a route change and they must never run
+ * at the same time:
  *
- * Rather than keep fighting the snapshot system for a purely decorative layer,
- * we lay a brand-colored cover OVER the whole viewport for the brief moment a
- * navigation is committing. The cover hides the backdrop's snapshot swap
- * entirely, then fades away to reveal the settled new page. It is driven by
- * the router lifecycle (see router/index.ts), NOT by view-transition pseudo-
- * elements — and the router raises it ONLY when a view transition actually
- * runs: a plain navigation swaps the DOM in one atomic frame (nothing to
- * mask), and reduced motion must never be shown a full-screen flash.
+ *   The SHUTTER (this module + PageCover.vue) — colored blades close over the
+ *   viewport, the page swaps behind them, they open. Used for moves BETWEEN
+ *   sections, where nothing on the old page continues onto the new one.
  *
- * `COVER_VT_NAME` (a view-transition-name) keeps the cover element OUT of the
- * root snapshot, so the content lift underneath is still captured cleanly.
+ *   The VIEW TRANSITION (router/index.ts + Recipes 1-2) — the browser
+ *   snapshots both pages and morphs matched `view-transition-name` pairs.
+ *   Used for moves WITHIN the mission flow, where a mission's thumbnail
+ *   really does become the header of the page you are opening.
+ *
+ * They cannot be combined. A view transition replaces every element it
+ * captures with a STATIC SNAPSHOT for the duration, so blades animating
+ * underneath one animate where nobody is painting, then jump to wherever they
+ * got to when it ends. A full-screen cover also makes a morph pointless: once
+ * it is shut there is nothing to see.
+ *
+ * ── What Vue does, and what it does not ──────────────────────
+ * `<Transition>` already watches `transitionend` and reports completion via
+ * `@after-enter`, so PageCover uses that rather than a hand-rolled listener.
+ *
+ * What Vue Router deliberately does NOT offer is a way to await a transition
+ * before a navigation commits (its transitions guide says so outright). That
+ * is the one piece this module still has to provide, and it is the reason
+ * `closeCover` returns a promise at all: the route must not swap until the
+ * screen is actually covered.
+ *
+ * Every duration lives here. PageCover hands them to CSS as custom properties
+ * and to `<Transition :duration>`, so there is one owner and no number to
+ * keep in sync across files.
  */
 export const isNavigating = ref(false)
 
+/** Blades parked → fully shut. */
+export const CLOSE_MS = 300
+
+/** Fully shut → parked again. */
+export const OPEN_MS = 320
+
+/**
+ * How long the blades stay shut once the new page has painted.
+ *
+ * Without this the shutter read as a flash. The new page paints on the very
+ * next frame of a warm route, so the screen was actually covered for 17ms:
+ * blades swept in, touched, swept out. A cover has to be *seen* to be closed
+ * for the swap behind it to register as a swap. Not dead time — the new page
+ * is rendering throughout.
+ */
+const HOLD_MS = 180
+
+/**
+ * Upper bound on waiting for the close, in case `@after-enter` never arrives
+ * — an interrupted transition, a backgrounded tab. Deliberately loose: it
+ * should never be what resolves the promise in normal use, which is why it
+ * does not need to track CLOSE_MS exactly.
+ */
+const CLOSE_TIMEOUT_MS = CLOSE_MS + 400
+
 /** The view-transition-name reserved for the cover so it opts out of `root`. */
 export const COVER_VT_NAME = 'page-cover'
+
+/** Resolver for the in-flight close, if any. */
+let settleClose: (() => void) | null = null
+
+function settle(): void {
+  const resolve = settleClose
+  settleClose = null
+  resolve?.()
+}
+
+/**
+ * Shut the blades, resolving once they have ACTUALLY landed.
+ *
+ * The router awaits this before letting the route commit, so the swap always
+ * happens behind a fully covered screen.
+ */
+export function closeCover(): Promise<void> {
+  // A close already in flight (rapid taps) settles now rather than stranding
+  // its awaiter forever.
+  settle()
+  isNavigating.value = true
+  return new Promise((resolve) => {
+    settleClose = resolve
+    setTimeout(settle, CLOSE_TIMEOUT_MS)
+  })
+}
+
+/** Bound to `<Transition @after-enter>` in PageCover: the blades have landed. */
+export function coverClosed(): void {
+  settle()
+}
+
+/**
+ * Open the blades immediately, skipping the hold. The safety valve for a
+ * navigation that errors mid-flight — a stuck cover is a blank app.
+ */
+export function openCover(): void {
+  settle()
+  isNavigating.value = false
+}
+
+/**
+ * The normal end of a navigation: hold the shut blades for a beat, then open
+ * on the settled new page. The router calls this once Vue has painted.
+ */
+export function revealPage(): void {
+  setTimeout(openCover, HOLD_MS)
+}

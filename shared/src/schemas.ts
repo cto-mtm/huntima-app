@@ -281,6 +281,37 @@ export const missionSchema = z.object({
   targetImageUrl: z.string().url().nullable(),
   /** Display order in the fan's list. */
   order: z.number().int().nonnegative(),
+  /**
+   * Optional level/chapter this mission belongs to ("Level 1: Rookie").
+   *
+   * Same two-source union as every other piece of mission copy: an i18n key
+   * for built-in content, literal words for anything staff typed. Nullable
+   * with a default so every hunt authored before levels existed keeps
+   * parsing — those missions render as one unnamed group, which is exactly
+   * the flat list they already were.
+   *
+   * Grouping is DISPLAY only. It never gates a mission: a fan can collect
+   * level 3 before level 1, because the alternative is a stadium full of
+   * people stuck behind a mission whose subject walked away.
+   */
+  group: missionTextSchema.nullable().default(null),
+  /**
+   * Where this mission sits on the venue map, as a FRACTION of the map
+   * image (0-1 on each axis), origin top-left.
+   *
+   * Deliberately not lat/lng. The map is an illustrated venue plan the org
+   * uploads, not a tile layer, so a normalized offset is the only thing that
+   * survives the image being re-exported at a different size — and it needs
+   * no geocoding, no tile provider, and no location permission to DRAW.
+   *
+   * This is wayfinding, not verification. The geofence that decides whether
+   * a fan is really here is `tenantConfig.venue`, is checked separately, and
+   * stays the soft gate it already was.
+   */
+  spot: z
+    .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+    .nullable()
+    .default(null),
 })
 
 export type Mission = z.infer<typeof missionSchema>
@@ -604,6 +635,15 @@ export const tenantConfigSchema = z.object({
   avatars: z.array(tenantAvatarSchema).max(24),
   /** Optional stadium geofence. Absent on older tenants → defaults to null. */
   venue: venueSchema.nullable().default(null),
+  /**
+   * An illustrated plan of the venue — the ballpark, the vineyard, the
+   * conference floor — that missions get pinned onto. Uploaded on the
+   * Branding tab like any other tenant image.
+   *
+   * Per TENANT rather than per hunt: a club runs many hunts in one building.
+   * `null` means no map, and the fan app simply never offers the map view.
+   */
+  venueMapUrl: z.string().url().nullable().default(null),
 })
 
 export type TenantConfig = z.infer<typeof tenantConfigSchema>
@@ -634,6 +674,7 @@ export const SEED_TENANT: TenantConfig = {
   logoUrl: null,
   avatars: [],
   venue: null,
+  venueMapUrl: null,
 }
 
 // ── POST /echo (reference endpoint) ───────────────────────────────────

@@ -38,6 +38,15 @@ PLATFORM level (Huntima brand)          BRAND level (org brand)
     leading tab wears the platform logo and returns to `/home`. The header
     shows the org's mark + name; the avatar (→ profile) stays top-right at
     both levels.
+- **Platform promises live at platform level.** How photos are handled and
+  what happens to a guest's badges are Huntima's commitments, identical at
+  every venue — they sit on `/profile`, not on a brand's About page. They
+  were on About, which made them unreachable to anyone who signed in without
+  scanning a QR code, and implied the club was the one making them. A brand's
+  About keeps only what is true of THAT hunt (how to play, where to claim,
+  who runs it) and links across. About itself stays in the BRAND nav: moving
+  it up would flip the theme mid-game, which is the same reason Trophies is
+  not in the brand nav.
 - **`/` is marketing only.** Signed out: the hero (logo, sign-in CTA, QR
   hint) — the one remaining bare consumer page, on purpose: it is a poster,
   not the app. Signed in, `/` redirects to `/home` (the router guard awaits

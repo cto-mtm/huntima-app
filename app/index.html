@@ -27,6 +27,24 @@
     <title>Huntima</title>
   </head>
   <body>
+    <!-- The fan app's tinted ground.
+         It lives HERE, in the document, rather than inside a Vue component,
+         because of when it has to be visible. As a component it could not
+         exist until the router's async guard had resolved a session and
+         fetched a brand — several hundred milliseconds after first paint —
+         so every cold load showed a flat near-white page and then snapped to
+         a gradient. Easing that in would only have made a late arrival
+         graceful; the fix is to not be late.
+
+         Painted from CSS (#app-backdrop in main.css) using the brand tokens,
+         which the tenant store writes onto <html> synchronously before first
+         paint. So it is already the club's colors, not a default that
+         changes under the fan a moment later.
+
+         The console and the signed-out pages cover it with their own opaque
+         full-bleed background — this is the FAN shell's ground, and they are
+         not it. -->
+    <div id="app-backdrop" aria-hidden="true"></div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

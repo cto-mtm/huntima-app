@@ -12,6 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
 import FanAvatar from '../components/FanAvatar.vue'
+import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import { useFanName } from '../composables/useFanName'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
@@ -115,6 +116,19 @@ async function signOut(): Promise<void> {
       </div>
     </div>
 
+    <!-- ── Language ────────────────────────────────────────────
+         Expanded, not the header's one-letter toggle: with room to breathe,
+         each language can be named in its own words, which is the only
+         version a reader who cannot read the current one can use. -->
+    <div class="mt-8 rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
+        {{ t('shell.localeLabel') }}
+      </h2>
+      <div class="mt-2">
+        <LocaleSwitcher variant="expanded" />
+      </div>
+    </div>
+
     <!-- ── Account ─────────────────────────────────────────────── -->
     <div class="mt-8 rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
       <h2 class="text-sm font-bold uppercase tracking-wide text-brand-900">
@@ -144,6 +158,29 @@ async function signOut(): Promise<void> {
           {{ t('profile.signIn') }}
         </RouterLink>
       </template>
+    </div>
+
+    <!-- ── Your data ───────────────────────────────────────────
+         These two are the PLATFORM's promises, not any club's: photos are
+         downscaled and stripped of GPS on-device, checked, then discarded
+         and never stored (docs/architecture.md), and a guest's badge ledger
+         lives in localStorage rather than an account (stores/progress.ts).
+
+         They used to live on a brand's About page, which meant they were
+         unreachable unless you had scanned a QR code — someone who signed in
+         here and never entered a hunt had no way to read how their photos
+         are handled. Hosting them under a club's brand also implied the club
+         was the one making the promise. They belong on the surface that is
+         already about the fan and their account. -->
+    <div class="mt-8 grid gap-2.5">
+      <section class="rounded-card bg-surface p-4 shadow-md shadow-brand-900/5 ring-1 ring-brand-100">
+        <h2 class="font-bold text-brand-900">{{ t('profile.photosTitle') }}</h2>
+        <p class="mt-1 text-sm leading-snug text-muted">{{ t('profile.photosBody') }}</p>
+      </section>
+      <section class="rounded-card bg-surface p-4 shadow-md shadow-brand-900/5 ring-1 ring-brand-100">
+        <h2 class="font-bold text-brand-900">{{ t('profile.dataTitle') }}</h2>
+        <p class="mt-1 text-sm leading-snug text-muted">{{ t('profile.dataBody') }}</p>
+      </section>
     </div>
   </section>
 </template>

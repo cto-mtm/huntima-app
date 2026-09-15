@@ -51,12 +51,86 @@
      colorful badges pop; a hint of blue keeps it from reading clinical. */
   --color-canvas: #fafaff;
 
+  /* ── Showcase ground ─────────────────────────────────────────
+     The dark surface under the trophy shelf and the win celebration —
+     a lit display case, not a dark mode. Deliberately scoped: the app
+     is cloud-white everywhere else, and this exists because gold and
+     candy gradients need a dark ground to read as precious.
+
+     Platform-fixed for the same reason as the metals (a display case
+     is a display case), with ONE tenant seam: the spotlight behind the
+     trophy is drawn in the org's accent, so the club's color is what
+     lights its own silverware. */
+  --color-showcase-700: #35276b;
+  --color-showcase-800: #241a48;
+  --color-showcase-900: #150f2e;
+
   --radius-card: 1rem;
 
   /* The product's display face, linked from index.html. One weight (400) —
      never bolded. Falls back to the tenant body stack while the webfont
      loads (display=swap). */
   --font-display: 'Bagel Fat One', var(--font-brand, system-ui, sans-serif);
+}
+
+/* ════════════════════════════════════════════════════════════
+   @theme STATIC — variables referenced by NAME AT RUNTIME
+
+   `static` is load-bearing, not decoration. Tailwind v4 tree-shakes a
+   plain @theme: it emits only the custom properties it can SEE being
+   used in source. RewardMedallion builds its fills by interpolating the
+   tier into the property name —
+
+       `var(--color-tier-${props.tier}-500)`
+
+   — which no scanner can resolve, exactly like a dynamic class name.
+   Under a plain @theme the result was silent and ugly: the one stop
+   that happened to appear literally elsewhere (`bg-tier-gold-500`)
+   survived, every other stop was dropped, and an SVG `fill` pointing at
+   an undefined variable falls back to BLACK. Locked badges rendered as
+   black blobs.
+
+   `@theme static` emits the whole block regardless of usage. Any token
+   whose name is assembled at runtime belongs in here, not above.
+   ════════════════════════════════════════════════════════════ */
+@theme static {
+  /* ── Reward metals ───────────────────────────────────────────
+     PLATFORM-SEMANTIC, exactly like mint: these are NOT tenant-themed.
+     A silver badge has to read as silver on every org's page — if the
+     metals took the club palette, a rarity ladder would mean something
+     different at every venue and mean nothing across the platform.
+
+     What the tenant DOES own is the face inside the frame: every
+     medallion's emblem is drawn in the accent ramp. Platform owns the
+     metal, the club owns the crest. See docs/ui-overhaul.md.
+
+     Three stops each: 300 is the specular highlight, 500 the body,
+     700 the shade. That is the minimum a struck-metal gradient needs
+     and the most a flat SVG can use without turning to soup. */
+  --color-tier-locked-300: #e6e9f1;
+  --color-tier-locked-500: #bcc3d4;
+  --color-tier-locked-700: #8e96ab;
+
+  --color-tier-bronze-300: #e8b183;
+  --color-tier-bronze-500: #c07b3e;
+  --color-tier-bronze-700: #8a5324;
+
+  --color-tier-silver-300: #f2f5fa;
+  --color-tier-silver-500: #c3cbd9;
+  --color-tier-silver-700: #8d98ac;
+
+  --color-tier-gold-300: #ffe294;
+  --color-tier-gold-500: #f5b301;
+  --color-tier-gold-700: #b57806;
+
+  /* Rare is the one non-metal: a holographic violet that shifts toward
+     cyan across the sweep, which is how foil actually behaves and how
+     every trading card in the target age bracket signals "rare". The
+     -alt stop is the far end of that shift, not a second color pick. */
+  --color-tier-rare-300: #cbbcff;
+  --color-tier-rare-500: #8b5cf6;
+  --color-tier-rare-700: #5b21b6;
+  --color-tier-rare-alt-500: #34d3f0;
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
@@ -104,26 +178,22 @@
 /* ════════════════════════════════════════════════════════════
    DISPLAY TITLES — the Huntima product skin
 
-   Chunky display-font headlines with a candy gradient fill, a dark
-   brand outline and a sticker shadow. One recipe, used by the hub
-   greeting, the entry hero, the landing mark and the capture
-   celebration — never rebuilt inline. All colors are tenant tokens,
-   so every org's titles wear that org's palette.
+   Chunky display-font headlines with a candy gradient fill and a
+   sticker shadow. One recipe, used by the hub greeting, the entry
+   hero, the landing mark and the capture celebration — never rebuilt
+   inline. All colors are tenant tokens, so every org's titles wear
+   that org's palette.
 
    Mechanics worth knowing:
    - Solid brand-900 is the FALLBACK; the gradient+transparent-fill
      combo only applies under @supports, so a browser that can't clip
      a background to text shows solid dark text, never invisible text.
-   - `paint-order: stroke fill` pushes the outline OUTSIDE the glyph
-     (sticker look). Engines without it center the stroke — chunky
-     Bagel Fat One survives that; thin fonts would not, which is one
-     more reason the display face is not configurable.
    - drop-shadow (a filter) not text-shadow: text-shadow bleeds
      through transparent gradient fills; the filter respects the
      rendered pixels. Static filter — nothing here animates.
-   - Stroke scales with the size: the base recipe is for hero sizes
-     (4xl+); --sm is for card/section titles. Below that, use plain
-     text — a stroked 14px label is mud in daylight.
+   - No glyph outline: the gradient fill and sticker shadow carry the
+     look on their own. --sm is still the card/section variant with a
+     lighter shadow; below ~2xl use plain text.
    ════════════════════════════════════════════════════════════ */
 @layer components {
   .display-title {
@@ -145,8 +215,6 @@
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      -webkit-text-stroke: 2px var(--color-brand-900);
-      paint-order: stroke fill;
     }
   }
 
@@ -154,10 +222,142 @@
     letter-spacing: 0.01em;
     filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--color-brand-900) 25%, transparent));
   }
+}
+
+/* ════════════════════════════════════════════════════════════
+   THE FAN GROUND — #app-backdrop
+
+   The tinted surface the fan app sits on. The element is in
+   index.html, not in a Vue component, and that placement is the
+   whole point: as a component it could not exist until the router's
+   async guard had resolved a session and fetched a brand, so every
+   cold load painted a flat near-white page and then snapped to a
+   gradient a few hundred milliseconds later. Styling it from here
+   means it is painted in the FIRST paint, with the tenant's colors
+   already applied (the store writes them onto <html> synchronously
+   during setup).
+
+   Fixed and z-0, so it never scrolls and never rises above content.
+   The named view-transition keeps it out of the page-lift group —
+   see Recipe 1b in transitions.css; the page moves, the ground
+   holds still.
+
+   What it is NOT: the four drifting blobs and two oversized stroked
+   icons this replaced. Those read as clip-art floating behind the
+   product and spent an ambient-motion slot on a screen whose job is
+   a list you read while walking. Static decor is fine under the
+   animation rules; motion is what has to earn its place.
+
+   Every color is a brand/accent token, so the ground re-skins with
+   the tenant like everything else.
+   ════════════════════════════════════════════════════════════ */
+#app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  view-transition-name: app-backdrop;
+  background-color: var(--color-canvas);
+  background-image:
+    /* Accent bloom, off-centre behind the content column — the club's
+       color showing through, and the one warm note on the screen. */
+    radial-gradient(
+      13rem 13rem at 108% 13rem,
+      color-mix(in srgb, var(--color-accent-400) 26%, transparent),
+      transparent 100%
+    ),
+    radial-gradient(
+      11rem 11rem at -3rem 26rem,
+      color-mix(in srgb, var(--color-accent-alt-500) 16%, transparent),
+      transparent 100%
+    ),
+    /* The brand bleeding out from under the header and up from behind
+       the nav, so the fixed chrome sits on a gradient rather than on a
+       hard seam. */
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-brand-200) 55%, transparent),
+      transparent 22rem
+    ),
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--color-brand-200) 50%, transparent),
+      transparent 14rem
+    ),
+    /* Dot grid. Sized in rem so it scales with the user's text size and
+       kept faint: it should register as tooth in the paper, never as a
+       visible grid. */
+    radial-gradient(
+      color-mix(in srgb, var(--color-brand-900) 5%, transparent) 1px,
+      transparent 1px
+    );
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto,
+    1.375rem 1.375rem;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+}
+
+/* ════════════════════════════════════════════════════════════
+   SHOWCASE — the lit display case
+
+   The one dark surface in a cloud-white app. Used by the trophy
+   shelf and the win celebration, where gold and candy gradients
+   need a dark ground to read as precious rather than as stickers
+   on paper.
+
+   This is NOT a dark mode. It never follows the system setting and
+   never spreads past the component that opts into it: a fan holding
+   the phone at arm's length in daylight reads dark-on-light better,
+   and the whole contrast story in docs/branding.md is graded against
+   the light canvas.
+
+   The ground is platform-fixed; the SPOTLIGHT is the tenant's accent,
+   so the club's own color is what lights its silverware. That split —
+   platform surface, club light — is the same seam as the metals.
+   ════════════════════════════════════════════════════════════ */
+@layer components {
+  .showcase {
+    background-color: var(--color-showcase-900);
+    background-image:
+      radial-gradient(
+        130% 70% at 50% -10%,
+        color-mix(in srgb, var(--color-showcase-700) 90%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        55% 40% at 50% 34%,
+        color-mix(in srgb, var(--color-accent-500) 38%, transparent),
+        transparent 70%
+      );
+    color: #fff;
+  }
+
+  /* A display title sitting ON the showcase. The base recipe's brand-900
+     drop-shadow disappears against a dark ground, so the shadow switches
+     to the surface color to keep the sticker lift. Same trick, inverted
+     ground. */
+  .display-title--on-dark {
+    color: #fff;
+    filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--color-showcase-900) 70%, transparent));
+  }
 
   @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-    .display-title--sm {
-      -webkit-text-stroke-width: 1px;
+    .display-title--on-dark {
+      /* The base recipe's gradient is tuned for dark-on-light. On the
+         showcase ground those same mid-tone stops sit barely above the
+         purple and the headline goes muddy — at the exact moment it is
+         the loudest thing on screen. Mixing each stop toward white lifts
+         the luminance while keeping the tenant's hue, so a club's
+         celebration is still the club's color, just lit. */
+      background-image: linear-gradient(
+        to right,
+        color-mix(in srgb, var(--color-accent-400) 72%, white),
+        color-mix(in srgb, var(--color-accent-alt-400) 72%, white)
+      );
     }
   }
 }

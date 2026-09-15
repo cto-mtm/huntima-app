@@ -147,10 +147,10 @@ async function withGoogle(): Promise<void> {
         <LocaleSwitcher variant="expanded" />
       </div>
       <RouterLink
-        :to="{ name: 'staff-login' }"
+        :to="{ name: 'signin', query: { to: '/orgs' } }"
         class="text-xs text-muted underline-offset-4 hover:underline"
       >
-        {{ t('entry.staffSignIn') }}
+        {{ t('common.staffSignIn') }}
       </RouterLink>
       <p class="mt-2 font-mono text-[10px] text-muted/60" translate="no">
         {{ t('entry.deviceLabel') }} {{ shortDeviceId }}

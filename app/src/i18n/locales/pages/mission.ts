@@ -1,5 +1,6 @@
 const en = {
   hintLabel: 'Hint',
+  notFoundTitle: 'Mission not found',
   notFound: 'That mission is not part of the current campaign.',
   backToMissions: 'Back to missions',
   startCapture: 'Open camera',
@@ -10,6 +11,7 @@ const en = {
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
   hintLabel: 'Pista',
+  notFoundTitle: 'Misión no encontrada',
   notFound: 'Esa misión no forma parte de la campaña actual.',
   backToMissions: 'Volver a las misiones',
   startCapture: 'Abrir cámara',

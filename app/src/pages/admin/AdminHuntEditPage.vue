@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import type { Mission, Prize } from 'shared'
 import BaseButton from '../../components/BaseButton.vue'
 import MissionTargetField from '../../components/admin/MissionTargetField.vue'
+import MissionSpotField, { type Spot } from '../../components/admin/MissionSpotField.vue'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
 import { uploadImage } from '../../lib/storage'
@@ -128,6 +129,11 @@ function addMission(): void {
     color: '#3b6ea5',
     targetImageUrl: null,
     order: draft.value.length,
+    // Both optional in the contract, both explicit here: a new mission joins
+    // whatever level the author types next and is unplaced until somebody
+    // points at the map.
+    group: null,
+    spot: null,
   })
   markDirty()
 }
@@ -146,6 +152,36 @@ function setText(mission: Mission, field: 'title' | 'hint', value: string): void
   mission[field] = { text: value }
   markDirty()
 }
+
+/** A level name, or null when the field is blank — "no level" is the default,
+ *  not an empty-named one, which would render as a chapter with no title. */
+function groupOf(mission: Mission): string {
+  const value = mission.group
+  return value && 'text' in value ? value.text : ''
+}
+
+function setGroup(mission: Mission, value: string): void {
+  const trimmed = value.trim()
+  mission.group = trimmed ? { text: value } : null
+  markDirty()
+}
+
+function setSpot(mission: Mission, spot: Spot | null): void {
+  mission.spot = spot
+  markDirty()
+}
+
+/**
+ * Level names already used in this hunt, offered as a datalist.
+ *
+ * Levels are grouped by their exact text, so "Level 1" and "level 1" are two
+ * different chapters. Autocompleting from what is already there is the
+ * cheapest way to stop that happening — a <select> would be wrong, because
+ * the first mission of a new level has to be able to invent one.
+ */
+const groupSuggestions = computed(() => [
+  ...new Set(draft.value.map(groupOf).filter((name) => name.length > 0)),
+])
 
 function move(index: number, delta: number): void {
   const next = index + delta
@@ -327,6 +363,13 @@ async function save(): Promise<void> {
       </div>
     </section>
 
+    <!-- Shared by every level field on the page: one list of the names this
+         hunt already uses, so a second mission joins "Level 1: Rookie"
+         instead of founding "level 1 rookie" beside it. -->
+    <datalist :id="`groups-${huntId}`">
+      <option v-for="name in groupSuggestions" :key="name" :value="name" />
+    </datalist>
+
     <ul class="mt-6 grid gap-4">
       <li
         v-for="(mission, index) in draft"
@@ -400,6 +443,23 @@ async function save(): Promise<void> {
           </div>
         </div>
 
+        <div v-if="!isSeeded(mission)" class="mt-3">
+          <label :for="`group-${mission.id}`" class="block text-xs font-semibold text-brand-900">
+            {{ t('hunts.groupLabel') }}
+          </label>
+          <p class="mt-0.5 text-xs text-muted">{{ t('hunts.groupHelp') }}</p>
+          <input
+            :id="`group-${mission.id}`"
+            :value="groupOf(mission)"
+            type="text"
+            maxlength="200"
+            :list="`groups-${huntId}`"
+            :placeholder="t('hunts.groupPlaceholder')"
+            class="mt-1 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            @input="setGroup(mission, ($event.target as HTMLInputElement).value)"
+          />
+        </div>
+
         <div class="mt-3 flex flex-wrap items-end gap-4">
           <div>
             <label :for="`kind-${mission.id}`" class="block text-xs font-semibold text-brand-900">
@@ -440,6 +500,13 @@ async function save(): Promise<void> {
               markDirty()
             }
           "
+        />
+
+        <MissionSpotField
+          class="mt-4"
+          :model-value="mission.spot"
+          :color="mission.color"
+          @update:model-value="(spot) => setSpot(mission, spot)"
         />
       </li>
     </ul>

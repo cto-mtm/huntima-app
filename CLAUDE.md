@@ -40,6 +40,9 @@ level. `/` is the signed-out marketing hero only.
   animation, `docs/i18n.md` before touching any user-facing string,
   `docs/architecture.md` for how the pieces fit and what is deliberately not built yet,
   `docs/branding.md` before touching anything brand- or color-related,
+  `docs/ui-overhaul.md` for the reward art system — the medallion shape/tier
+  matrix, the showcase ground, levels and the venue map, and which mockup
+  features were deliberately not built,
   `docs/hunt-generation.md` for the LLM prompt that drafts a hunt's missions — the basis for a future "Generate missions" button)
 
 ## Current state
@@ -61,9 +64,14 @@ Wired up:
   **Cloud Storage** holds team assets and mission target photos.
 - **Auth** — Firebase Auth; the verified `admin` custom claim gates staff.
   Fans sign in with Google/email or play as a guest.
-- **Capture verification** — a real photo (file input, `capture="environment"`)
-  is posted to `POST /t/:slug/verify-capture` and judged server-side by Gemini. The
-  image is never stored.
+- **Capture verification** — a real photo (file input, `capture="environment"`,
+  opened from the mission page so the camera fires inside the tap) is posted to
+  `POST /t/:slug/verify-capture` and judged server-side by Gemini. The image is
+  never stored. A verified capture takes over the screen
+  (`CaptureCelebration.vue`).
+- **Levels and the venue map** — optional `group` and `spot` on a mission
+  group the hub into collapsible levels and pin missions onto a per-tenant
+  `venueMapUrl`. Both display-only and additive; see `docs/ui-overhaul.md`.
 - **Per-hunt analytics** — aggregate participation/capture counters in
   Firestore, surfaced at `/admin/hunts/:id/stats`. Counters only — no
   per-person row, by design (see `docs/architecture.md`).
@@ -123,6 +131,9 @@ Do not add the open seams speculatively. Each drags in a real decision
   progress state (fresh / halfway / one away / winner / already claimed)
 - `DevAdminSeeder.vue` — on the staff login screen, creates the demo staff
   account in the Auth emulator, which starts empty
+- `RewardGallery.vue` — every reward shape × tier on one screen, at
+  `/dev/rewards`. Its ROUTE is dev-gated too (a conditional spread in
+  `router/index.ts`), so Rollup drops the route and the chunk together
 
 Rules for anything added there:
 

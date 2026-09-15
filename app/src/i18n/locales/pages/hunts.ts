@@ -106,6 +106,21 @@ const en = {
   prizeSaved: 'Prize saved.',
   prizeUploading: 'Uploading…',
   prizeUploadFailed: 'Upload failed.',
+  // ── Levels ───────────────────────────────────────────────────
+  // Display-only chapters. They never gate a mission — see the note on
+  // `mission.group` in the shared schema.
+  groupLabel: 'Level',
+  groupHelp:
+    'Optional. Missions sharing a level are grouped together with their own progress bar. Leave blank for one flat list.',
+  groupPlaceholder: 'e.g. Level 1: Rookie',
+  // ── Map placement ────────────────────────────────────────────
+  spotLabel: 'Place on the venue map',
+  spotHelp: 'Click the map to drop this pin. Arrow keys nudge it; hold Shift for bigger steps.',
+  spotNoMap: 'Upload a venue map on the Branding tab to pin missions to it.',
+  spotPlacePrompt: 'Venue map — click to place this mission',
+  spotPlacedAt: 'Placed at {x}% across, {y}% down',
+  spotUnplaced: 'Not on the map yet.',
+  spotClear: 'Remove pin',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -217,6 +232,18 @@ const es: typeof en = {
   prizeSaved: 'Premio guardado.',
   prizeUploading: 'Subiendo…',
   prizeUploadFailed: 'Error al subir.',
+  groupLabel: 'Nivel',
+  groupHelp:
+    'Opcional. Las misiones con el mismo nivel se agrupan con su propia barra de progreso. Déjalo vacío para una sola lista.',
+  groupPlaceholder: 'p. ej. Nivel 1: Novato',
+  spotLabel: 'Ubicar en el mapa del lugar',
+  spotHelp:
+    'Haz clic en el mapa para colocar esta marca. Las flechas la mueven; con Mayús, a pasos más grandes.',
+  spotNoMap: 'Sube un mapa del lugar en la pestaña Marca para ubicar misiones en él.',
+  spotPlacePrompt: 'Mapa del lugar: haz clic para ubicar esta misión',
+  spotPlacedAt: 'Ubicada al {x}% a lo ancho y al {y}% a lo alto',
+  spotUnplaced: 'Aún no está en el mapa.',
+  spotClear: 'Quitar marca',
 }
 
 export default { en, es }

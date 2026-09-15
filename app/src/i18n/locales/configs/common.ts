@@ -3,6 +3,7 @@
 
 const en = {
   guest: 'Guest',
+  staffSignIn: 'Staff sign-in',
   loading: 'Loading…',
   error: 'Something went wrong.',
 }
@@ -10,6 +11,7 @@ const en = {
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
   guest: 'Invitado',
+  staffSignIn: 'Acceso para personal',
   loading: 'Cargando…',
   error: 'Algo salió mal.',
 }

@@ -114,9 +114,16 @@ Vue can't tell that an item moved rather than changed.
   stadium concourse.
 - **Durations 200–350ms.** Easing `cubic-bezier(0.4, 0, 0.2, 1)`. Longer feels
   broken on a device someone is holding one-handed while watching a game.
+- **A payoff needs the whole screen.** The capture celebration is a
+  full-screen overlay teleported to `<body>` (Recipe 20), not a card in the
+  page flow. It was a card once: on a 740px phone that put the biggest moment
+  in the product below the fold and behind the nav bar, so the fan had to
+  scroll to find out they had won. Every beat was already right — it was
+  happening where nobody was looking. If a moment is worth staging, it is
+  worth being unmissable.
 - **Celebration exception.** Reward moments — the capture celebration
-  (Recipe 9) and the trophy gleam (Recipe 10) — may run up to ~900ms, staged
-  as short beats. Like the scan loop (Recipe 7), they are flourishes layered
+  (Recipes 9 and 20) and the trophy gleam (Recipe 10) — may run up to ~900ms,
+  staged as short beats. Like the scan loop (Recipe 7), they are flourishes layered
   *over* an already-committed state change, not state transitions: the badge
   is awarded before the confetti flies, so skipping them loses nothing. A
   reward state may also hold a gentle *state-scoped* loop while it is on
@@ -125,15 +132,25 @@ Vue can't tell that an item moved rather than changed.
   transform/opacity and die under reduced motion. Navigation and state
   transitions stay inside 200–350ms — the exception is for payoffs, never
   for anything a fan is waiting on.
+- **A panel's height is not an animation.** Accordions (Recipe 18) change
+  height instantly and animate only their *contents*, fading and lifting.
+  Height, `grid-template-rows: 0fr->1fr` and `interpolate-size` all ask the
+  browser to re-lay-out every child on every frame — a ten-card level does
+  that at well under 60fps on the phone this app is actually used on, and the
+  content *below* the accordion judders along with it. A panel that appears at
+  full height with its contents easing in reads as deliberate; a janky height
+  slide reads as broken.
 - **Glows never animate box-shadow.** A "pulsing glow" is a static shadow or
   radial gradient on an element whose *opacity* animates (the one-away
   beacon, the badge halo). Same look, still compositor-only.
 - **Calm concourse, loud goal horn.** The celebration budget only reads if the
-  ambient UI stays quiet. Exactly two ambient layers are sanctioned: the
-  app-wide backdrop drift (Recipe 12 — low opacity, 20s+ durations,
-  transform-only, fan shell only) and the one-away beacon (Recipe 11, which
-  earns its pulse by marking the near-win). Don't add per-element ambient
-  loops beyond these; a third would start dulling the payoffs.
+  ambient UI stays quiet. Exactly ONE ambient layer is sanctioned: the one-away
+  beacon (Recipe 11), which earns its pulse by marking the near-win. Don't add
+  per-element ambient loops beyond it. The app-wide backdrop drift used to hold
+  the second slot and was retired (Recipe 12) — four blobs and two oversized
+  stroked icons wandering behind a mission list read as clip-art, not as
+  atmosphere, and the backdrop is now a static tinted wash. Static decor is
+  always fine; motion is what has to earn its place.
 - **Scoping a loop to a state does not make it state-scoped.** The test is
   whether the fan can sit in that state indefinitely. The scan sweep marks an
   operation they are waiting on and dies with it; the badge float rides a
@@ -168,12 +185,30 @@ Vue can't tell that an item moved rather than changed.
   transition ends. The chrome is meant to "hold still" — that means no
   transition on it at all, not a subtle one.
 - **The navigation cover runs only when a view transition does.** The
-  full-screen veil (Recipe 14, `PageCover.vue`) masks the backdrop's snapshot
-  swap, and the router raises it *only* on the view-transition path: a plain
-  navigation swaps the DOM in one atomic frame no cover could intercept, and
-  under reduced motion a full-screen veil is itself the flash the setting
-  forbids. `router.onError` lowers it if a navigation dies midway — a stuck
-  cover is a blank app.
+  full-screen shutter (Recipe 14, `PageCover.vue`) masks the backdrop's
+  snapshot swap, and the router raises it *only* on the view-transition path:
+  a plain navigation swaps the DOM in one atomic frame no cover could
+  intercept, and under reduced motion a full-screen shutter is itself the
+  flash the setting forbids. `router.onError` lowers it if a navigation dies
+  midway — a stuck cover is a blank app.
+- **One navigation, ONE animation system.** The shutter and the View
+  Transitions API must never run together, and the router picks between them:
+  hero navigations (inside the mission flow, where a thumbnail really becomes
+  the next page's header) get the view transition and no cover; every other
+  move gets the shutter and no view transition. This is correctness, not
+  taste — a view transition replaces every element it captures with a frozen
+  snapshot, so a cover animating underneath one animates where nobody can see
+  it, then snaps to wherever it got to when the transition ends. A
+  full-screen cover also makes a morph pointless: once it is shut there is
+  nothing to see. Measured, separating them took the worst frame on a tab
+  change from ~55-72ms down to ~33ms.
+- **Wait for `transitionend`, not a stopwatch.** The router awaits the
+  shutter's close before letting the route commit, and the close ends when
+  the blades say so. A timer does not work: the class that starts the
+  transition lands on Vue's next render while the router is resolving a route
+  (often fetching a lazy chunk) across the same window, so the clocks drift —
+  a 280ms timer caught the blades about three quarters shut and reversed
+  them.
 - **Names unique per page**, always derived from ids inside lists.
 - **Always test with reduced motion on.** Recipe 3 kills every animation under
   `prefers-reduced-motion: reduce`, and the router skips the transition entirely.

@@ -177,10 +177,21 @@ await call(`/t/${HAWKS}/admin/plan`, { method: 'PUT', headers: auth, body: JSON.
 // ── 3. Louisville Bats: images + full branding ────────────────────────
 console.log('  Uploading images from seed-assets…')
 
-const [logoFiles, avatarFiles] = await Promise.all([imagesIn('logo'), imagesIn('avatars')])
+const [logoFiles, avatarFiles, mapFiles] = await Promise.all([
+  imagesIn('logo'),
+  imagesIn('avatars'),
+  imagesIn('venue-map'),
+])
 
 const logoUrl = logoFiles.length
   ? await upload(idToken, logoFiles[0], `tenants/${BATS}/assets/seed-${logoFiles[0].name}`)
+  : null
+
+// The venue plan missions are pinned onto. Optional like every seed asset:
+// with the folder empty the map view simply never appears, which is also the
+// state a brand-new org is in.
+const venueMapUrl = mapFiles.length
+  ? await upload(idToken, mapFiles[0], `tenants/${BATS}/assets/seed-${mapFiles[0].name}`)
   : null
 
 const avatars = []
@@ -210,6 +221,7 @@ const tenant = await call(`/t/${BATS}/admin/tenant`, {
     fontFamily: 'system',
     logoUrl,
     avatars,
+    venueMapUrl,
   }),
 })
 
@@ -221,17 +233,27 @@ const RED = '#c8102e'
 const STEEL = '#2f4a7c'
 const SLATE = '#41618f'
 
+// [title, hint, kind, color, level, spot]
+//
+// `level` groups missions into chapters on the hub; `spot` is where the pin
+// sits on the venue map as a fraction of the image (0-1, origin top-left).
+// Both are optional in the contract — the Hawks hunt below deliberately sets
+// NEITHER, so a dev always has one grouped hunt and one flat one on screen.
+const ROOKIE = 'Level 1: Rookie'
+const REGULAR = 'Level 2: Regular'
+const LEGEND = 'Level 3: Legend'
+
 const MISSIONS = [
-  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', NAVY],
-  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', RED],
-  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', STEEL],
-  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', SLATE],
-  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', NAVY],
-  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', STEEL],
-  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', RED],
-  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', SLATE],
-  ['Meet Buddy Bat', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', RED],
-  ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', NAVY],
+  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', NAVY, ROOKIE, { x: 0.5, y: 0.88 }],
+  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', RED, ROOKIE, { x: 0.22, y: 0.8 }],
+  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', STEEL, ROOKIE, { x: 0.76, y: 0.82 }],
+  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', SLATE, ROOKIE, { x: 0.14, y: 0.45 }],
+  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', NAVY, REGULAR, { x: 0.86, y: 0.5 }],
+  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', STEEL, REGULAR, { x: 0.5, y: 0.12 }],
+  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', RED, REGULAR, { x: 0.3, y: 0.64 }],
+  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', SLATE, LEGEND, { x: 0.68, y: 0.2 }],
+  ['Meet Buddy Bat', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', RED, LEGEND, null],
+  ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', NAVY, LEGEND, null],
 ]
 
 const existing = await call(`/t/${BATS}/admin/campaigns`, { headers: auth })
@@ -287,7 +309,7 @@ await call(`/t/${BATS}/admin/campaigns/${hunt.id}/missions`, {
   method: 'PUT',
   headers: auth,
   body: JSON.stringify({
-    missions: MISSIONS.map(([title, hint, kind, color], order) => ({
+    missions: MISSIONS.map(([title, hint, kind, color, level, spot], order) => ({
       id: `seed-${order + 1}`,
       kind,
       title: { text: title },
@@ -295,6 +317,10 @@ await call(`/t/${BATS}/admin/campaigns/${hunt.id}/missions`, {
       color,
       targetImageUrl: targetUrls[order],
       order,
+      group: { text: level },
+      // Two missions are deliberately left unpinned, so the map view's
+      // "N more not on the map" line is exercised too.
+      spot,
     })),
   }),
 })
@@ -343,6 +369,8 @@ if (!hawksHunt) {
   })
 }
 
+// Deliberately NO levels and NO map pins: this is the flat, unmapped hunt a
+// brand-new org authors, and the fan hub has to look right for it too.
 const HAWKS_MISSIONS = [
   ['The Mascot Perch', 'Find Harley Hawk and get them in frame.', 'photo', '#0e5a4a'],
   ['Harbor View', 'Frame the water from the concourse rail.', 'photo', '#e8792b'],

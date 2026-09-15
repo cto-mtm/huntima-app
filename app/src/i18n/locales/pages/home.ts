@@ -1,5 +1,6 @@
 const en = {
   ongoingHeading: 'Your ongoing hunts',
+  ongoingEmptyTitle: 'Your first hunt awaits',
   ongoingEmpty: 'No hunts in progress. Scan an event’s QR code to jump in.',
   badgeProgress: '{count} / {target} badges',
   continue: 'Continue',
@@ -13,6 +14,7 @@ const en = {
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
   ongoingHeading: 'Tus búsquedas en curso',
+  ongoingEmptyTitle: 'Tu primera búsqueda te espera',
   ongoingEmpty: 'No tienes búsquedas en curso. Escanea el código QR de un evento para empezar.',
   badgeProgress: '{count} / {target} insignias',
   continue: 'Continuar',

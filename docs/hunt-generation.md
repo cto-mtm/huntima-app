@@ -33,9 +33,17 @@ No badge target and no prize — those live on the hunt, and staff set them.
 
 ## What it gives back
 
-JSON: a `missions` array of simple objects. The importer adds `id`, `order`, and
-`targetImageUrl: null`, wraps `title`/`hint` as `{ text }`, and validates the
-completed list with `missionListPayloadSchema` before saving.
+JSON: a `missions` array of simple objects. The importer adds `id`, `order`,
+`targetImageUrl: null`, `group: null` and `spot: null`, wraps `title`/`hint` as
+`{ text }`, and validates the completed list with `missionListPayloadSchema`
+before saving.
+
+`group` (the level a mission belongs to) and `spot` (where it sits on the venue
+map) are deliberately NOT generated. Both default to null in the schema, so a
+payload without them still parses. Levels are a judgement about pacing a
+specific hunt and pins are a judgement about a specific building — neither is
+something a model can infer from a venue's name, and a wrong one is worse than
+an absent one because it looks authored. Staff add both in the hunt editor.
 
 ```json
 {
@@ -190,7 +198,8 @@ reasoning as the other seams in `docs/architecture.md`):
   missions read from Firestore**, calls the model, and returns the `missions`
   JSON.
 - The importer completes each mission (`id`, `order`, `targetImageUrl: null`,
-  `{ text }` wrapping) and validates the list with `missionListPayloadSchema`
+  `group: null`, `spot: null`, `{ text }` wrapping) and validates the list
+  with `missionListPayloadSchema`
   before anything is shown, so a malformed generation fails loudly instead of
   writing junk.
 - The missions populate the **editor's draft** (append to, or replace, what's

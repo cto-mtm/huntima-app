@@ -29,7 +29,7 @@ import LocaleSwitcher from '../LocaleSwitcher.vue'
 import { useSessionStore } from '../../stores/session'
 import { useTenantStore } from '../../stores/tenant'
 import { useOrgsStore } from '../../stores/orgs'
-import huntimaLogo from '../../assets/logo.svg'
+import HuntimaMark from '../HuntimaMark.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -89,7 +89,7 @@ async function signOut(): Promise<void> {
           :title="t('hunts.navPlatform')"
           class="shrink-0"
         >
-          <img :src="huntimaLogo" alt="" class="size-7" />
+          <HuntimaMark class="size-7" />
         </RouterLink>
 
         <span class="select-none text-brand-200" aria-hidden="true">/</span>

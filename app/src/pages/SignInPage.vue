@@ -1,12 +1,24 @@
 <script setup lang="ts">
 /**
- * Fan sign-in and sign-up: Google, or email and password.
+ * The one sign-in page: Google, or email and password.
  *
- * Entirely optional — guests play without any of this. An account exists so a
- * name follows you between visits, which is why it is offered here and on the
- * profile screen rather than blocking the way in.
+ * There is no separate organizer *account*. Running an org is a membership
+ * document on an ordinary account (docs/platform-migration.md D3), so a fan and
+ * an organizer authenticate the exact same thing here — this page used to be
+ * two (a fan door and a staff door) that differed only in copy and in where
+ * they routed afterward.
+ *
+ * Intent is carried by the DESTINATION, not the door. A link that wants the
+ * console passes `?to=` (the router does this when it bounces a signed-out
+ * visitor off an org console; the "organizer" marketing links pass `?to=/orgs`).
+ * With no destination the account lands on its platform home — one tap from
+ * both its trophy shelf and /orgs, so an organizer is never stranded.
+ *
+ * Entirely optional for fans — guests play without any of this, from the tenant
+ * entry screen. An account exists so a name (and, in time, a trophy case)
+ * follows you between visits.
  */
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '../components/BaseButton.vue'
@@ -14,14 +26,16 @@ import LocaleSwitcher from '../components/LocaleSwitcher.vue'
 import GoogleButton from '../components/GoogleButton.vue'
 import { useSessionStore } from '../stores/session'
 import { safeInternalPath } from '../lib/redirect'
+import { IS_LOCAL_API } from '../lib/api'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 
-/** A tenant entry sends its hub here so sign-in lands the fan back in the
- *  game. The `?to=` is attacker-writable; safeInternalPath is the one gate. */
+/** A tenant entry, the org home link, or the guard's console bounce carries
+ *  its destination so sign-in lands you back where you were headed. The `?to=`
+ *  is attacker-writable; safeInternalPath is the one gate. */
 function destination(): string | null {
   return safeInternalPath(route.query.to)
 }
@@ -31,6 +45,13 @@ const email = ref('')
 const password = ref('')
 const submitted = ref(false)
 const resetSent = ref(false)
+
+// Dev-only: seeds the demo staff account in the (empty) Auth emulator. Gated on
+// DEV so Rollup drops the import from a production build; see docs/dev tooling.
+const DevAdminSeeder = import.meta.env.DEV
+  ? defineAsyncComponent(() => import('../dev/DevAdminSeeder.vue'))
+  : null
+const showDevTools = import.meta.env.DEV && IS_LOCAL_API
 
 const title = computed(() =>
   mode.value === 'signup' ? t('entry.fanSignUpTitle') : t('entry.fanSignInTitle'),
@@ -76,28 +97,30 @@ async function resetPassword(): Promise<void> {
   resetSent.value = await session.sendPasswordReset(address)
 }
 
-// Navigate only once the auth listener has actually granted the role —
-// signing in resolves before the session is settled. Destination: the
-// carried ?to= (a tenant hub), else the trophy shelf — the consumer home.
+// Route only once the auth listener has actually granted a role — signing in
+// resolves before the session settles. Fires for a fan OR an operator; both go
+// to the carried ?to= (a tenant hub or /orgs), else the consumer home.
 watch(
-  () => session.isFan,
-  (isFan) => {
-    if (isFan) {
-      const dest = destination()
-      // Default landing: the consumer home, which greets them with their
-      // ongoing games, hunts and trophies — not a bare shelf.
-      if (dest) void router.push(dest)
-      else void router.push({ name: 'platform-home' })
-    }
+  () => session.isFan || session.isAdmin,
+  (signedIn) => {
+    if (!signedIn) return
+    const dest = destination()
+    if (dest) void router.push(dest)
+    else void router.push({ name: 'platform-home' })
   },
   { immediate: true },
 )
 
-/** This page is global now; "back" means wherever you came from — a tenant
- *  welcome screen or the landing page — not a hardcoded route. */
+/** "Back" means wherever you came from — a tenant welcome screen or the
+ *  landing page — not a hardcoded route. */
 function goBack(): void {
   if (window.history.length > 1) router.back()
   else void router.push('/')
+}
+
+function fillDemo(demo: { email: string; password: string }): void {
+  email.value = demo.email
+  password.value = demo.password
 }
 </script>
 
@@ -112,11 +135,11 @@ function goBack(): void {
 
     <form class="mt-5 space-y-4" @submit.prevent="submit">
       <div>
-        <label for="fan-email" class="block text-sm font-semibold text-brand-900">
+        <label for="signin-email" class="block text-sm font-semibold text-brand-900">
           {{ t('entry.emailLabel') }}
         </label>
         <input
-          id="fan-email"
+          id="signin-email"
           v-model="email"
           type="email"
           autocomplete="username"
@@ -126,11 +149,11 @@ function goBack(): void {
       </div>
 
       <div>
-        <label for="fan-password" class="block text-sm font-semibold text-brand-900">
+        <label for="signin-password" class="block text-sm font-semibold text-brand-900">
           {{ t('entry.passwordLabel') }}
         </label>
         <input
-          id="fan-password"
+          id="signin-password"
           v-model="password"
           type="password"
           :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'"
@@ -179,6 +202,8 @@ function goBack(): void {
         {{ mode === 'signup' ? t('entry.toggleToSignIn') : t('entry.toggleToSignUp') }}
       </button>
     </p>
+
+    <component :is="DevAdminSeeder" v-if="showDevTools && DevAdminSeeder" class="mt-6" @filled="fillDemo" />
 
     <button
       type="button"

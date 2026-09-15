@@ -20,6 +20,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
+import EmptyState from '../components/EmptyState.vue'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
 import { useFanName } from '../composables/useFanName'
@@ -65,9 +66,15 @@ const organizerTarget = computed(() =>
       {{ t('home.ongoingHeading') }}
     </h2>
 
-    <p v-if="!progress.ongoing.length" class="mt-3 text-sm text-muted">
-      {{ t('home.ongoingEmpty') }}
-    </p>
+    <!-- Deliberately no CTA: the only way into a hunt is a QR code at a
+         venue, so an invented button here would lead nowhere. The body says
+         what to do instead. -->
+    <EmptyState
+      v-if="!progress.ongoing.length"
+      shape="pin"
+      :title="t('home.ongoingEmptyTitle')"
+      :body="t('home.ongoingEmpty')"
+    />
 
     <ul v-else class="mt-3 grid gap-2.5">
       <li

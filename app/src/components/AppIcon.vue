@@ -25,6 +25,13 @@ export type IconName =
   | 'camera'
   | 'spark'
   | 'chevronDown'
+  | 'chevronRight'
+  | 'lock'
+  | 'close'
+  | 'star'
+  | 'calendar'
+  | 'map'
+  | 'list'
 
 const props = withDefaults(defineProps<{ name: IconName; title?: string }>(), { title: undefined })
 
@@ -50,6 +57,21 @@ const PATHS: Record<IconName, string[]> = {
   spark: ['M12 3.5l1.7 5.3 5.3 1.7-5.3 1.7L12 17.5l-1.7-5.3L5 10.5l5.3-1.7L12 3.5Z'],
   // Caret — a control that opens a choice (the console's org switcher)
   chevronDown: ['m6 9.5 6 5.5 6-5.5'],
+  // Caret — drills INTO something (a level, a series, a leaderboard row)
+  chevronRight: ['m9.5 6 5.5 6-5.5 6'],
+  // Padlock — a reward that exists but is not yours yet
+  lock: ['M7 10.5h10V20H7v-9.5Z', 'M9 10.5V8a3 3 0 0 1 6 0v2.5'],
+  // Cross — dismiss a sheet. The only icon that ever closes something.
+  close: ['M6.5 6.5l11 11', 'M17.5 6.5l-11 11'],
+  // Five-point star — a rating/level marker. NOT `spark`, which is four-point
+  // and means "something is happening"; this one means "how much".
+  star: ['M12 3.8l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.6 9.9l5.8-.8L12 3.8Z'],
+  // Calendar — a dated entry on the journey timeline
+  calendar: ['M4 6.5h16V20H4V6.5Z', 'M4 10.5h16', 'M8.5 4v3M15.5 4v3'],
+  // Folded map — the venue view toggle
+  map: ['M9 5 3.5 7v12L9 17l6 2 5.5-2V5L15 7 9 5Z', 'M9 5v12M15 7v12'],
+  // Stacked rows — the list view toggle
+  list: ['M4 7h16M4 12h16M4 17h16'],
 }
 
 const paths = computed(() => PATHS[props.name])

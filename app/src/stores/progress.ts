@@ -466,6 +466,10 @@ export const useProgressStore = defineStore('progress', () => {
     earned,
     claimed,
     wonHunts,
+    // Exposed for the collection page, which needs EVERY hunt this fan has
+    // touched — not just the unfinished ones `ongoing` keeps. A finished
+    // hunt is the most interesting row in a collection.
+    joinedHunts,
     hasProfile,
     earnedIds,
     redeemed,

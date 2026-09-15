@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { verifyResultSchema } from 'shared'
 import BaseButton from '../components/BaseButton.vue'
 import AppIcon from '../components/AppIcon.vue'
+import CaptureCelebration from '../components/CaptureCelebration.vue'
 import { useReducedMotion } from '../composables/useReducedMotion'
 import { useGeofence } from '../composables/useGeofence'
 import { useMissionsStore } from '../stores/missions'
 import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
 import { prepareCapture, type PreparedImage } from '../lib/image'
+import { takePendingCapture } from '../lib/pendingCapture'
 import { apiPost } from '../lib/api'
 
 const { t } = useI18n()
@@ -35,52 +37,7 @@ const stubbed = ref(false)
  *  card upgrades from "badge unlocked" to the full hunt-complete moment. */
 const justCompleted = ref(false)
 
-/**
- * Confetti burst for the reward card (Recipe 9). Each piece is a DOM span
- * whose arc lives in inline custom props: a mid keyframe that rises and an
- * end keyframe that falls past it, so the "gravity" is faked entirely with
- * transform. Colors come from the mission plus the brand/accent tokens, so
- * the burst re-skins with the tenant like everything else.
- */
-interface ConfettiPiece {
-  id: number
-  style: Record<string, string>
-}
 
-function makeConfetti(missionColor: string, count: number): ConfettiPiece[] {
-  const palette = [
-    missionColor,
-    'var(--color-accent-400)',
-    'var(--color-accent-600)',
-    'var(--color-brand-400)',
-    '#ffffff',
-  ]
-  return Array.from({ length: count }, (_, i) => {
-    // Evenly fanned with jitter, so the burst always covers the circle.
-    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
-    const distance = 70 + Math.random() * 90
-    const size = 5 + Math.random() * 5
-    const rot = (Math.random() - 0.5) * 540
-    return {
-      id: i,
-      style: {
-        backgroundColor: palette[i % palette.length],
-        width: `${size.toFixed(1)}px`,
-        height: `${(size * (Math.random() > 0.5 ? 1.8 : 1)).toFixed(1)}px`,
-        borderRadius: Math.random() > 0.6 ? '9999px' : '2px',
-        animationDelay: `${Math.round(Math.random() * 120)}ms`,
-        '--confetti-mid-x': `${(Math.cos(angle) * distance * 0.7).toFixed(1)}px`,
-        '--confetti-mid-y': `${(Math.sin(angle) * distance * 0.7 - 30).toFixed(1)}px`,
-        '--confetti-mid-rot': `${(rot * 0.6).toFixed(0)}deg`,
-        '--confetti-end-x': `${(Math.cos(angle) * distance).toFixed(1)}px`,
-        '--confetti-end-y': `${(Math.sin(angle) * distance + 60).toFixed(1)}px`,
-        '--confetti-end-rot': `${rot.toFixed(0)}deg`,
-      },
-    }
-  })
-}
-
-const confetti = ref<ConfettiPiece[]>([])
 
 /** Haptic beat to pair with the visual one. Vibration is physical motion,
  *  so it respects reduced motion; a no-vibrate device just skips it. */
@@ -112,6 +69,20 @@ function releasePreview(): void {
 
 onBeforeUnmount(releasePreview)
 
+/**
+ * The normal entry: the fan already took the photo on the mission page, so
+ * this screen opens on "checking…" rather than on a drawn viewfinder and a
+ * second button.
+ *
+ * Nothing pending means a refresh or a link straight to this URL. That fan has
+ * no photo, so the framing state below is still the fallback — it is now an
+ * edge case rather than the path everyone walks.
+ */
+onMounted(() => {
+  const pending = takePendingCapture()
+  if (pending) void verify(pending)
+})
+
 /** Spyglass missions get a digital zoom; concourse missions don't need one. */
 const zoom = ref(1)
 const isSpyglass = computed(() => mission.value?.kind === 'spyglass')
@@ -142,8 +113,23 @@ async function pickPhoto(): Promise<void> {
  * in-app viewfinder, not a new capability.
  */
 async function onFileChosen(event: Event): Promise<void> {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !mission.value) return
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  // Reset either way: re-picking the SAME file must still fire a change
+  // event, which it will not while the value is still set.
+  input.value = ''
+  if (!file) return
+  await verify(file)
+}
+
+/**
+ * Everything from a File to a verdict. Split out of the change handler
+ * because the photo now usually arrives from the mission page (the camera has
+ * to open inside the tap that asks for it — see lib/pendingCapture), and only
+ * a retry or a deep link goes through the input on this page.
+ */
+async function verify(file: File): Promise<void> {
+  if (!mission.value) return
 
   phase.value = 'scanning'
   rejection.value = null
@@ -211,26 +197,36 @@ async function onFileChosen(event: Event): Promise<void> {
   progress.awardBadge(missionId.value)
   justCompleted.value = !wasComplete && progress.isComplete
 
-  confetti.value = reducedMotion.value
-    ? []
-    : makeConfetti(mission.value?.color ?? 'var(--color-accent-500)', justCompleted.value ? 28 : 18)
   buzz(justCompleted.value ? [20, 60, 20, 60, 80] : [15, 60, 40])
   phase.value = 'reward'
 }
 
-function tryAgain(): void {
+/**
+ * Retry re-opens the camera immediately rather than returning to the framing
+ * screen. The tap on "Try again" IS a user gesture, so the camera can open
+ * inside it — and a fan whose photo was just rejected wants another shot, not
+ * another screen asking whether they would like to take one.
+ *
+ * pickPhoto re-runs the geofence check, which is right: a rejection is a
+ * plausible moment for someone to have walked off.
+ */
+async function tryAgain(): Promise<void> {
   releasePreview()
   capture.value = null
   rejection.value = null
   phase.value = 'framing'
   if (fileInput.value) fileInput.value.value = ''
+  await pickPhoto()
 }
 </script>
 
 <template>
   <section v-if="mission" class="py-5">
     <h1 class="text-lg font-extrabold text-brand-900">{{ resolve(mission.title) }}</h1>
-    <p class="mt-1 text-sm text-muted">
+    <!-- Framing instructions only while there is something to frame. The
+         normal path now arrives with the photo already taken, and telling
+         that fan to "frame the object" describes a step they just finished. -->
+    <p v-if="phase === 'framing'" class="mt-1 text-sm text-muted">
       {{ isSpyglass ? t('capture.frameSpyglass') : t('capture.framePhoto') }}
     </p>
 
@@ -376,85 +372,20 @@ function tryAgain(): void {
       </div>
     </Transition>
 
-    <Transition name="reward">
-      <!-- Mint ring: success states — and only success states — wear mint,
-           so a verified capture is unmistakable next to the accent CTAs. -->
-      <div
-        v-if="phase === 'reward'"
-        class="mt-6 rounded-card bg-surface p-5 text-center shadow-lg shadow-success-500/25 ring-2 ring-success-500"
-      >
-        <div class="relative mx-auto size-20">
-          <!-- Mission-colored halo, breathing via opacity (Recipe 9). A
-               static radial gradient — glow is painted once, never an
-               animated box-shadow. -->
-          <span
-            class="badge-halo absolute -inset-5 rounded-full opacity-50"
-            :style="{ background: `radial-gradient(closest-side, ${mission.color}, transparent)` }"
-            aria-hidden="true"
-          />
-          <span class="badge-ring absolute inset-0 rounded-2xl bg-accent-400" aria-hidden="true" />
-          <div
-            class="badge-pop relative flex size-20 items-center justify-center rounded-2xl"
-            :style="{ backgroundColor: mission.color, viewTransitionName: `badge-${mission.id}` }"
-          >
-            <AppIcon name="badge" class="size-9 text-white/90" />
-          </div>
-          <!-- Confetti burst (Recipe 9): pieces fan out from the badge center
-               and arc down past the card edge. Empty under reduced motion. -->
-          <span
-            v-for="piece in confetti"
-            :key="piece.id"
-            class="confetti-piece pointer-events-none absolute left-1/2 top-1/2 -ml-1 -mt-1"
-            :style="piece.style"
-            aria-hidden="true"
-          />
-        </div>
-        <!-- The celebration headline bounces into place (Recipe 16) in the
-             display skin — the loudest text moment in the app, on purpose. -->
-        <h2 class="display-title display-title--sm title-bounce mt-3 text-2xl">
-          {{ justCompleted ? t('capture.huntCompleteTitle') : t('capture.successTitle') }}
-        </h2>
-        <p class="mt-1 text-sm text-muted">
-          {{ justCompleted ? t('capture.huntCompleteBody') : t('capture.successBody') }}
-        </p>
-
-        <!-- The meter tick: every win visibly moves the count toward the
-             prize. The newest dot pops in after the badge lands. -->
-        <template v-if="missionsStore.badgeTarget > 0">
-          <p class="mt-4 text-xs font-bold uppercase tracking-wide text-muted">
-            {{ t('capture.progressCount', { count: shownCount, target: missionsStore.badgeTarget }) }}
-          </p>
-          <div class="mt-2 flex justify-center gap-1.5" aria-hidden="true">
-            <span
-              v-for="i in missionsStore.badgeTarget"
-              :key="i"
-              class="size-2.5 rounded-full"
-              :class="[
-                i <= shownCount ? 'bg-accent-500' : 'bg-brand-100',
-                i === shownCount ? 'badge-dot-pop' : '',
-              ]"
-            />
-          </div>
-        </template>
-
-        <div class="mt-4 grid gap-2">
-          <BaseButton v-if="justCompleted" size="lg" icon="prize" @click="$router.push({ name: 'redeem' })">
-            {{ t('capture.claimPrize') }}
-          </BaseButton>
-          <BaseButton v-else size="lg" icon="missions" @click="$router.push({ name: 'home' })">
-            {{ t('capture.keepGoing') }}
-          </BaseButton>
-          <BaseButton
-            size="lg"
-            variant="secondary"
-            :icon="justCompleted ? 'missions' : 'trophies'"
-            @click="$router.push({ name: justCompleted ? 'home' : 'trophies' })"
-          >
-            {{ justCompleted ? t('capture.keepGoing') : t('capture.viewTrophies') }}
-          </BaseButton>
-        </div>
-      </div>
-    </Transition>
+    <!-- The payoff takes over the whole screen (CaptureCelebration), so it
+         teleports out of this page rather than rendering below the photo.
+         It used to be a card in the flow, which on a 740px phone put the
+         biggest moment in the product under the fold and behind the nav. -->
+    <CaptureCelebration
+      v-if="phase === 'reward'"
+      :mission-color="mission.color"
+      :just-completed="justCompleted"
+      :count="shownCount"
+      :target="missionsStore.badgeTarget"
+      :stubbed="stubbed"
+      @primary="$router.push({ name: justCompleted ? 'redeem' : 'home' })"
+      @secondary="$router.push({ name: justCompleted ? 'home' : 'trophies' })"
+    />
   </section>
 
   <section v-else class="py-10 text-center">

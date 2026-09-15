@@ -35,7 +35,7 @@ const label = computed(() => (avatar.value ? avatarLabel(avatar.value, t) : ''))
 
 const { initial } = useFanName()
 
-const box = computed(() => (props.size === 'lg' ? 'size-14 text-lg' : 'size-7 text-[11px]'))
+const box = computed(() => (props.size === 'lg' ? 'size-14 text-lg' : 'size-8 text-xs'))
 </script>
 
 <template>

@@ -10,6 +10,12 @@ const en = {
   redeemedTitle: 'Already claimed',
   redeemedBody: 'This code has been redeemed. One prize per hunter.',
   backToMissions: 'Back to missions',
+  // The badge case: one slot per mission in this hunt. `caseLocked` labels a
+  // slot whose mission has not been captured — deliberately says nothing
+  // about WHICH mission it is.
+  caseHeading: 'Your badge case',
+  caseCount: '{count} of {total}',
+  caseLocked: 'Locked',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -25,6 +31,9 @@ const es: typeof en = {
   redeemedTitle: 'Ya canjeado',
   redeemedBody: 'Este código ya fue canjeado. Un premio por participante.',
   backToMissions: 'Volver a las misiones',
+  caseHeading: 'Tu vitrina de insignias',
+  caseCount: '{count} de {total}',
+  caseLocked: 'Bloqueada',
 }
 
 export default { en, es }

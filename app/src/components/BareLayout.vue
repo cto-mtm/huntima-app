@@ -12,7 +12,17 @@
 </script>
 
 <template>
-  <div class="mx-auto min-h-dvh max-w-5xl bg-canvas px-4">
-    <slot />
+  <!-- `relative z-10` is load-bearing. #app-backdrop (index.html) is
+       position:fixed with z-index:0, and CSS paints POSITIONED elements above
+       the backgrounds of non-positioned blocks — so a plain static wrapper,
+       however opaque, renders UNDERNEATH the backdrop and its whole page
+       disappears. Any full-page layout that means to cover the fan ground has
+       to be positioned above it, not merely opaque. -->
+  <!-- Full-bleed opaque, with the column inside it: the background has to
+       span the whole viewport, not just the 5xl column. -->
+  <div class="relative z-10 min-h-dvh bg-canvas">
+    <div class="mx-auto max-w-5xl px-4">
+      <slot />
+    </div>
   </div>
 </template>

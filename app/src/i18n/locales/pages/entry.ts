@@ -12,9 +12,7 @@ const en = {
   haveAccount: 'Already have an account?',
   accountHeading: 'Save your progress',
   accountHelp: 'An account keeps your name across visits.',
-  switchUser: 'Switch user',
 
-  staffSignIn: 'Staff sign-in',
 
   deviceLabel: 'Device',
 
@@ -26,10 +24,6 @@ const en = {
   passwordTooShort: 'Use at least 6 characters.',
   emailInUse: 'That email already has an account.',
 
-  organizerTitle: 'Organizer sign-in',
-  organizerSignUpTitle: 'Create an organizer account',
-  organizerSubtitle: 'Run photo hunts for your club, company or event.',
-  organizerNewHere: 'Running your first hunt?',
   forgotPassword: 'Forgot your password?',
   resetSent: 'If that address has an account, a reset link is on its way.',
   emailLabel: 'Email',
@@ -60,9 +54,7 @@ const es: typeof en = {
   haveAccount: '¿Ya tienes una cuenta?',
   accountHeading: 'Guarda tu progreso',
   accountHelp: 'Una cuenta conserva tu nombre entre visitas.',
-  switchUser: 'Cambiar de usuario',
 
-  staffSignIn: 'Acceso para personal',
 
   deviceLabel: 'Dispositivo',
 
@@ -74,10 +66,6 @@ const es: typeof en = {
   passwordTooShort: 'Usa al menos 6 caracteres.',
   emailInUse: 'Ese correo ya tiene una cuenta.',
 
-  organizerTitle: 'Acceso para organizadores',
-  organizerSignUpTitle: 'Crear una cuenta de organizador',
-  organizerSubtitle: 'Organiza búsquedas fotográficas para tu club, empresa o evento.',
-  organizerNewHere: '¿Es tu primera búsqueda?',
   forgotPassword: '¿Olvidaste tu contraseña?',
   resetSent: 'Si esa dirección tiene una cuenta, le llegará un enlace para restablecerla.',
   emailLabel: 'Correo',

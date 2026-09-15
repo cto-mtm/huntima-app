@@ -36,7 +36,9 @@ const orgs = useOrgsStore()
 onMounted(async () => {
   await session.ensureAuthReady()
   if (!session.user) {
-    void router.replace({ name: 'staff-login' })
+    // Come back here (the org picker) once signed in — this page IS the
+    // organizer landing, so it is its own return destination.
+    void router.replace({ name: 'signin', query: { to: '/orgs' } })
     return
   }
   // The store clears itself on sign-out and refreshes itself after a create,

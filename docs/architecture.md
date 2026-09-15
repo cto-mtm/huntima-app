@@ -206,10 +206,13 @@ per-hunt analytics. What remains deliberately open, each with a marked seam:
 
 | Missing | Seam | Note |
 |---|---|---|
-| Native camera viewfinder | `CapturePage.vue` uses a file input with `capture="environment"` | Works today and degrades to a desktop file picker; `@capacitor/camera` would buy a nicer in-app viewfinder, not a new capability |
+| Native camera viewfinder | `MissionDetailPage.vue` owns the file input with `capture="environment"` (the camera must open inside the tap that asks for it, and a user gesture does not survive a route change — see `lib/pendingCapture.ts`); `CapturePage.vue` keeps one as the deep-link/retry fallback | Works today and degrades to a desktop file picker; `@capacitor/camera` would buy a nicer in-app viewfinder, not a new capability |
 | Geofence validation | `CapturePage.vue` | `@capacitor/geolocation` + a point-in-radius check against tenant config, verified server-side |
 | OCR "spyglass" verification | `mission.kind === 'spyglass'` | The capture UI distinguishes spyglass missions, but they share the photo verification path — there is no OCR-specific server check yet |
 | Server-*trusted* fan progress | `stores/progress.ts` now syncs a signed-in fan's progress to `fan_progress/{uid}` via `/me/progress`, but the server stores what the client claims; `claimCode` is still derived, not issued | Cross-device *continuity* is done (a signed-in fan's trophies follow them; guests stay device-local). What is still open is *authority*: the server does not yet own the badge ledger (awarding badges on a verified capture) or mint/invalidate claim codes, so progress must never hand over a prize without staff verification. **Analytics stays aggregate-only** (`campaign_stats/` counters, no per-person row): `fan_progress` is opt-in and self-reported, so it is not a trusted per-fan identity to attribute analytics to — and storing behavioural data on minors is its own decision |
+
+| Per-fan ranking (leaderboard, points, levels, badge rarity) | Nothing built; `stores/progress.ts` is per-device/per-account only | The UI for it is designed and deliberately absent — see [`ui-overhaul.md`](./ui-overhaul.md) § "What was deliberately not built". A leaderboard needs a ranked, per-person server table; the players are children at a public venue, and `campaign_stats/` stays aggregate counters for exactly that reason. Not a backend chore — a decision about storing behavioural data on minors |
+| Per-mission location | `mission.spot` is a fraction of an uploaded venue image, not lat/lng | The venue map (`MissionMap.vue`) is WAYFINDING: it needs no tile provider and asks the device for no location to draw. Whether a fan is really here is still `useGeofence` against `tenantConfig.venue`, soft, at capture time. A "you are here" dot would open the geofencing seam sideways |
 
 Resist closing these speculatively. Each drags in a real decision (PII
 retention, prize fraud) that belongs in its own change.

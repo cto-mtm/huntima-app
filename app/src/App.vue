@@ -6,6 +6,7 @@ import AppShell from './components/AppShell.vue'
 import ConsoleShell from './components/ConsoleShell.vue'
 import BareLayout from './components/BareLayout.vue'
 import PageCover from './components/PageCover.vue'
+import EmptyState from './components/EmptyState.vue'
 import { useTenantStore } from './stores/tenant'
 import { useSessionStore } from './stores/session'
 import { useProgressStore } from './stores/progress'
@@ -55,16 +56,16 @@ onMounted(() => {
 
   <section
     v-if="tenantMissing"
-    class="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-5 text-center"
+    class="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5"
   >
-    <h1 class="text-2xl font-extrabold text-brand-900">{{ t('notFound.tenantTitle') }}</h1>
-    <p class="mt-2 text-sm text-muted">{{ t('notFound.tenantBody') }}</p>
-    <RouterLink
-      to="/"
-      class="mt-6 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white"
-    >
-      {{ t('notFound.home') }}
-    </RouterLink>
+    <EmptyState shape="pin" :title="t('notFound.tenantTitle')" :body="t('notFound.tenantBody')">
+      <RouterLink
+        to="/"
+        class="inline-flex w-full items-center justify-center rounded-full bg-gradient-to-r from-accent-500 to-accent-alt-600 px-6 py-3.5 text-base font-bold text-white shadow-[0_4px_0_0_var(--color-accent-alt-600)] transition-transform duration-150 active:translate-y-[3px] active:shadow-[0_1px_0_0_var(--color-accent-alt-600)]"
+      >
+        {{ t('notFound.home') }}
+      </RouterLink>
+    </EmptyState>
   </section>
 
   <ConsoleShell v-else-if="layout === 'console'">
