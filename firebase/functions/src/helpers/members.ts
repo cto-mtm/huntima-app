@@ -1,6 +1,6 @@
 import { getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore, type Firestore } from 'firebase-admin/firestore'
+import { getFirestore, type DocumentReference, type Firestore } from 'firebase-admin/firestore'
 import {
   orgMemberSchema,
   planSchema,
@@ -188,18 +188,30 @@ export async function listOrgs(uid: string, isOperator: boolean): Promise<OrgSum
   }
 
   const memberships = await firestore.collectionGroup('members').where('uid', '==', uid).get()
-  const out: OrgSummary[] = []
+
+  // Collect each valid membership's role alongside its parent tenant ref, then
+  // read every tenant in ONE batched getAll rather than one round trip per org
+  // (the old N+1). getAll preserves input order, so the results line up with
+  // `entries` by index.
+  const entries: { role: OrgSummary['role']; ref: DocumentReference }[] = []
   for (const doc of memberships.docs) {
     const parsed = orgMemberSchema.safeParse(doc.data())
     const tenantDoc = doc.ref.parent.parent
     if (!parsed.success || !tenantDoc) continue
-    const tenant = await tenantDoc.get()
-    if (!tenant.exists) continue
+    entries.push({ role: parsed.data.role, ref: tenantDoc })
+  }
+  if (entries.length === 0) return []
+
+  const tenants = await firestore.getAll(...entries.map((e) => e.ref))
+  const out: OrgSummary[] = []
+  for (let i = 0; i < entries.length; i += 1) {
+    const tenant = tenants[i]
+    if (!tenant?.exists) continue
     const teamName = tenant.data()?.teamName
     out.push({
-      slug: tenantDoc.id,
-      teamName: typeof teamName === 'string' ? teamName : tenantDoc.id,
-      role: parsed.data.role,
+      slug: entries[i].ref.id,
+      teamName: typeof teamName === 'string' ? teamName : entries[i].ref.id,
+      role: entries[i].role,
       kind: kindOf(tenant.data()),
       plan: planOf(tenant.data()),
     })

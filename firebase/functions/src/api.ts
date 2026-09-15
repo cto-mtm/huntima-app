@@ -194,6 +194,13 @@ export const api = onRequest(
       }
 
       if (route === 'POST /echo') {
+        // Reference/diagnostic endpoint, EMULATOR ONLY. It reflects parsed
+        // input, which has no business being a public surface on a deployed
+        // function — gate it the same way the seed route below is gated.
+        if (!isEmulator) {
+          res.status(404).json({ error: 'Not found' })
+          return
+        }
         res.status(200).json({ success: true, echoed: echoSchema.parse(req.body) })
         return
       }

@@ -42,8 +42,17 @@ service cloud.firestore {
       }
 
       match /campaigns/{campaignId} {
-        // World-readable like the tenant doc; a published hunt is public.
-        allow read: if true;
+        // A PUBLISHED hunt is public (fans are anonymous); a DRAFT is not.
+        // `read` covers get AND list, so `allow read: if true` would let
+        // anyone holding the public Firebase project config enumerate every
+        // org's unreleased hunts — names, prizes, and target photo URLs — by
+        // slug. Split the two: a get succeeds for a published doc (or a
+        // member/operator), and a list is members/operators only. The API
+        // only ever serves the single published hunt via the Admin SDK, so
+        // this makes the rule state the same guarantee the server enforces.
+        allow get: if (resource != null && resource.data.status == 'published')
+          || isMember(slug) || isOperator();
+        allow list: if isMember(slug) || isOperator();
         allow write: if isMember(slug) || isOperator();
       }
 
