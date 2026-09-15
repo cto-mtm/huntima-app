@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 import type { Mission, Prize } from 'shared'
 import BaseButton from '../../components/BaseButton.vue'
 import MissionTargetField from '../../components/admin/MissionTargetField.vue'
-import MissionSpotField, { type Spot } from '../../components/admin/MissionSpotField.vue'
+import MissionGeoField, { type Geo } from '../../components/admin/MissionGeoField.vue'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
 import { uploadImage } from '../../lib/storage'
@@ -130,10 +130,10 @@ function addMission(): void {
     targetImageUrl: null,
     order: draft.value.length,
     // Both optional in the contract, both explicit here: a new mission joins
-    // whatever level the author types next and is unplaced until somebody
+    // whatever level the author types next and has no location until somebody
     // points at the map.
     group: null,
-    spot: null,
+    geo: null,
   })
   markDirty()
 }
@@ -166,8 +166,8 @@ function setGroup(mission: Mission, value: string): void {
   markDirty()
 }
 
-function setSpot(mission: Mission, spot: Spot | null): void {
-  mission.spot = spot
+function setGeo(mission: Mission, geo: Geo | null): void {
+  mission.geo = geo
   markDirty()
 }
 
@@ -502,11 +502,11 @@ async function save(): Promise<void> {
           "
         />
 
-        <MissionSpotField
+        <MissionGeoField
           class="mt-4"
-          :model-value="mission.spot"
+          :model-value="mission.geo"
           :color="mission.color"
-          @update:model-value="(spot) => setSpot(mission, spot)"
+          @update:model-value="(geo) => setGeo(mission, geo)"
         />
       </li>
     </ul>

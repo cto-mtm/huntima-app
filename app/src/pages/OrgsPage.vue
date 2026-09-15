@@ -25,6 +25,7 @@ import BaseButton from '../components/BaseButton.vue'
 import CreateHuntForm from '../components/CreateHuntForm.vue'
 import CreateOrgForm from '../components/CreateOrgForm.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
+import LoadingLine from '../components/LoadingLine.vue'
 import { useOrgsStore } from '../stores/orgs'
 import { useSessionStore } from '../stores/session'
 
@@ -79,9 +80,7 @@ async function signOut(): Promise<void> {
 <!-- Gate on `loaded`, not just `loading`: while ensureAuthReady is still
          pending on a hard reload, neither flag is set — and that beat must
          read as loading, never as "you have no organizations". -->
-    <p v-if="orgs.loading || (!orgs.loaded && !orgs.error)" class="mt-8 text-sm text-muted">
-      {{ t('common.loading') }}
-    </p>
+    <LoadingLine v-if="orgs.loading || (!orgs.loaded && !orgs.error)" class="mt-8" />
 
     <p
       v-else-if="orgs.error"

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Mission } from 'shared'
 import AppIcon from './AppIcon.vue'
 import RewardMedallion from './reward/RewardMedallion.vue'
+import MapModal from './MapModal.vue'
+import type { MapPoint } from './LeafletMap.vue'
 import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
 
@@ -18,6 +20,16 @@ const earned = computed(() => progress.hasBadge(props.mission.id))
 // The near-win beacon (Recipe 11): when exactly one badge remains, every
 // still-pending card pulses — any one of them wins it.
 const isOneAway = computed(() => progress.remaining === 1 && !earned.value)
+
+// A per-card map affordance: only when the mission has a location. The card
+// is itself a link, so the button stops propagation to open the modal
+// instead of navigating to the detail page.
+const mapOpen = ref(false)
+const mapPoints = computed<MapPoint[]>(() => {
+  const g = props.mission.geo
+  if (!g) return []
+  return [{ lat: g.lat, lng: g.lng, radiusMeters: g.radiusMeters, color: props.mission.color }]
+})
 </script>
 
 <template>
@@ -116,6 +128,17 @@ const isOneAway = computed(() => progress.remaining === 1 && !earned.value)
           aria-hidden="true"
         />
         {{ t(`missionCard.kind.${props.mission.kind}`) }}
+        <!-- Map affordance: only when the mission has a location. Stops the
+             card's own navigation so it opens the map instead. -->
+        <button
+          v-if="props.mission.geo"
+          type="button"
+          class="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-brand-700 transition-colors hover:bg-brand-100"
+          :aria-label="t('mission.showOnMap')"
+          @click.stop.prevent="mapOpen = true"
+        >
+          <AppIcon name="map" class="size-3" />
+        </button>
       </p>
     </div>
 
@@ -135,4 +158,11 @@ const isOneAway = computed(() => progress.remaining === 1 && !earned.value)
       {{ earned ? t('missionCard.statusEarned') : t('missionCard.statusLocked') }}
     </span>
   </RouterLink>
+
+  <MapModal
+    v-if="mapOpen"
+    :title="resolve(props.mission.title)"
+    :points="mapPoints"
+    @close="mapOpen = false"
+  />
 </template>

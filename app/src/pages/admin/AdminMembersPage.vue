@@ -14,6 +14,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { OrgRole } from 'shared'
 import BaseButton from '../../components/BaseButton.vue'
+import LoadingLine from '../../components/LoadingLine.vue'
 import { useMembersStore } from '../../stores/members'
 import { useOrgsStore } from '../../stores/orgs'
 import { useSessionStore } from '../../stores/session'
@@ -82,7 +83,7 @@ async function remove(uid: string, label: string): Promise<void> {
       {{ t('team.loadFailed') }}
     </p>
 
-    <p v-if="members.loading" class="mt-6 text-sm text-muted">{{ t('common.loading') }}</p>
+    <LoadingLine v-if="members.loading" class="mt-6" />
 
     <ul v-else class="mt-6 grid gap-2.5">
       <li

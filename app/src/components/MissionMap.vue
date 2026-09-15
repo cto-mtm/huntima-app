@@ -1,74 +1,59 @@
 <script setup lang="ts">
 /**
- * The venue map: missions pinned onto a plan of the building.
- *
- * ── Why this is an illustration, not a tile layer ─────────────
- * A street map would need a tile provider (an API key, a per-load bill, and
- * a third-party origin in the CSP), would render a concrete bowl as a grey
- * blob with no concourse in it, and would be useless with the signal a phone
- * actually gets inside a stadium. An organizer's own plan — the seating
- * chart, the vineyard map, the conference floor — is the picture a fan needs,
- * loads as one image, and white-labels for free.
+ * The fan's map of a hunt: every located mission drawn on real streets, so a
+ * player can see where they still need to go. Renders through the shared
+ * LeafletMap (Leaflet + OpenStreetMap), and each pin/area is clickable —
+ * tapping one routes to that mission's detail page.
  *
  * ── What this does NOT do ─────────────────────────────────────
- * It does not know where the fan is. There is no "you are here" dot, no
- * location permission prompt, and no per-mission geofence. Pins are placed by
- * staff at authoring time in normalized coordinates (`mission.spot`), so
- * drawing this map asks the device for nothing.
+ * No "you are here" dot, no location permission prompt, no per-mission
+ * geofence. A mission's `geo` is authored by staff and is wayfinding only; a
+ * positive `radiusMeters` deliberately blurs the exact point into an area for
+ * city-wide hunts. Whether a fan is really at the venue stays the separate
+ * soft check against `tenantConfig.venue`, run at capture time.
  *
- * Whether a fan is really at the venue stays exactly where it already was:
- * the soft `useGeofence` check against `tenantConfig.venue`, run at capture
- * time. Wiring per-mission GPS into a wayfinding picture would open the
- * geofencing seam sideways — see docs/architecture.md § Seams left open.
+ * ── Data source ───────────────────────────────────────────────
+ * Missions come in as a prop from the cached missions store, so opening this
+ * map triggers no network call — the hunt was already loaded once on entry.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import type { Mission } from 'shared'
-import RewardMedallion from './reward/RewardMedallion.vue'
-import { useMissionText } from '../lib/missionText'
+import LeafletMap, { type MapPoint } from './LeafletMap.vue'
 import { useProgressStore } from '../stores/progress'
 
-const props = defineProps<{ missions: Mission[]; mapUrl: string }>()
+const props = defineProps<{ missions: Mission[] }>()
 
 const { t } = useI18n()
-const { resolve } = useMissionText()
+const router = useRouter()
 const progress = useProgressStore()
 
-/** Only placed missions can be drawn. The rest are counted, not hidden. */
-const placed = computed(() => props.missions.filter((m) => m.spot !== null))
-const unplacedCount = computed(() => props.missions.length - placed.value.length)
+/** Only located missions can be drawn. The rest are counted, not hidden. */
+const points = computed<MapPoint[]>(() =>
+  props.missions
+    .filter((m) => m.geo !== null)
+    .map((m) => ({
+      id: m.id,
+      lat: m.geo!.lat,
+      lng: m.geo!.lng,
+      radiusMeters: m.geo!.radiusMeters,
+      color: m.color,
+      muted: progress.hasBadge(m.id),
+    })),
+)
+
+const unplacedCount = computed(() => props.missions.length - points.value.length)
+
+function open(id: string): void {
+  void router.push({ name: 'mission-detail', params: { id } })
+}
 </script>
 
 <template>
   <div>
-    <div class="relative overflow-hidden rounded-card bg-brand-50 shadow-md shadow-brand-900/5 ring-1 ring-brand-100">
-      <!-- The plan sets the height: an organizer's map can be any aspect
-           ratio, and cropping it to a fixed one is how a pin ends up off the
-           edge of its own landmark. -->
-      <img :src="props.mapUrl" alt="" class="block w-full" />
-
-      <RouterLink
-        v-for="mission in placed"
-        :key="mission.id"
-        :to="{ name: 'mission-detail', params: { id: mission.id } }"
-        class="absolute transition-transform duration-150 active:scale-95"
-        :style="{
-          left: `${(mission.spot?.x ?? 0) * 100}%`,
-          top: `${(mission.spot?.y ?? 0) * 100}%`,
-          /* The pin's TIP is the location, not its centre — so the anchor
-             sits at the bottom of the drop and the art hangs above it. */
-          transform: 'translate(-50%, -100%)',
-        }"
-        :aria-label="resolve(mission.title)"
-      >
-        <RewardMedallion
-          shape="pin"
-          :tier="progress.hasBadge(mission.id) ? 'gold' : 'silver'"
-          :crest="mission.color"
-          :emblem="progress.hasBadge(mission.id) ? 'badge' : 'camera'"
-          class="size-10 drop-shadow-md"
-        />
-      </RouterLink>
+    <div class="h-72 overflow-hidden rounded-card shadow-md shadow-brand-900/5 ring-1 ring-brand-100">
+      <LeafletMap :points="points" @select="open" />
     </div>
 
     <p v-if="unplacedCount" class="mt-2 text-xs text-muted">

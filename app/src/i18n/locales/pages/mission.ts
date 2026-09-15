@@ -6,6 +6,7 @@ const en = {
   startCapture: 'Open camera',
   alreadyEarned: 'You already collected this badge.',
   targetPhotoMissing: 'Clue photo coming soon — use the hint.',
+  showOnMap: 'Map',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -17,6 +18,7 @@ const es: typeof en = {
   startCapture: 'Abrir cámara',
   alreadyEarned: 'Ya conseguiste esta insignia.',
   targetPhotoMissing: 'Foto de la pista próximamente. Usa la pista escrita.',
+  showOnMap: 'Mapa',
 }
 
 export default { en, es }

@@ -6,6 +6,7 @@ const en = {
   staffSignIn: 'Staff sign-in',
   loading: 'Loading…',
   error: 'Something went wrong.',
+  close: 'Close',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -14,6 +15,7 @@ const es: typeof en = {
   staffSignIn: 'Acceso para personal',
   loading: 'Cargando…',
   error: 'Algo salió mal.',
+  close: 'Cerrar',
 }
 
 export default { en, es }

@@ -86,11 +86,10 @@ async function onAvatar(event: Event): Promise<void> {
  * building, and re-uploading the same picture for each would guarantee the
  * pins drift between them.
  *
- * Replacing it does NOT move existing pins. `mission.spot` is a fraction of
- * the image, so a re-export at a different resolution is free — but a map of
- * a different PLACE leaves every pin pointing at the wrong landmark. The help
- * text says so; this is a staff tool, and the honest warning beats a
- * confirmation nobody reads.
+ * NOTE: missions are now located by real-world lat/lng (`mission.geo`) and
+ * drawn on a Leaflet map, so this uploaded venue plan no longer places
+ * missions. It is kept as a tenant branding asset; removing it is a separate
+ * branding cleanup. See docs/architecture.md.
  */
 async function onMap(event: Event): Promise<void> {
   const file = (event.target as HTMLInputElement).files?.[0]

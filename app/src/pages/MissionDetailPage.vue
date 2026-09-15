@@ -22,6 +22,8 @@ import AppIcon from '../components/AppIcon.vue'
 import BaseButton from '../components/BaseButton.vue'
 import MissionSkeleton from '../components/MissionSkeleton.vue'
 import EmptyState from '../components/EmptyState.vue'
+import MapModal from '../components/MapModal.vue'
+import type { MapPoint } from '../components/LeafletMap.vue'
 import { useMissionsStore } from '../stores/missions'
 import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
@@ -43,6 +45,16 @@ const earned = computed(() => progress.hasBadge(missionId.value))
 const fileInput = ref<HTMLInputElement | null>(null)
 const locating = ref(false)
 const rejection = ref<string | null>(null)
+
+// The mission's location, shown on demand in a map modal. Only rendered when
+// the mission actually has a `geo` — a mission that runs on its written hint
+// alone shows no map icon.
+const mapOpen = ref(false)
+const mapPoints = computed<MapPoint[]>(() => {
+  const g = mission.value?.geo
+  if (!g || !mission.value) return []
+  return [{ lat: g.lat, lng: g.lng, radiusMeters: g.radiusMeters, color: mission.value.color }]
+})
 
 async function openCamera(): Promise<void> {
   // If the club set a geofence, check the fan is roughly here before opening
@@ -138,9 +150,22 @@ function onFileChosen(event: Event): void {
     </p>
 
     <div class="mt-5 rounded-card bg-surface p-4 shadow-sm ring-1 ring-brand-100">
-      <h2 class="text-xs font-bold uppercase tracking-wide text-muted">
-        {{ t('mission.hintLabel') }}
-      </h2>
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-xs font-bold uppercase tracking-wide text-muted">
+          {{ t('mission.hintLabel') }}
+        </h2>
+        <!-- Map affordance: only when this mission has a location. Opens the
+             single-mission map modal. -->
+        <button
+          v-if="mission.geo"
+          type="button"
+          class="flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+          @click="mapOpen = true"
+        >
+          <AppIcon name="map" class="size-3.5" />
+          {{ t('mission.showOnMap') }}
+        </button>
+      </div>
       <p class="mt-1 text-base text-brand-900">{{ resolve(mission.hint) }}</p>
     </div>
 
@@ -178,6 +203,13 @@ function onFileChosen(event: Event): void {
       capture="environment"
       class="sr-only"
       @change="onFileChosen"
+    />
+
+    <MapModal
+      v-if="mapOpen"
+      :title="resolve(mission.title)"
+      :points="mapPoints"
+      @close="mapOpen = false"
     />
   </section>
 

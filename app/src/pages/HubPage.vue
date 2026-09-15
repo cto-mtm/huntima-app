@@ -85,14 +85,10 @@ const nextMission = computed(() => pendingMissions.value[0] ?? null)
 
 /**
  * ── Map ──────────────────────────────────────────────────────
- * Offered only when the org uploaded a plan AND at least one mission is
- * pinned to it. An empty map is worse than no map: it teaches the fan the
- * toggle is broken.
+ * Offered only when at least one mission has a real-world location. An empty
+ * map is worse than no map: it teaches the fan the toggle is broken.
  */
-const mapUrl = computed(() => tenant.settings.venueMapUrl)
-const hasMap = computed(
-  () => mapUrl.value !== null && missionsStore.missions.some((m) => m.spot !== null),
-)
+const hasMap = computed(() => missionsStore.missions.some((m) => m.geo !== null))
 const view = ref<'list' | 'map'>('list')
 // A hunt whose map disappears (a re-brand, a different org) must not strand
 // the fan on a blank view.
@@ -308,9 +304,9 @@ watch(
     />
 
     <!-- ── Map view ─────────────────────────────────────────── -->
-    <template v-if="view === 'map' && hasMap && mapUrl">
+    <template v-if="view === 'map' && hasMap">
       <p class="mt-2 text-xs text-muted">{{ t('hub.mapHint') }}</p>
-      <MissionMap class="mt-3" :missions="missionsStore.missions" :map-url="mapUrl" />
+      <MissionMap class="mt-3" :missions="missionsStore.missions" />
     </template>
 
     <!-- ── Levels ───────────────────────────────────────────── -->

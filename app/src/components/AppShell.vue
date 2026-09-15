@@ -119,7 +119,7 @@ function isActive(key: string): boolean {
           <template v-if="isBrand">
             <TeamMark class="shrink-0" />
             <span
-              class="display-title display-title--sm truncate text-xl leading-tight"
+              class="display-title display-title--sm truncate text-2xl leading-tight"
               translate="no"
             >
               {{ tenant.settings.teamName }}
@@ -127,7 +127,7 @@ function isActive(key: string): boolean {
           </template>
           <template v-else>
             <HuntimaMark class="size-8 shrink-0" />
-            <span class="display-title display-title--sm text-xl leading-tight" translate="no">
+            <span class="display-title display-title--sm text-2xl leading-tight" translate="no">
               {{ t('shell.wordmark') }}
             </span>
           </template>

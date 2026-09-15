@@ -233,25 +233,30 @@ const RED = '#c8102e'
 const STEEL = '#2f4a7c'
 const SLATE = '#41618f'
 
-// [title, hint, kind, color, level, spot]
+// [title, hint, kind, color, level, geo]
 //
-// `level` groups missions into chapters on the hub; `spot` is where the pin
-// sits on the venue map as a fraction of the image (0-1, origin top-left).
-// Both are optional in the contract — the Hawks hunt below deliberately sets
-// NEITHER, so a dev always has one grouped hunt and one flat one on screen.
+// `level` groups missions into chapters on the hub; `geo` is where the mission
+// is in the real world ({ lat, lng, radiusMeters }), rendered on a Leaflet +
+// OpenStreetMap map. `radiusMeters: 0` shows an exact pin; a positive value
+// shows a "somewhere in here" circle. Both fields are optional in the contract
+// — the Hawks hunt below deliberately sets NEITHER, so a dev always has one
+// grouped, located hunt and one flat, location-less one on screen.
+//
+// Coordinates are scattered around Louisville Slugger Field (~38.2564,
+// -85.7395); a couple use a wide radius to show the city-wide "area" hint.
 const ROOKIE = 'Level 1: Rookie'
 const REGULAR = 'Level 2: Regular'
 const LEGEND = 'Level 3: Legend'
 
 const MISSIONS = [
-  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', NAVY, ROOKIE, { x: 0.5, y: 0.88 }],
-  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', RED, ROOKIE, { x: 0.22, y: 0.8 }],
-  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', STEEL, ROOKIE, { x: 0.76, y: 0.82 }],
-  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', SLATE, ROOKIE, { x: 0.14, y: 0.45 }],
-  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', NAVY, REGULAR, { x: 0.86, y: 0.5 }],
-  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', STEEL, REGULAR, { x: 0.5, y: 0.12 }],
-  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', RED, REGULAR, { x: 0.3, y: 0.64 }],
-  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', SLATE, LEGEND, { x: 0.68, y: 0.2 }],
+  ['The Bat at the Gate', 'Find the statue or big bat by the main entrance and frame it head-on.', 'photo', NAVY, ROOKIE, { lat: 38.2569, lng: -85.7385, radiusMeters: 0 }],
+  ['Big Slugger Energy', "Louisville's giant Slugger bat. Fit the whole thing in frame, knob to tip.", 'photo', RED, ROOKIE, { lat: 38.2565, lng: -85.7412, radiusMeters: 0 }],
+  ['Team Store Haul', 'Snap the entrance sign of the Bats Team Store.', 'photo', STEEL, ROOKIE, { lat: 38.2572, lng: -85.7378, radiusMeters: 0 }],
+  ['Down the Foul Line', 'Stand where you can see a whole foul pole, top to bottom.', 'photo', SLATE, ROOKIE, { lat: 38.2558, lng: -85.7401, radiusMeters: 0 }],
+  ['Brick & History', "Slugger Field's old train-station brick facade. Frame one of the arches.", 'photo', NAVY, REGULAR, { lat: 38.2561, lng: -85.7369, radiusMeters: 0 }],
+  ['Fly the Flags', 'A row of pennants or division banners. Catch them flying.', 'photo', STEEL, REGULAR, { lat: 38.2576, lng: -85.7395, radiusMeters: 0 }],
+  ['Concourse Eats', 'Your ballpark snack, held up in front of the field. Make it look good.', 'photo', RED, REGULAR, { lat: 38.2563, lng: -85.7388, radiusMeters: 0 }],
+  ['Read the Board', 'Zoom in on the scoreboard and frame the current inning.', 'spyglass', SLATE, LEGEND, { lat: 38.2554, lng: -85.7382, radiusMeters: 120 }],
   ['Meet Buddy Bat', 'The mascot is working the crowd. Catch it in the box.', 'spyglass', RED, LEGEND, null],
   ['Seventh-Inning Stretch', 'During the stretch, capture the crowd up on their feet.', 'spyglass', NAVY, LEGEND, null],
 ]
@@ -309,7 +314,7 @@ await call(`/t/${BATS}/admin/campaigns/${hunt.id}/missions`, {
   method: 'PUT',
   headers: auth,
   body: JSON.stringify({
-    missions: MISSIONS.map(([title, hint, kind, color, level, spot], order) => ({
+    missions: MISSIONS.map(([title, hint, kind, color, level, geo], order) => ({
       id: `seed-${order + 1}`,
       kind,
       title: { text: title },
@@ -318,9 +323,9 @@ await call(`/t/${BATS}/admin/campaigns/${hunt.id}/missions`, {
       targetImageUrl: targetUrls[order],
       order,
       group: { text: level },
-      // Two missions are deliberately left unpinned, so the map view's
-      // "N more not on the map" line is exercised too.
-      spot,
+      // Two missions are deliberately left without a location, so the map
+      // view's "N more not on the map" line is exercised too.
+      geo,
     })),
   }),
 })

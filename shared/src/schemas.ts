@@ -296,20 +296,24 @@ export const missionSchema = z.object({
    */
   group: missionTextSchema.nullable().default(null),
   /**
-   * Where this mission sits on the venue map, as a FRACTION of the map
-   * image (0-1 on each axis), origin top-left.
+   * Where this mission is in the real world: a geographic point, plus an
+   * optional hint radius, rendered on a Leaflet + OpenStreetMap map.
    *
-   * Deliberately not lat/lng. The map is an illustrated venue plan the org
-   * uploads, not a tile layer, so a normalized offset is the only thing that
-   * survives the image being re-exported at a different size — and it needs
-   * no geocoding, no tile provider, and no location permission to DRAW.
+   * `radiusMeters` is a wayfinding HINT, not a geofence: 0 means "show a
+   * precise pin", and any positive value means "show a circle of about this
+   * size" so a city-wide hunt can point players at a general area rather than
+   * an exact doorstep. It does NOT gate captures — whether a fan is really at
+   * the venue stays the separate soft check against `tenantConfig.venue`.
    *
-   * This is wayfinding, not verification. The geofence that decides whether
-   * a fan is really here is `tenantConfig.venue`, is checked separately, and
-   * stays the soft gate it already was.
+   * Null means the mission has no location (runs on the written hint alone),
+   * in which case it draws no pin and shows no map icon.
    */
-  spot: z
-    .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+  geo: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+      radiusMeters: z.number().nonnegative().max(50_000).default(0),
+    })
     .nullable()
     .default(null),
 })

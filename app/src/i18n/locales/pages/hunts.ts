@@ -114,13 +114,16 @@ const en = {
     'Optional. Missions sharing a level are grouped together with their own progress bar. Leave blank for one flat list.',
   groupPlaceholder: 'e.g. Level 1: Rookie',
   // ── Map placement ────────────────────────────────────────────
-  spotLabel: 'Place on the venue map',
-  spotHelp: 'Click the map to drop this pin. Arrow keys nudge it; hold Shift for bigger steps.',
-  spotNoMap: 'Upload a venue map on the Branding tab to pin missions to it.',
-  spotPlacePrompt: 'Venue map — click to place this mission',
-  spotPlacedAt: 'Placed at {x}% across, {y}% down',
-  spotUnplaced: 'Not on the map yet.',
-  spotClear: 'Remove pin',
+  geoLabel: 'Location on the map',
+  geoHelp: 'Click the map to set where this mission is. Fans see it on the hunt map.',
+  geoLatLabel: 'Latitude',
+  geoLngLabel: 'Longitude',
+  geoRadiusLabel: 'Hint radius (meters)',
+  geoRadiusHelp: '0 shows an exact pin. A larger number shows a general area — good for city-wide hunts.',
+  geoPlacePrompt: 'Map — click to set this mission’s location',
+  geoPlacedAt: 'Set at {lat}, {lng}',
+  geoUnplaced: 'No location set yet.',
+  geoClear: 'Remove location',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -236,14 +239,16 @@ const es: typeof en = {
   groupHelp:
     'Opcional. Las misiones con el mismo nivel se agrupan con su propia barra de progreso. Déjalo vacío para una sola lista.',
   groupPlaceholder: 'p. ej. Nivel 1: Novato',
-  spotLabel: 'Ubicar en el mapa del lugar',
-  spotHelp:
-    'Haz clic en el mapa para colocar esta marca. Las flechas la mueven; con Mayús, a pasos más grandes.',
-  spotNoMap: 'Sube un mapa del lugar en la pestaña Marca para ubicar misiones en él.',
-  spotPlacePrompt: 'Mapa del lugar: haz clic para ubicar esta misión',
-  spotPlacedAt: 'Ubicada al {x}% a lo ancho y al {y}% a lo alto',
-  spotUnplaced: 'Aún no está en el mapa.',
-  spotClear: 'Quitar marca',
+  geoLabel: 'Ubicación en el mapa',
+  geoHelp: 'Haz clic en el mapa para indicar dónde está esta misión. Los aficionados la ven en el mapa de la búsqueda.',
+  geoLatLabel: 'Latitud',
+  geoLngLabel: 'Longitud',
+  geoRadiusLabel: 'Radio de pista (metros)',
+  geoRadiusHelp: '0 muestra una marca exacta. Un número mayor muestra una zona general, ideal para búsquedas por toda la ciudad.',
+  geoPlacePrompt: 'Mapa: haz clic para indicar la ubicación de esta misión',
+  geoPlacedAt: 'Ubicada en {lat}, {lng}',
+  geoUnplaced: 'Aún no hay ubicación.',
+  geoClear: 'Quitar ubicación',
 }
 
 export default { en, es }

@@ -7,6 +7,7 @@
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '../BaseButton.vue'
+import LoadingLine from '../LoadingLine.vue'
 import { useApi } from '../../composables/useApi'
 import { API_BASE_URL } from '../../lib/api'
 
@@ -36,7 +37,7 @@ onMounted(() => {
     </h2>
     <p class="mt-1 text-xs text-muted">{{ t('admin.diagNote') }}</p>
 
-    <p v-if="loading" class="mt-3 text-sm text-muted">{{ t('common.loading') }}</p>
+    <LoadingLine v-if="loading" class="mt-3" />
     <p v-else-if="data" class="mt-3 text-sm font-semibold text-green-700">
       {{ t('admin.diagOk', { ts: d(new Date(data.ts), 'time') }) }}
     </p>

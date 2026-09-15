@@ -11,6 +11,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import type { CampaignStats } from 'shared'
+import LoadingLine from '../../components/LoadingLine.vue'
 import { useHuntsStore } from '../../stores/hunts'
 import { useTenantStore } from '../../stores/tenant'
 
@@ -107,7 +108,7 @@ const timeline = computed(() => {
       <p class="mt-1 text-sm text-muted">{{ t('hunts.statsSubtitle') }}</p>
     </header>
 
-    <p v-if="loading" class="mt-8 text-sm text-muted">{{ t('common.loading') }}</p>
+    <LoadingLine v-if="loading" class="mt-8" />
 
     <p
       v-else-if="failed"

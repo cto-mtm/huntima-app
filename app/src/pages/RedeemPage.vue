@@ -109,15 +109,45 @@ const earnedCount = computed(
       </div>
     </template>
 
-    <!-- ── Locked ────────────────────────────────────────────────── -->
+    <!-- ── Locked ──────────────────────────────────────────────────
+         The page is titled "Prize", so a fan opens it expecting to see what
+         they're playing for — not a bare "not yet". So it always leads with a
+         trophy and a prize card when one is configured, then a "keep playing"
+         CTA, so the screen reads as a reward to earn rather than a locked
+         door. When no prize is set, the trophy stands in: finishing the hunt
+         is itself the reward. -->
     <template v-else>
-      <h1 class="text-2xl font-extrabold text-brand-900">{{ t('redeem.lockedTitle') }}</h1>
-      <p class="mt-2 text-sm text-muted">
-        {{ t('redeem.lockedBody', { remaining: progress.remaining }) }}
-      </p>
+      <!-- The trophy: always present, so the screen has a reward at its
+           centre whether or not the org configured a named prize. Struck in
+           `locked` metal until the hunt is done. -->
+      <div class="flex flex-col items-center text-center">
+        <div class="relative">
+          <span
+            class="absolute -inset-5 rounded-full"
+            style="
+              background: radial-gradient(
+                closest-side,
+                color-mix(in srgb, var(--color-accent-400) 30%, transparent),
+                transparent
+              );
+            "
+            aria-hidden="true"
+          />
+          <RewardMedallion shape="cup" tier="locked" class="relative size-24 drop-shadow-md" />
+        </div>
+        <h1 class="display-title display-title--sm mt-3 text-3xl">
+          {{ prize ? t('redeem.lockedTitle') : t('redeem.noPrizeTitle') }}
+        </h1>
+        <p class="mt-1.5 max-w-xs text-sm text-muted">
+          {{
+            prize
+              ? t('redeem.lockedBody', { remaining: progress.remaining })
+              : t('redeem.noPrizeBody', { remaining: progress.remaining })
+          }}
+        </p>
+      </div>
 
-      <!-- Show what they're playing for, so the prize is a reason to keep
-           going rather than a surprise revealed only at the finish line. -->
+      <!-- The prize itself, when the hunt configured one. -->
       <div
         v-if="prize"
         class="mt-6 overflow-hidden rounded-card bg-surface shadow-sm ring-1 ring-brand-100"
@@ -141,6 +171,16 @@ const earnedCount = computed(
           </p>
         </div>
       </div>
+
+      <!-- The fun CTA: a candy-gradient invitation back into the hunt, so the
+           locked screen ends on "go earn it" rather than a dead end. -->
+      <button
+        type="button"
+        class="mt-6 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-accent-500 to-accent-alt-600 px-5 py-3.5 text-sm font-extrabold text-white shadow-md shadow-accent-alt-600/30 transition-transform duration-150 active:translate-y-[1px]"
+        @click="$router.push({ name: 'home' })"
+      >
+        {{ t('redeem.keepPlaying') }}
+      </button>
     </template>
 
     <!-- ── The case ──────────────────────────────────────────────
