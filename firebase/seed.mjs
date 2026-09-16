@@ -177,21 +177,13 @@ await call(`/t/${HAWKS}/admin/plan`, { method: 'PUT', headers: auth, body: JSON.
 // ── 3. Louisville Bats: images + full branding ────────────────────────
 console.log('  Uploading images from seed-assets…')
 
-const [logoFiles, avatarFiles, mapFiles] = await Promise.all([
+const [logoFiles, avatarFiles] = await Promise.all([
   imagesIn('logo'),
   imagesIn('avatars'),
-  imagesIn('venue-map'),
 ])
 
 const logoUrl = logoFiles.length
   ? await upload(idToken, logoFiles[0], `tenants/${BATS}/assets/seed-${logoFiles[0].name}`)
-  : null
-
-// The venue plan missions are pinned onto. Optional like every seed asset:
-// with the folder empty the map view simply never appears, which is also the
-// state a brand-new org is in.
-const venueMapUrl = mapFiles.length
-  ? await upload(idToken, mapFiles[0], `tenants/${BATS}/assets/seed-${mapFiles[0].name}`)
   : null
 
 const avatars = []
@@ -221,7 +213,6 @@ const tenant = await call(`/t/${BATS}/admin/tenant`, {
     fontFamily: 'system',
     logoUrl,
     avatars,
-    venueMapUrl,
   }),
 })
 

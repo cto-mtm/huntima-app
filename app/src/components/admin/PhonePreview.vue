@@ -70,7 +70,6 @@ const { resolve } = useMissionText()
             <p class="truncate text-[11px] font-semibold text-brand-900">
               {{ resolve(mission.title) }}
             </p>
-            <p class="text-[9px] text-muted">{{ t(`missionCard.kind.${mission.kind}`) }}</p>
           </div>
           <span class="rounded-full bg-brand-50 px-1.5 py-0.5 text-[8px] font-semibold text-brand-600">
             {{ t('missionCard.statusLocked') }}

@@ -69,6 +69,20 @@ export const COVER_VT_NAME = 'page-cover'
 /** Resolver for the in-flight close, if any. */
 let settleClose: (() => void) | null = null
 
+/**
+ * The current navigation's close, memoized.
+ *
+ * `closeCover` is now called twice per navigation: first from the router's
+ * `beforeEach` — so the blades start closing the INSTANT a tap begins, hiding
+ * the guard + lazy-chunk freeze behind a shutter that is already moving — and
+ * again from `beforeResolve`, the gate that must not let the route commit
+ * until the screen is actually covered. Both must share ONE close: a naive
+ * second call would build a fresh promise waiting on an `@after-enter` that
+ * already fired, stalling the commit for the whole timeout. `openCover` clears
+ * this, so the next navigation starts a fresh close.
+ */
+let closePromise: Promise<void> | null = null
+
 function settle(): void {
   const resolve = settleClose
   settleClose = null
@@ -76,20 +90,19 @@ function settle(): void {
 }
 
 /**
- * Shut the blades, resolving once they have ACTUALLY landed.
- *
- * The router awaits this before letting the route commit, so the swap always
- * happens behind a fully covered screen.
+ * Shut the blades, resolving once they have ACTUALLY landed. Idempotent within
+ * a single navigation (see `closePromise`): the first caller starts the close,
+ * every later caller shares its landing, so the router can both kick it off
+ * early and await it later without double-triggering.
  */
 export function closeCover(): Promise<void> {
-  // A close already in flight (rapid taps) settles now rather than stranding
-  // its awaiter forever.
-  settle()
+  if (closePromise) return closePromise
   isNavigating.value = true
-  return new Promise((resolve) => {
+  closePromise = new Promise((resolve) => {
     settleClose = resolve
     setTimeout(settle, CLOSE_TIMEOUT_MS)
   })
+  return closePromise
 }
 
 /** Bound to `<Transition @after-enter>` in PageCover: the blades have landed. */
@@ -103,6 +116,7 @@ export function coverClosed(): void {
  */
 export function openCover(): void {
   settle()
+  closePromise = null
   isNavigating.value = false
 }
 

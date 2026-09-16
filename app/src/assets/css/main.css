@@ -393,3 +393,10 @@
 @utility mt-header-safe {
   margin-top: calc(3.5rem + env(safe-area-inset-top, 0px));
 }
+
+/* Same top offset as PADDING, for scroll regions whose parent isn't a flex
+   column (a margin would collapse through it) — e.g. the console shell under
+   the floating nav buttons. */
+@utility pt-header-safe {
+  padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+}

@@ -121,23 +121,16 @@ const mapPoints = computed<MapPoint[]>(() => {
       <p class="mt-1 line-clamp-2 text-xs leading-snug text-muted">
         {{ resolve(props.mission.hint) }}
       </p>
-      <p class="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-muted">
-        <span
-          class="inline-block size-1.5 rounded-full"
-          :style="{ backgroundColor: props.mission.color }"
-          aria-hidden="true"
-        />
-        {{ t(`missionCard.kind.${props.mission.kind}`) }}
-        <!-- Map affordance: only when the mission has a location. Stops the
-             card's own navigation so it opens the map instead. -->
+      <!-- Map affordance: only when the mission has a location. Stops the
+           card's own navigation so it opens the map instead. -->
+      <p v-if="props.mission.geo" class="mt-1 flex items-center text-[11px] font-semibold text-muted">
         <button
-          v-if="props.mission.geo"
           type="button"
-          class="ml-1 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-brand-700 transition-colors hover:bg-brand-100"
-          :aria-label="t('mission.showOnMap')"
+          class="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-brand-700 transition-colors hover:bg-brand-100"
           @click.stop.prevent="mapOpen = true"
         >
           <AppIcon name="map" class="size-3" />
+          {{ t('mission.showOnMap') }}
         </button>
       </p>
     </div>

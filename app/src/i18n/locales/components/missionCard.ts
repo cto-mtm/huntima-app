@@ -1,10 +1,4 @@
 const en = {
-  // Enum-style: resolved as t('missionCard.kind.' + mission.kind).
-  // Adding a mission kind means adding a key here in the same change.
-  kind: {
-    photo: 'Nearby',
-    spyglass: 'Far away',
-  },
   // A pending mission is an invitation, not a deficit: "Snap it!" beats a
   // red "Not collected" for a twelve-year-old with a phone.
   statusLocked: 'Snap it!',
@@ -14,10 +8,6 @@ const en = {
 
 // Typed against en: a missing or extra key here is a compile error.
 const es: typeof en = {
-  kind: {
-    photo: 'Cerca',
-    spyglass: 'Lejos',
-  },
   statusLocked: '¡Captúralo!',
   statusEarned: '¡Conseguida!',
   open: 'Abrir misión',

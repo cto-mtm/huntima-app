@@ -32,11 +32,9 @@ import AppIcon, { type IconName } from './AppIcon.vue'
 import TeamMark from './TeamMark.vue'
 import FanAvatar from './FanAvatar.vue'
 import HuntimaMark from './HuntimaMark.vue'
-import { useTenantStore } from '../stores/tenant'
 
 const { t } = useI18n()
 const route = useRoute()
-const tenant = useTenantStore()
 
 /** Brand level when the route carries a tenant slug; platform level otherwise. */
 const brandSlug = computed(() =>
@@ -99,58 +97,39 @@ function isActive(key: string): boolean {
        shell root would sit on top of it. -->
   <div class="flex min-h-dvh flex-col">
 
-    <!-- Header. pt-safe + px-safe keep it clear of the notch. The static
-         view-transition-name opts the fixed chrome out of the root group, so
-         the page lift moves content while the header holds still.
-
-         No border: the bar is a translucent pane over the backdrop's top
-         wash, so the seam between chrome and page is a gradient rather than
-         a hairline rule. -->
+    <!-- Two floating buttons OVER the content — no bar. The mark (→ this
+         level's home) on the left, the profile on the right. pt-safe + px-safe
+         keep them clear of the notch; the static view-transition-name opts the
+         fixed chrome out of the root group so the page lift moves content while
+         the buttons hold still. The container is click-through
+         (pointer-events-none) so only the buttons are interactive and the page
+         scrolls freely beneath them. -->
     <header
-      class="fixed inset-x-0 top-0 z-20 bg-canvas/80 pt-safe px-safe backdrop-blur-md"
+      class="pointer-events-none fixed inset-x-0 top-0 z-20 pt-safe px-safe"
       style="view-transition-name: app-header"
     >
-      <div class="mx-auto flex h-16 w-full max-w-md items-center justify-between gap-2 px-4">
-        <RouterLink :to="headerTo" class="flex min-w-0 items-center gap-2">
-          <!-- The identity is set in the DISPLAY face at both levels. The
-               club's name is the loudest thing on its own page — which is
-               the entire promise of a white-label product, and it was
-               previously set at 14px beside a 28px logo. -->
-          <template v-if="isBrand">
-            <TeamMark class="shrink-0" />
-            <span
-              class="display-title display-title--sm truncate text-2xl leading-tight"
-              translate="no"
-            >
-              {{ tenant.settings.teamName }}
-            </span>
-          </template>
-          <template v-else>
-            <HuntimaMark class="size-8 shrink-0" />
-            <span class="display-title display-title--sm text-2xl leading-tight" translate="no">
-              {{ t('shell.wordmark') }}
-            </span>
-          </template>
+      <div class="mx-auto flex w-full max-w-md items-center justify-between px-4 py-3">
+        <!-- The mark sits on a round surface key so it stays legible over any
+             content, matching the tactile vocabulary of the profile button and
+             the nav pills. -->
+        <RouterLink
+          :to="headerTo"
+          :aria-label="t('shell.navHome')"
+          class="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-surface/90 shadow-lg shadow-brand-900/15 ring-1 ring-brand-100 backdrop-blur-md transition-transform duration-150 active:scale-95"
+        >
+          <TeamMark v-if="isBrand" />
+          <HuntimaMark v-else class="size-6" />
         </RouterLink>
 
-        <!-- Identity only. The language toggle used to sit here, eating a
-             third of the header on a 360px phone for a control a fan touches
-             once, if ever — it lives on the profile page now, beside the
-             other things about them. The pre-session screens (landing, entry,
-             sign-in) keep their own inline switcher, because somebody who
-             cannot read the page yet has to be able to change it before they
-             have a profile at all. -->
-        <div class="flex shrink-0 items-center gap-2">
-          <!-- The avatar is a round key like every other control in the skin:
-               a gradient ring with a hard bottom edge it presses onto. -->
-          <RouterLink
-            :to="{ name: 'profile' }"
-            :aria-label="t('profile.title')"
-            class="rounded-full bg-gradient-to-br from-accent-400 to-accent-alt-500 p-0.5 shadow-[0_2px_0_0_var(--color-accent-alt-600)] transition-transform duration-150 active:translate-y-[2px] active:shadow-none"
-          >
-            <FanAvatar class="ring-2 ring-surface" />
-          </RouterLink>
-        </div>
+        <!-- The avatar is a round key like every other control in the skin:
+             a gradient ring with a hard bottom edge it presses onto. -->
+        <RouterLink
+          :to="{ name: 'profile' }"
+          :aria-label="t('profile.title')"
+          class="pointer-events-auto rounded-full bg-gradient-to-br from-accent-400 to-accent-alt-500 p-0.5 shadow-[0_2px_0_0_var(--color-accent-alt-600)] transition-transform duration-150 active:translate-y-[2px] active:shadow-none"
+        >
+          <FanAvatar class="ring-2 ring-surface" />
+        </RouterLink>
       </div>
     </header>
 

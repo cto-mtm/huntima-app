@@ -52,7 +52,7 @@ const props = withDefaults(
     /**
      * Overrides the crest color with a flat one — used where the CALLER's
      * item already has an identity color, notably a mission's own color on
-     * the venue map. Without it a map of eight pins is eight identical
+     * the map. Without it a map of eight pins is eight identical
      * accent discs. Leave unset everywhere else: the accent gradient is what
      * makes a medallion look like this club's.
      */

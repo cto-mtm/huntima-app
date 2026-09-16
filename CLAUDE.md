@@ -69,16 +69,17 @@ Wired up:
   `POST /t/:slug/verify-capture` and judged server-side by Gemini. The image is
   never stored. A verified capture takes over the screen
   (`CaptureCelebration.vue`).
-- **Levels and the venue map** — optional `group` and `spot` on a mission
-  group the hub into collapsible levels and pin missions onto a per-tenant
-  `venueMapUrl`. Both display-only and additive; see `docs/ui-overhaul.md`.
+- **Levels and the mission map** — an optional `group` name groups the hub into
+  collapsible levels, and an optional `geo` (`{ lat, lng, radiusMeters }`) puts
+  a mission on a Leaflet + OpenStreetMap map. Both display-only and additive;
+  see `docs/ui-overhaul.md`.
 - **Per-hunt analytics** — aggregate participation/capture counters in
   Firestore, surfaced at `/admin/hunts/:id/stats`. Counters only — no
   per-person row, by design (see `docs/architecture.md`).
 
 Still deliberately open (see `docs/architecture.md` § "Seams left open"):
 
-- Native camera viewfinder, geofencing, and OCR "spyglass" verification
+- Native camera viewfinder and geofencing
 - Server-*authoritative* fan progress: a signed-in fan's progress now syncs to
   `fan_progress/{uid}` via `/me/progress` for cross-device continuity, but the
   server stores what the client claims and the claim code is still derived, not

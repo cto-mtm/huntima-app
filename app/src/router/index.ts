@@ -1,5 +1,12 @@
 import { nextTick } from 'vue'
-import { createRouter, createWebHistory, START_LOCATION, type RouteRecordRaw } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  isNavigationFailure,
+  NavigationFailureType,
+  START_LOCATION,
+  type RouteRecordRaw,
+} from 'vue-router'
 import { isValidTenantSlug } from 'shared'
 import { useSessionStore } from '../stores/session'
 import { useTenantStore } from '../stores/tenant'
@@ -192,7 +199,24 @@ const router = createRouter({
 // The org check here is convenience, not security: it decides what UI to
 // render. The real gate is server-side in functions/src/api.ts —
 // requireMember() refuses every privileged call.
-router.beforeEach(async (to) => {
+router.beforeEach(async (to, from) => {
+  // ── Immediate feedback ──
+  // Start closing the shutter the instant a section-change navigation begins,
+  // so the async work below (auth restore, org load) and the lazy page-chunk
+  // fetch happen behind a shutter that is ALREADY moving — the old order was
+  // tap → silent freeze → animate. Hero navigations morph a shared element
+  // instead, so they take no cover; the initial load, a re-tap of the current
+  // route, and reduced motion get neither. Fire-and-forget: `beforeResolve`
+  // awaits this same close (it is memoized) before the route commits.
+  if (
+    from !== START_LOCATION &&
+    to.fullPath !== from.fullPath &&
+    !isHeroNavigation(to.name, from.name) &&
+    !matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    void closeCover()
+  }
+
   const session = useSessionStore()
   const tenant = useTenantStore()
   const missions = useMissionsStore()
@@ -389,7 +413,7 @@ router.beforeResolve(async (to, from) => {
   })
 })
 
-router.afterEach(async () => {
+router.afterEach(async (_to, _from, failure) => {
   // Let RouterView render the new component before we do anything that
   // depends on the new page being on screen.
   await nextTick()
@@ -398,6 +422,14 @@ router.afterEach(async () => {
     finishTransition()
     finishTransition = null
   }
+
+  // A guard that returned a redirect CANCELS this navigation and immediately
+  // starts another; that successor keeps the shutter shut (closeCover is
+  // memoized) and reveals when it lands. Revealing here too would blink the
+  // cover open in the gap between them. Any other outcome — success, or a
+  // duplicate/aborted nav with no successor — must reveal, or a shutter that
+  // this navigation opened would stay stuck shut.
+  if (isNavigationFailure(failure, NavigationFailureType.cancelled)) return
 
   // Hand back to the shutter once Vue has painted. How long it then holds
   // before opening is lib/pageTransition.ts's business, not the router's —

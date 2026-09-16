@@ -17,7 +17,7 @@ const en = {
   // never shown for a hunt with no levels at all.
   levelFound: '{count}/{total} found',
   moreMissions: 'More missions',
-  // Venue map
+  // Map view
   viewLabel: 'View missions as',
   viewList: 'List',
   viewMap: 'Map',

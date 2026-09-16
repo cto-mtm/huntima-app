@@ -83,10 +83,6 @@ onMounted(() => {
   if (pending) void verify(pending)
 })
 
-/** Spyglass missions get a digital zoom; concourse missions don't need one. */
-const zoom = ref(1)
-const isSpyglass = computed(() => mission.value?.kind === 'spyglass')
-
 const fileInput = ref<HTMLInputElement | null>(null)
 const locating = ref(false)
 
@@ -227,7 +223,7 @@ async function tryAgain(): Promise<void> {
          normal path now arrives with the photo already taken, and telling
          that fan to "frame the object" describes a step they just finished. -->
     <p v-if="phase === 'framing'" class="mt-1 text-sm text-muted">
-      {{ isSpyglass ? t('capture.frameSpyglass') : t('capture.framePhoto') }}
+      {{ t('capture.framePhoto') }}
     </p>
 
     <!-- The staff-uploaded target, shown right above the viewfinder because
@@ -257,10 +253,9 @@ async function tryAgain(): Promise<void> {
            what to do. -->
       <template v-else>
         <div
-          class="absolute inset-0 opacity-25 transition-transform duration-200"
+          class="absolute inset-0 opacity-25"
           :style="{
             background: `radial-gradient(60% 45% at 50% 42%, ${mission.color}, transparent 75%)`,
-            transform: `scale(${zoom})`,
           }"
           aria-hidden="true"
         />
@@ -279,8 +274,8 @@ async function tryAgain(): Promise<void> {
            in the framing phase; once a photo is in, the frame holds still
            over it. -->
       <div
-        class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_0_6px_var(--color-accent-400)]"
-        :class="[isSpyglass ? 'size-40' : 'size-56', phase === 'framing' ? 'viewfinder-pulse' : '']"
+        class="pointer-events-none absolute left-1/2 top-1/2 size-56 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_0_6px_var(--color-accent-400)]"
+        :class="phase === 'framing' ? 'viewfinder-pulse' : ''"
         aria-hidden="true"
       >
         <span class="absolute left-0 top-0 size-7 rounded-tl-2xl border-l-4 border-t-4 border-accent-400" />
@@ -308,21 +303,6 @@ async function tryAgain(): Promise<void> {
         v-if="phase === 'reward'"
         class="capture-flash pointer-events-none absolute inset-0 bg-white"
         aria-hidden="true"
-      />
-    </div>
-
-    <div v-if="isSpyglass && phase === 'framing'" class="mt-4">
-      <label for="zoom" class="block text-xs font-semibold text-muted">
-        {{ t('capture.zoomLabel') }}
-      </label>
-      <input
-        id="zoom"
-        v-model.number="zoom"
-        type="range"
-        min="1"
-        max="4"
-        step="0.1"
-        class="mt-1 w-full accent-brand-600"
       />
     </div>
 

@@ -49,7 +49,6 @@ an absent one because it looks authored. Staff add both in the hunt editor.
 {
   "missions": [
     {
-      "kind": "photo",
       "title": "Big Cup Energy",
       "hint": "The oversized soda cup at a concourse stand. You can't miss it.",
       "color": "#c8102e"
@@ -63,7 +62,6 @@ Field limits (validated on import — keep the model inside them):
 | Field | Rule |
 |---|---|
 | `missions` | 1–50 items; **8–12 is the sweet spot** for one game |
-| `kind` | `"photo"` (near you / concourse) or `"spyglass"` (far away / on the field, needs zoom) |
 | `title` | 1–200 chars, short and playful |
 | `hint` | 1–200 chars, one clear actionable sentence |
 | `color` | `#rrggbb` — the placeholder tile shown until a target photo is uploaded |
@@ -120,7 +118,7 @@ matching exactly:
 
 {
   "missions": [
-    { "kind": "photo" | "spyglass", "title": string (<=200), "hint": string (<=200), "color": "#rrggbb" }
+    { "title": string (<=200), "hint": string (<=200), "color": "#rrggbb" }
   ]
 }
 
@@ -135,8 +133,6 @@ Rules:
   things, no trivia or backstory.
 - Family-friendly and safe: reachable from the stands/concourse, never on the
   field, never singling out an identifiable stranger.
-- kind = "spyglass" only for far-away / on-field subjects that need zoom;
-  otherwise "photo".
 - Give each mission a distinct #rrggbb color.
 - DO NOT reuse the concepts or wording of the existing missions listed below.
 

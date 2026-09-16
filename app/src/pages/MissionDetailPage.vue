@@ -120,12 +120,6 @@ function onFileChosen(event: Event): void {
         class="absolute inset-0 size-full object-cover"
       />
 
-      <span
-        class="relative rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-semibold text-white"
-      >
-        {{ t(`missionCard.kind.${mission.kind}`) }}
-      </span>
-
       <!-- The shutter affordance, so the image does not merely happen to be
            tappable. Hidden once the badge is won: there is nothing to shoot. -->
       <span

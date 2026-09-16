@@ -23,8 +23,10 @@ import AdminNav from './admin/AdminNav.vue'
   <!-- Full-bleed opaque for the same reason as BareLayout: the console is
        not the fan shell and must not wear its backdrop. -->
   <div class="relative z-10 min-h-dvh bg-canvas">
-    <div class="mx-auto max-w-5xl px-4">
-      <AdminNav />
+    <!-- AdminNav is fixed floating buttons (out of flow), so it sits outside
+         the content column; pt-header-safe reserves the space beneath them. -->
+    <AdminNav />
+    <div class="mx-auto max-w-5xl px-4 pb-16 pt-header-safe">
       <slot />
     </div>
   </div>

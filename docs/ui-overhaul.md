@@ -109,26 +109,30 @@ Two additive, optional fields on `missionSchema`, both display-only:
   collapsible header with its own meter. It never *gates* a mission: a fan can
   win level 3 before level 1, because a locked ladder in a stadium means
   everyone queues behind whichever mission's subject wandered off.
-- **`spot`** — where the mission sits on the venue map, as a fraction of the
-  image (0–1, origin top-left).
+- **`geo`** — where the mission is in the real world: `{ lat, lng,
+  radiusMeters }`. `radiusMeters: 0` shows an exact pin; a positive value shows
+  a "somewhere in here" circle, so a city-wide hunt can hint an area instead of
+  a doorstep.
 
-`venueMapUrl` is per **tenant**, not per hunt: a club runs many hunts in one
-building. Uploaded on the Branding tab; missions are pinned by clicking the map
-in the hunt editor.
+Staff set it in the hunt editor (`MissionGeoField.vue`) by clicking a map or
+typing coordinates. Fans see every located mission on the hunt map
+(`MissionMap.vue`), and each pin/area routes to that mission.
 
 ### The map does not open the geofencing seam
 
-`mission.spot` is deliberately **not** lat/lng, and the map is an illustration
-rather than a tile layer. That buys:
+The map is **wayfinding**, drawn with Leaflet over OpenStreetMap's free,
+keyless tiles. That buys:
 
-- no tile provider — no API key, no per-load bill, no third-party origin
-- something legible inside a concrete bowl, where a street map is a grey blob
-- a picture that white-labels, because it is the org's own plan
+- no paid tile plan — OSM public tiles need no API key (a dedicated tile host
+  is a one-line swap for heavy production traffic)
+- real streets for a city-wide hunt, and a legible area circle when a mission
+  wants to hint rather than pinpoint
 - **no location permission to draw a map**
 
 There is no "you are here" dot. Whether a fan is really at the venue stays
 exactly where it was: the soft `useGeofence` check against `tenantConfig.venue`
-at capture time. Pinning is wayfinding; verification is a separate decision.
+at capture time. A mission's `geo` is wayfinding; verification is a separate
+decision.
 
 ## What was deliberately not built
 

@@ -80,15 +80,6 @@ const en = {
   diagBuildLabel: 'Build',
   diagVerifyLive: 'Photo verification: LIVE ({model})',
   diagVerifyStub: 'Photo verification: STUB — every capture auto-passes. Set GEMINI_API_KEY to enable real checks.',
-  // ── Venue map ────────────────────────────────────────────────
-  // Per tenant, not per hunt: a club runs many hunts in one building.
-  venueMapHeading: 'Venue map',
-  venueMapHelp:
-    'A picture of your venue — a seating chart, site map or floor plan. Missions get pinned onto it, and fans can browse the hunt as a map instead of a list.',
-  venueMapEmpty: 'No map yet. Without one, missions are shown as a list only.',
-  uploadVenueMap: 'Upload map',
-  venueMapReplaceNotice:
-    'Replacing this with a re-export of the SAME map keeps every pin where it is. Uploading a map of a different place does not move the pins — check them afterwards.',
 }
 
 // Typed against en: a missing or extra key here is a compile error.
@@ -174,13 +165,6 @@ const es: typeof en = {
   diagBuildLabel: 'Compilación',
   diagVerifyLive: 'Verificación de fotos: ACTIVA ({model})',
   diagVerifyStub: 'Verificación de fotos: SIMULADA — cada captura se aprueba automáticamente. Configura GEMINI_API_KEY para activar las comprobaciones reales.',
-  venueMapHeading: 'Mapa del lugar',
-  venueMapHelp:
-    'Una imagen de tu lugar: plano de asientos, del sitio o de la planta. Las misiones se marcan sobre ella y los aficionados pueden ver la búsqueda como mapa en vez de lista.',
-  venueMapEmpty: 'Aún no hay mapa. Sin él, las misiones solo se ven como lista.',
-  uploadVenueMap: 'Subir mapa',
-  venueMapReplaceNotice:
-    'Si lo reemplazas por otra exportación del MISMO mapa, las marcas se quedan donde están. Subir el mapa de otro lugar no mueve las marcas: revísalas después.',
 }
 
 export default { en, es }

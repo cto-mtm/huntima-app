@@ -17,7 +17,6 @@ you add files.
 | `avatars/` | Square images fans can pick as their avatar. The file name (minus extension) becomes the label — `slugger.png` → "Slugger". Up to 24. |
 | `targets/` | The mission target photos. They map to the seeded missions **in file-name order**, so name them `01-…`, `02-…`, `03-…`. Fewer than the mission count is fine; the rest run on their hint. |
 | `prize/` | One image for the seeded hunt's prize (shown on the redeem screen). The first image found is used. |
-| `venue-map/` | One image of the venue — a seating chart or site plan. The first image found becomes the club's venue map, and the seeded Bats missions are already pinned onto it. Leave it empty and the fan hub simply never offers the map view. |
 
 Supported: `.png .jpg .jpeg .webp .svg`. Max **5 MB** each (matches `storage.rules`).
 

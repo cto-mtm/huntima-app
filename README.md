@@ -113,11 +113,10 @@ id generated on-device (so it works with no signal) plus a nickname. An
 account is optional and keeps their name and trophies across devices; *Switch
 user* is on the org's About tab.
 
-**Organizers** use the *Organizer sign in* link at the foot of the marketing
-page, or the quieter *Staff sign-in* at the foot of an org's entry screen —
-understated there because almost everyone on that screen is a family. It is
-real Firebase Auth, and it creates accounts as well as signing them in: an
-account that runs no org lands on `/orgs`, where it can start one. The Auth
+**Organizers** sign in through the same *Sign in* button as everyone else —
+running an org is a membership on an account, not a separate login, so there is
+one door. It is real Firebase Auth, and it creates accounts as well as signing
+them in: an account that runs no org lands on `/orgs`, where it can start one. The Auth
 emulator starts empty, so to get the pre-seeded operator account, seed it
 first — either from a terminal:
 

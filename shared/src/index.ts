@@ -17,7 +17,6 @@ export {
   orgMemberRowSchema,
   orgMembersSchema,
   missionTextSchema,
-  missionKindSchema,
   missionSchema,
   campaignStatusSchema,
   prizeSchema,

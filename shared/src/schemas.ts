@@ -264,11 +264,8 @@ export const missionTextSchema = z.union([
 export type MissionText = z.infer<typeof missionTextSchema>
 
 // ── Missions ──────────────────────────────────────────────────────────
-export const missionKindSchema = z.enum(['photo', 'spyglass'])
-
 export const missionSchema = z.object({
   id: z.string().min(1),
-  kind: missionKindSchema,
   title: missionTextSchema,
   hint: missionTextSchema,
   /** Placeholder block color, shown until a target photo is uploaded. */
@@ -639,15 +636,6 @@ export const tenantConfigSchema = z.object({
   avatars: z.array(tenantAvatarSchema).max(24),
   /** Optional stadium geofence. Absent on older tenants → defaults to null. */
   venue: venueSchema.nullable().default(null),
-  /**
-   * An illustrated plan of the venue — the ballpark, the vineyard, the
-   * conference floor — that missions get pinned onto. Uploaded on the
-   * Branding tab like any other tenant image.
-   *
-   * Per TENANT rather than per hunt: a club runs many hunts in one building.
-   * `null` means no map, and the fan app simply never offers the map view.
-   */
-  venueMapUrl: z.string().url().nullable().default(null),
 })
 
 export type TenantConfig = z.infer<typeof tenantConfigSchema>
@@ -678,7 +666,6 @@ export const SEED_TENANT: TenantConfig = {
   logoUrl: null,
   avatars: [],
   venue: null,
-  venueMapUrl: null,
 }
 
 // ── POST /echo (reference endpoint) ───────────────────────────────────

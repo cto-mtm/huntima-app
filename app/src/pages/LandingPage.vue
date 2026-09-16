@@ -48,15 +48,9 @@ const { t } = useI18n()
     </div>
 
     <footer class="pt-10 text-center">
-      <div class="mb-4 flex justify-center">
+      <div class="flex justify-center">
         <LocaleSwitcher variant="expanded" />
       </div>
-      <RouterLink
-        :to="{ name: 'signin', query: { to: '/orgs' } }"
-        class="text-xs text-muted underline-offset-4 hover:underline"
-      >
-        {{ t('landing.organizerCta') }}
-      </RouterLink>
     </footer>
   </section>
 </template>

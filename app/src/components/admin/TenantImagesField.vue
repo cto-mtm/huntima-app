@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Team logo, fan avatars, and the venue map — the image sets that define a
- * club's look and the picture its missions get pinned onto.
+ * Team logo and fan avatars — the image sets that define a club's look.
  *
  * Both are public in Storage, because every fan's app renders them and fans
  * are anonymous, so there is nobody to authenticate a read against.
@@ -20,8 +19,7 @@ const tenant = useTenantStore()
 
 const logoInput = ref<HTMLInputElement | null>(null)
 const avatarInput = ref<HTMLInputElement | null>(null)
-const mapInput = ref<HTMLInputElement | null>(null)
-const busy = ref<'logo' | 'avatar' | 'map' | null>(null)
+const busy = ref<'logo' | 'avatar' | null>(null)
 const error = ref<string | null>(null)
 
 /** Maps an upload failure to localized copy: known codes get a specific
@@ -77,34 +75,6 @@ async function onAvatar(event: Event): Promise<void> {
   } finally {
     busy.value = null
     if (avatarInput.value) avatarInput.value.value = ''
-  }
-}
-
-/**
- * The venue plan missions are pinned onto — a seating chart, a site map, a
- * floor plan. Per TENANT, not per hunt: a club runs many hunts in one
- * building, and re-uploading the same picture for each would guarantee the
- * pins drift between them.
- *
- * NOTE: missions are now located by real-world lat/lng (`mission.geo`) and
- * drawn on a Leaflet map, so this uploaded venue plan no longer places
- * missions. It is kept as a tenant branding asset; removing it is a separate
- * branding cleanup. See docs/architecture.md.
- */
-async function onMap(event: Event): Promise<void> {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-
-  busy.value = 'map'
-  error.value = null
-  try {
-    const { url } = await uploadImage('team-asset', { slug: tenant.slug ?? '' }, file)
-    tenant.settings.venueMapUrl = url
-  } catch (err) {
-    error.value = uploadErrorMessage(err)
-  } finally {
-    busy.value = null
-    if (mapInput.value) mapInput.value.value = ''
   }
 }
 
@@ -205,47 +175,6 @@ function removeAvatar(id: string): void {
       </button>
 
       <p v-if="error" class="mt-1.5 text-xs font-medium text-red-600">{{ error }}</p>
-    </fieldset>
-
-    <!-- ── Venue map ────────────────────────────────────────────── -->
-    <fieldset>
-      <legend class="text-sm font-bold uppercase tracking-wide text-brand-900">
-        {{ t('admin.venueMapHeading') }}
-      </legend>
-      <p class="mt-0.5 text-xs text-muted">{{ t('admin.venueMapHelp') }}</p>
-
-      <input ref="mapInput" type="file" accept="image/*" class="sr-only" @change="onMap" />
-
-      <img
-        v-if="tenant.settings.venueMapUrl"
-        :src="tenant.settings.venueMapUrl"
-        alt=""
-        class="mt-2 w-full max-w-sm rounded-xl object-contain ring-1 ring-brand-100"
-      />
-      <p v-else class="mt-2 text-xs text-muted">{{ t('admin.venueMapEmpty') }}</p>
-
-      <div class="mt-2">
-        <button
-          type="button"
-          class="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 disabled:opacity-60"
-          :disabled="busy === 'map'"
-          @click="mapInput?.click()"
-        >
-          {{ busy === 'map' ? t('admin.uploading') : t('admin.uploadVenueMap') }}
-        </button>
-        <button
-          v-if="tenant.settings.venueMapUrl"
-          type="button"
-          class="ml-2 text-xs font-semibold text-red-600"
-          @click="tenant.settings.venueMapUrl = null"
-        >
-          {{ t('admin.removeImage') }}
-        </button>
-      </div>
-
-      <p v-if="tenant.settings.venueMapUrl" class="mt-1.5 text-xs text-muted">
-        {{ t('admin.venueMapReplaceNotice') }}
-      </p>
     </fieldset>
   </div>
 </template>
