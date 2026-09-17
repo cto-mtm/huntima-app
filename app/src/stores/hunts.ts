@@ -3,10 +3,12 @@ import { ref } from 'vue'
 import {
   campaignSchema,
   campaignStatsSchema,
+  campaignFinishersSchema,
   missionListPayloadSchema,
   type Campaign,
   type CampaignInput,
   type CampaignStats,
+  type CampaignFinisher,
   type Mission,
 } from 'shared'
 import { authedFetch } from '../lib/authedFetch'
@@ -184,6 +186,22 @@ export const useHuntsStore = defineStore('hunts', () => {
     return parsed.success ? parsed.data : null
   }
 
+  /**
+   * The signed-in, self-reported finisher wall for one hunt — who claimed a
+   * finish and in what order. Separate from `loadStats` (aggregate, cheap) on
+   * purpose: this is the per-person list, so the aggregate dashboard stays
+   * aggregate and a caller opts into the finisher data explicitly.
+   */
+  async function loadFinishers(id: string): Promise<CampaignFinisher[] | null> {
+    const result = await authedFetch<unknown>(`${base()}/${id}/finishers`)
+    if (!result.ok) {
+      error.value = result.error
+      return null
+    }
+    const parsed = campaignFinishersSchema.safeParse(result.data)
+    return parsed.success ? parsed.data.finishers : null
+  }
+
   async function remove(id: string): Promise<boolean> {
     const result = await authedFetch<unknown>(`${base()}/${id}`, { method: 'DELETE' })
     if (!result.ok) {
@@ -194,5 +212,5 @@ export const useHuntsStore = defineStore('hunts', () => {
     return true
   }
 
-  return { campaigns, current, loading, saving, error, loadAll, loadOne, create, patch, saveMissions, loadStats, remove }
+  return { campaigns, current, loading, saving, error, loadAll, loadOne, create, patch, saveMissions, loadStats, loadFinishers, remove }
 })

@@ -35,7 +35,9 @@ import {
   uidByEmail,
 } from './helpers/members'
 import { getCampaignStats, recordCapture, recordFanEvent } from './helpers/analytics'
+import { listFinishers, recordMatch } from './helpers/finishers'
 import { getFanProgress, putFanProgress } from './helpers/fanProgress'
+import { getHuntStatuses } from './helpers/huntStatus'
 import { callerIp, rateLimitOrReject } from './helpers/rateLimit'
 // The wire format lives in the `shared` workspace package, which the app
 // imports too — one definition, parsed on both ends. esbuild inlines it
@@ -48,6 +50,7 @@ import {
   createHuntSchema,
   echoSchema,
   fanProgressSchema,
+  huntStatusQuerySchema,
   planSchema,
   slugRejection,
   tenantSlugSchema,
@@ -74,6 +77,7 @@ const VALID_ROUTES = [
   'GET /me/progress',
   'PUT /me/progress',
   'GET /me/orgs',
+  'POST /hunts/status',
   'POST /orgs',
   'POST /me/hunts',
   'GET /orgs/slug-available',
@@ -94,6 +98,7 @@ const VALID_ROUTES = [
   'DELETE /t/:slug/admin/campaigns/:id',
   'PUT /t/:slug/admin/campaigns/:id/missions',
   'GET /t/:slug/admin/campaigns/:id/stats',
+  'GET /t/:slug/admin/campaigns/:id/finishers',
 ]
 
 // Demo credentials for the Auth emulator ONLY. These never reach a deployed
@@ -224,6 +229,35 @@ export const api = onRequest(
         const progress = fanProgressSchema.parse(req.body)
         await putFanProgress(user.uid, progress)
         res.status(200).json({ progress })
+        return
+      }
+
+      // Are the fan's saved "ongoing" cards still playable? Public: guests
+      // keep cards too, and every answer here is already public through
+      // /t/:slug/tenant and /t/:slug/missions — this only batches them.
+      //
+      // The per-IP limit is deliberately loose. A venue's wifi or a carrier
+      // NAT puts thousands of fans behind a handful of addresses, and a 429
+      // here costs nothing: the client keeps its cards as they were and asks
+      // again later. What it guards is a script cycling uncached slugs; the
+      // per-slug cache in helpers/huntStatus.ts absorbs the real traffic.
+      if (route === 'POST /hunts/status') {
+        if (
+          await rateLimitOrReject(
+            res,
+            {
+              bucket: 'hunt-status',
+              key: callerIp(req.headers as Record<string, unknown>, req.ip),
+              limit: 300,
+              windowSeconds: 60,
+            },
+            'Too many requests. Please slow down.',
+          )
+        ) {
+          return
+        }
+        const { hunts } = huntStatusQuerySchema.parse(req.body)
+        res.status(200).json(await getHuntStatuses(hunts))
         return
       }
 
@@ -399,27 +433,50 @@ export const api = onRequest(
         // ── Capture verification ────────────────────────────────────
         // Server-authoritative on purpose. The image is never persisted.
         if (rest[0] === 'verify-capture' && rest.length === 1 && req.method === 'POST') {
-          // Cost guards, two axes. Per-IP: one client cannot loop us into
-          // model spend. Per-tenant: one org's viral hunt cannot consume the
-          // platform's wallet — this bucket is also where a billing tier
-          // will plug in its number. Both fail open (see helpers/rateLimit):
-          // a fan must never lose a capture to our bookkeeping.
+          // Cost guards, three axes. All fail open (see helpers/rateLimit): a
+          // fan must never lose a capture to our bookkeeping.
+          //
+          // Per-IP, LOOSE: a stadium puts thousands of fans behind a few
+          // venue-wifi or carrier-NAT addresses, so a tight per-IP limit
+          // would lock out a section of the crowd at once. This bucket only
+          // stops one machine hammering us.
+          const ip = callerIp(req.headers as Record<string, unknown>, req.ip)
+          if (
+            await rateLimitOrReject(
+              res,
+              { bucket: 'verify-capture', key: ip, limit: 120, windowSeconds: 60 },
+              'Too many requests. Please slow down.',
+            )
+          ) {
+            logger.warn('verify-capture rate limited', { ip })
+            return
+          }
+
+          const input = verifyCaptureSchema.parse(req.body)
+
+          // Per-participant, TIGHT: the everyday limit on one fan's retry
+          // loop. The id is client-supplied, so a script can rotate it — which
+          // is exactly why the per-IP and per-tenant ceilings stay in place
+          // around it. A caller without an id is limited by address instead.
           if (
             await rateLimitOrReject(
               res,
               {
-                bucket: 'verify-capture',
-                key: callerIp(req.headers as Record<string, unknown>, req.ip),
-                limit: 30,
+                bucket: 'verify-capture-participant',
+                key: input.participantId ?? `ip:${ip}`,
+                limit: 20,
                 windowSeconds: 60,
               },
               'Too many requests. Please slow down.',
             )
           ) {
-            logger.warn('verify-capture rate limited', { ip: req.ip })
+            logger.warn('verify-capture participant rate limited', { slug })
             return
           }
 
+          // Per-tenant: one org's viral hunt cannot consume the platform's
+          // wallet — this bucket is also where a billing tier will plug in
+          // its number.
           if (
             await rateLimitOrReject(
               res,
@@ -435,8 +492,6 @@ export const api = onRequest(
             logger.warn('verify-capture tenant budget exhausted', { slug })
             return
           }
-
-          const input = verifyCaptureSchema.parse(req.body)
           // Scoped lookup: a campaignId from another org can never resolve.
           const mission = await findMission(slug, input.campaignId, input.missionId)
 
@@ -462,10 +517,30 @@ export const api = onRequest(
           // Aggregate analytics. A stats write must never fail the verdict a
           // fan is waiting on — swallow it and let the badge stand.
           if (input.campaignId) {
+            const at = new Date()
             try {
-              await recordCapture(slug, input.campaignId, result.match, new Date())
+              await recordCapture(slug, input.campaignId, mission.id, result.match, at)
             } catch (err) {
               logger.warn('stats write failed', { slug, campaignId: input.campaignId, err })
+            }
+
+            // Server-authoritative finisher ledger: a VERIFIED match against a
+            // participant, which stamps their finish time when it completes the
+            // hunt (see helpers/finishers.ts). Guest-inclusive by design. Same
+            // rule as the stats write — it must never fail the verdict.
+            if (result.match && input.participantId) {
+              try {
+                await recordMatch(
+                  slug,
+                  input.campaignId,
+                  input.participantId,
+                  input.isGuest,
+                  mission.id,
+                  at.getTime(),
+                )
+              } catch (err) {
+                logger.warn('finisher write failed', { slug, campaignId: input.campaignId, err })
+              }
             }
           }
 
@@ -651,6 +726,14 @@ export const api = onRequest(
               // 404 — an empty dashboard is a real answer.
               if (req.method === 'GET') {
                 res.status(200).json(await getCampaignStats(slug, id))
+                return
+              }
+            } else if (rest[3] === 'finishers') {
+              // The signed-in, self-reported "who finished, in what order"
+              // wall. Member-gated (it names fans); an empty list is a real
+              // answer for a hunt nobody has finished yet.
+              if (req.method === 'GET') {
+                res.status(200).json({ finishers: await listFinishers(slug, id) })
                 return
               }
             } else if (!rest[3]) {

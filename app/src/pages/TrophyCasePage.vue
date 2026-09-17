@@ -19,9 +19,9 @@
  * Everything on this page is derived from what the device already knows:
  * badges per campaign, hunts joined, hunts won.
  */
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import BaseButton from '../components/BaseButton.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -29,29 +29,30 @@ import RewardMedallion, { type RewardTier } from '../components/reward/RewardMed
 import TrophyShelf, { type ShelfTrophy } from '../components/reward/TrophyShelf.vue'
 import { useProgressStore } from '../stores/progress'
 import { useSessionStore } from '../stores/session'
-import { useTenantStore } from '../stores/tenant'
+import { useMissionsStore } from '../stores/missions'
 
 const { t, d } = useI18n()
-const route = useRoute()
 const router = useRouter()
 const progress = useProgressStore()
 const session = useSessionStore()
-const tenant = useTenantStore()
+const missionsStore = useMissionsStore()
+
+// Same check as home, so the Ended tags are current. Throttled in the store:
+// arriving here straight from home costs no second request.
+onMounted(() => {
+  void progress.reconcileJoined()
+})
 
 /**
  * This page is GLOBAL, but the redeem CTA targets a tenant route — a prize
- * is collected at a venue. `progress.isComplete` refers to the last loaded
- * hunt, which belongs to the last-visited org, so that slug is the right
- * target; with no slug ever visited there is no hunt to have completed.
+ * is collected at a venue. `progress.isComplete` refers to the hunt the
+ * missions store has loaded, so that store's slug is the target — not the
+ * remembered last slug, which survives a reload without its hunt and can name
+ * an org that no longer exists.
  */
-const redeemSlug = computed(() => {
-  const p = route.params.tenantSlug
-  return typeof p === 'string' ? p : tenant.lastSlug
-})
-
 function goRedeem(): void {
-  if (redeemSlug.value) {
-    void router.push({ name: 'redeem', params: { tenantSlug: redeemSlug.value } })
+  if (missionsStore.slug) {
+    void router.push({ name: 'redeem', params: { tenantSlug: missionsStore.slug } })
   }
 }
 
@@ -216,7 +217,17 @@ const hasAnything = computed(() => series.value.length > 0 || progress.trophies.
           class="rounded-card bg-surface p-4 shadow-md shadow-brand-900/5 ring-1 ring-brand-100"
         >
           <div class="flex items-baseline justify-between gap-2">
-            <h3 class="truncate font-bold text-brand-900" translate="no">{{ hunt.teamName }}</h3>
+            <div class="flex min-w-0 items-baseline gap-2">
+              <h3 class="truncate font-bold text-brand-900" translate="no">{{ hunt.teamName }}</h3>
+              <!-- Why this hunt is no longer on home's ongoing list. A won
+                   hunt says so with its count color; it needs no tag. -->
+              <span
+                v-if="hunt.closed && !hunt.won"
+                class="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-muted ring-1 ring-brand-100"
+              >
+                {{ t('trophyCase.seriesEnded') }}
+              </span>
+            </div>
             <p
               class="shrink-0 text-xs font-extrabold"
               :class="hunt.won ? 'text-success-700' : 'text-accent-600'"
@@ -275,7 +286,7 @@ const hasAnything = computed(() => series.value.length > 0 || progress.trophies.
     </template>
 
     <!-- A win the fan hasn't claimed yet: send them to the prize screen. -->
-    <div v-if="progress.isComplete && !progress.redeemed && redeemSlug" class="mt-8">
+    <div v-if="progress.isComplete && !progress.redeemed" class="mt-8">
       <BaseButton size="lg" icon="prize" @click="goRedeem">
         {{ t('trophyCase.complete') }}
       </BaseButton>

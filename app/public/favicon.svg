@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Huntima">
+  <!--
+    The Huntima mark as a favicon: the same map-drop-with-camera-aperture as
+    src/components/HuntimaMark.vue, with the fixed platform colors (this mark
+    never re-skins per tenant — see docs/branding.md).
+
+    The six prism blades are kept, but the lens barrel is a touch larger and
+    the blades sit on a dark well so the aperture still reads at 16px in a
+    browser tab rather than mushing into the drop's gradient.
+  -->
+  <defs>
+    <linearGradient id="hm-fav" x1="0" y1="0" x2="0.65" y2="1">
+      <stop offset="0%" stop-color="#ff9a3d" />
+      <stop offset="52%" stop-color="#f7128f" />
+      <stop offset="100%" stop-color="#7c1fd4" />
+    </linearGradient>
+  </defs>
+
+  <!-- The drop -->
+  <path
+    d="M32 2C20.4 2 11 11.4 11 23c0 15.3 21 39 21 39s21-23.7 21-39C53 11.4 43.6 2 32 2Z"
+    fill="url(#hm-fav)"
+  />
+
+  <!-- Lens barrel: a dark well so the prism blades read against the drop. -->
+  <circle cx="32" cy="23" r="13.6" fill="#2a1046" />
+
+  <!-- Camera aperture — six prism blades -->
+  <g>
+    <path d="M32.00 19.60 L32.00 11.20 A11.8 11.8 0 0 1 42.22 17.10 Z" fill="#ff9a3d" />
+    <path d="M34.94 21.30 L42.22 17.10 A11.8 11.8 0 0 1 42.22 28.90 Z" fill="#f7c31e" />
+    <path d="M34.94 24.70 L42.22 28.90 A11.8 11.8 0 0 1 32.00 34.80 Z" fill="#2fd699" />
+    <path d="M32.00 26.40 L32.00 34.80 A11.8 11.8 0 0 1 21.78 28.90 Z" fill="#3d8bff" />
+    <path d="M29.06 24.70 L21.78 28.90 A11.8 11.8 0 0 1 21.78 17.10 Z" fill="#b026ff" />
+    <path d="M29.06 21.30 L21.78 17.10 A11.8 11.8 0 0 1 32.00 11.20 Z" fill="#f7128f" />
+  </g>
+  <circle cx="32" cy="23" r="3.1" fill="#2a1046" />
+</svg>

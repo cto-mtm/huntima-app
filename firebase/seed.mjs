@@ -22,6 +22,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { randomUUID } from 'node:crypto'
 
 const API = process.env.SEED_API_URL ?? 'http://127.0.0.1:6001/demo-app/us-central1/api'
 const AUTH = process.env.SEED_AUTH_URL ?? 'http://127.0.0.1:10099'
@@ -335,6 +336,65 @@ if (published) {
   })
 }
 
+// ── 4b. A few finishers, so the stats wall isn't empty ────────────────
+// Finishers are SERVER-AUTHORITATIVE: the server tallies verified captures per
+// participant and stamps a finish time when they cross the badge target (see
+// functions helpers/finishers.ts). So seed them the honest way — as GUESTS
+// posting captures through the real /verify-capture endpoint, exactly as a fan
+// on the concourse would. Locally, with no GEMINI key, verification returns the
+// lenient stub (every capture matches), so a guest who captures `badgeTarget`
+// missions finishes; with a real key set, this 1×1 placeholder won't match and
+// the wall simply stays empty. Guests, not members: no auth, just a per-device
+// participant id — which is exactly the guest-inclusive tracking this exercises.
+//
+// Runs sequentially so the guests finish one after another and the wall shows a
+// clean first/second/third order. Idempotent + rate-limit friendly: skip if the
+// wall already has finishers, and only when the hunt is published (a draft
+// rejects captures). The smallest thing that passes verifyCaptureSchema:
+const PIXEL_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC'
+
+let finisherCount = 0
+if (published) {
+  const wall = await call(`/t/${BATS}/admin/campaigns/${hunt.id}/finishers`, { headers: auth })
+  if (wall.finishers.length > 0) {
+    finisherCount = wall.finishers.length
+    console.log(`  Finisher wall already has ${finisherCount} — skipping.`)
+  } else {
+    console.log('  Seeding a few finishers via real captures…')
+    // First `badgeTarget` (8) missions is enough to finish this hunt.
+    const toWin = Array.from({ length: 8 }, (_, i) => `seed-${i + 1}`)
+    for (let n = 0; n < 3; n++) {
+      const participantId = randomUUID()
+      // A "started" event, so the aggregate participant count matches the wall.
+      await call(`/t/${BATS}/campaigns/${hunt.id}/events`, {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'participant' }),
+      })
+      for (const missionId of toWin) {
+        await call(`/t/${BATS}/verify-capture`, {
+          method: 'POST',
+          body: JSON.stringify({
+            campaignId: hunt.id,
+            missionId,
+            imageBase64: PIXEL_PNG,
+            mimeType: 'image/png',
+            participantId,
+            isGuest: true,
+          }),
+        })
+      }
+      // …and a "finished" event once they've completed, so the completion
+      // count and rate on the dashboard line up with the finisher wall.
+      await call(`/t/${BATS}/campaigns/${hunt.id}/events`, {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'completion' }),
+      })
+      finisherCount++
+    }
+  }
+}
+
 // ── 5. Harbor Hawks: a second, visibly different org ──────────────────
 // Minimal on purpose: no images, different palette, a small published hunt.
 // Its whole job is to make cross-org isolation obvious in local dev.
@@ -408,6 +468,7 @@ console.log(`
     operator  ${admin.email} / ${admin.password}
     org       /${BATS}  — ${tenant.teamName} (logo: ${logoUrl ? 'yes' : 'none'}, avatars: ${avatars.length})
               hunt "${SEED_NAME}" (${published ? 'published' : 'left as draft — another hunt is already live'}, ${MISSIONS.length} missions, ${targetCount} target photos)
+              stats: ${finisherCount} finisher${finisherCount === 1 ? '' : 's'} on the wall (see /${BATS}/admin → hunt → Stats)
     org       /${HAWKS}  — Harbor Hawks
               hunt "${HAWKS_HUNT}" (published, ${HAWKS_MISSIONS.length} missions)
 

@@ -405,6 +405,21 @@ export const verifyCaptureSchema = z.object({
   /** Bare base64, no data: prefix. ~1.4 MB of base64 ≈ 1 MB of JPEG. */
   imageBase64: z.string().min(32).max(1_400_000),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  /**
+   * Who is capturing — the fan's account uid when signed in, else their stable
+   * on-device id (see stores/session.ts `deviceId`). Optional and unauthenticated:
+   * this is what the server records a verified match against so it can compute
+   * a server-AUTHORITATIVE finish order that INCLUDES guests (a guest is
+   * anonymous, but this pseudonymous, opaque id is enough to rank and to match
+   * a claim code at the counter — see helpers/finishers.ts). Absent → the
+   * capture still verifies, it just isn't attributed to a finisher row. It is
+   * client-supplied and therefore forgeable; making it server-ISSUED is the
+   * later redeem-grade step (docs/architecture.md § Seams).
+   */
+  participantId: z.string().min(1).max(128).optional(),
+  /** True for a guest, false for a signed-in fan. A display/label hint only —
+   *  forgeable like `participantId`. Defaulted to guest, the common case. */
+  isGuest: z.boolean().optional().default(true),
 })
 
 export type VerifyCaptureInput = z.infer<typeof verifyCaptureSchema>
@@ -446,6 +461,18 @@ export type CampaignEventKind = z.infer<typeof campaignEventKindSchema>
 export const campaignEventSchema = z.object({ kind: campaignEventKindSchema })
 export type CampaignEvent = z.infer<typeof campaignEventSchema>
 
+/**
+ * Per-mission capture/match counters. Still AGGREGATE — a count, never a
+ * person — so it carries none of the per-fan concerns: it answers "which
+ * mission stumped everyone" (matches ÷ captures) and "which got attempted
+ * most", the completion distribution staff ask for. Keyed by mission id.
+ */
+export const missionStatSchema = z.object({
+  captures: z.number().int().nonnegative(),
+  matches: z.number().int().nonnegative(),
+})
+export type MissionStat = z.infer<typeof missionStatSchema>
+
 export const campaignStatsSchema = z.object({
   participants: z.number().int().nonnegative(),
   completions: z.number().int().nonnegative(),
@@ -453,8 +480,64 @@ export const campaignStatsSchema = z.object({
   matches: z.number().int().nonnegative(),
   /** Capture activity by UTC hour. Key `YYYY-MM-DDTHH`, value a count. */
   hours: z.record(z.string(), z.number().int().nonnegative()),
+  /** Per-mission counters, keyed by mission id. Defaulted so a stats doc
+   *  written before this field existed still parses (as no breakdown). */
+  missions: z.record(z.string(), missionStatSchema).default({}),
 })
 export type CampaignStats = z.infer<typeof campaignStatsSchema>
+
+// ── Hunt finishers (server-authoritative, guest-inclusive) ────────────
+/**
+ * One participant who FINISHED a hunt — the per-person row behind the "who
+ * completed, and in what order" wall staff asked for (a first-to-finish
+ * shout-out, a special prize for the top few).
+ *
+ * UNLIKE `campaignStatsSchema` (aggregate counters), this is per-person, and
+ * it is now SERVER-AUTHORITATIVE: the server tallies VERIFIED captures against
+ * `participantId` and stamps `finishedAt` (server time) the moment the count
+ * first reaches the hunt's `badgeTarget` — so the order is what actually
+ * happened on our side, not a self-report. It INCLUDES guests: `participantId`
+ * is the on-device id, pseudonymous and opaque, and a guest carries no other
+ * identity by design (we deliberately collect nothing more).
+ *
+ * Two honest limits remain (see docs/architecture.md § Seams):
+ *  - The id is client-SUPPLIED, so it is forgeable (clear storage → new id).
+ *    Redeem-grade trust needs a server-ISSUED id; that is the later step.
+ *  - There is no contact channel — staff verify a winner by matching the
+ *    claim code (`deriveClaimCode(participantId)`, the same code the fan sees)
+ *    at the counter; they cannot proactively notify a guest.
+ */
+export const campaignFinisherSchema = z.object({
+  /** Account uid (signed-in) or on-device id (guest). Opaque, pseudonymous. */
+  participantId: z.string().min(1).max(128),
+  /** True for a guest, false for a signed-in fan — a display label. */
+  isGuest: z.boolean(),
+  /** Epoch ms, SERVER-stamped when they crossed the badge target. */
+  finishedAt: z.number().int().nonnegative(),
+})
+export type CampaignFinisher = z.infer<typeof campaignFinisherSchema>
+
+export const campaignFinishersSchema = z.object({
+  /** Earliest-first, so index 0 is the first fan to finish. */
+  finishers: z.array(campaignFinisherSchema).max(500),
+})
+export type CampaignFinishers = z.infer<typeof campaignFinishersSchema>
+
+/**
+ * A short, human-readable code derived from a participant id — the SAME value
+ * a fan sees in their app (see stores/progress.ts) and staff see next to a
+ * finisher on the console, so the two can be matched at the prize counter.
+ *
+ * Pure and deterministic so both ends agree without a round trip. It is a
+ * display/matching aid, NOT a secret: four digits collide across a big enough
+ * hunt, and it is derived (not issued), so it is not authority to award a
+ * prize on its own — staff still confirm. See docs/architecture.md § Seams.
+ */
+export function deriveClaimCode(seed: string): string {
+  let hash = 7
+  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) % 10000
+  return String(hash).padStart(4, '0')
+}
 
 // ── Fan progress (cross-device continuity) ────────────────────────────
 /**
@@ -510,9 +593,46 @@ export const joinedHuntSchema = z.object({
   badgeTarget: z.number().int().nonnegative().max(50),
   /** Epoch ms when first joined. */
   joinedAt: z.number().int().nonnegative(),
+  /**
+   * Set once the server says this card can no longer be continued: `ended`
+   * when the org is still there but this campaign is no longer its published
+   * hunt, `gone` when the org itself no longer exists. Absent means live (or
+   * not yet checked). A CACHE of `POST /hunts/status`, never a decision the
+   * client makes on its own — every check rewrites it, so a hunt that is
+   * republished comes back. The card stays in the list either way: the badges
+   * and the history belong to the fan.
+   */
+  closed: z.enum(['ended', 'gone']).optional(),
 })
 
 export type JoinedHunt = z.infer<typeof joinedHuntSchema>
+
+/** One card to check: the org it points at and the campaign it snapshotted. */
+export const huntRefSchema = joinedHuntSchema.pick({ tenantSlug: true, campaignId: true })
+
+/**
+ * `POST /hunts/status` — can these saved cards still be continued?
+ *
+ * Public (a guest has saved cards too) and answers only what `GET
+ * /t/:slug/tenant` and `GET /t/:slug/missions` already make public, batched so
+ * the platform home costs one request rather than two per card. Capped: each
+ * distinct slug is two Firestore reads. The client batches by the same cap.
+ */
+export const HUNT_STATUS_BATCH = 50
+
+export const huntStatusQuerySchema = z.object({
+  hunts: z.array(huntRefSchema).max(HUNT_STATUS_BATCH),
+})
+
+export const huntStatusSchema = z.enum(['live', 'ended', 'gone'])
+
+export const huntStatusesSchema = z.object({
+  statuses: z.array(huntRefSchema.extend({ status: huntStatusSchema })),
+})
+
+export type HuntRef = z.infer<typeof huntRefSchema>
+export type HuntStatus = z.infer<typeof huntStatusSchema>
+export type HuntStatuses = z.infer<typeof huntStatusesSchema>
 
 export const fanProgressSchema = z.object({
   /** Fan-chosen display name. Empty string when they never set one. */

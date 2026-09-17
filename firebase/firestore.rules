@@ -63,6 +63,17 @@ service cloud.firestore {
         allow read: if isMember(slug) || isOperator();
         allow write: if false;
       }
+
+      // The finisher ledger: a per-person row (opaque participant id, guest
+      // flag, server-stamped finish time) the function writes on each VERIFIED
+      // capture. Written ONLY by the Admin SDK; readable by the org's own
+      // staff, who are the only ones a "who finished first" list is for. The
+      // participant id is pseudonymous — a random device id or an account uid,
+      // never a name or an email.
+      match /campaign_participants/{campaignId}/fans/{participantId} {
+        allow read: if isMember(slug) || isOperator();
+        allow write: if false;
+      }
     }
 
     // Fan progress (`fan_progress/{uid}`) is written ONLY by the Cloud

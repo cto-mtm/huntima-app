@@ -126,6 +126,20 @@ watch(
   },
   { immediate: true },
 )
+
+// The org answered, and it has nothing published: whatever hunt the fan's
+// card for this org remembers is over. Only a SUCCESSFUL empty load counts —
+// a failed one sets loadError and never `loaded`, so offline changes nothing.
+watch(
+  () =>
+    missionsStore.loaded && !missionsStore.loading && !missionsStore.campaignId
+      ? missionsStore.slug
+      : null,
+  (slug) => {
+    if (slug) progress.closeJoin(slug, 'ended')
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

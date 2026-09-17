@@ -85,8 +85,15 @@ Still deliberately open (see `docs/architecture.md` § "Seams left open"):
   server stores what the client claims and the claim code is still derived, not
   issued. The open piece is *authority* — the server owning the badge ledger
   (awarding on a verified capture) and minting/invalidating claim codes. Until
-  then, progress must never hand over a prize without staff verification, and
-  analytics stays aggregate counters rather than trusting a fan's count
+  then, progress must never hand over a prize without staff verification.
+  Aggregate analytics stays counters-only, but a **finisher ledger**
+  (`campaign_participants/`) records who finished and in what order — the server
+  tallies VERIFIED captures against a `participantId` (uid when signed in, else
+  the on-device id) and stamps the finish time at the badge target, so it is
+  guest-inclusive and server-authoritative for the order. Still not prize
+  authority: the id is client-supplied (forgeable until server-issued) and staff
+  match the fan's claim code at the counter — no proactive contact. Guests are
+  anonymous but no longer un-tracked (see `docs/architecture.md` § Seams)
 
 Do not add the open seams speculatively. Each drags in a real decision
 (PII retention, prize fraud) that belongs in its own change.

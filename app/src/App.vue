@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AppShell from './components/AppShell.vue'
@@ -27,7 +27,7 @@ const session = useSessionStore()
 // path: a returning signed-in fan is hydrated the moment auth resolves, not
 // only once they navigate to a page that happens to read progress. A no-op
 // for guests and admins — the watcher gates on the fan role.
-useProgressStore()
+const progress = useProgressStore()
 
 // Which chrome wraps the page. Declared per-route in meta.layout; absent means
 // the two-level fan AppShell (the default). 'console' is the org console,
@@ -40,6 +40,14 @@ const layout = computed(() => route.meta.layout ?? 'app')
 const tenantMissing = computed(
   () => tenant.notFound && typeof route.params.tenantSlug === 'string',
 )
+
+// A saved "ongoing" card that led here must not keep offering Continue.
+// The card stays in the collection; it just stops being ongoing.
+watch(tenantMissing, (missing) => {
+  if (missing && typeof route.params.tenantSlug === 'string') {
+    progress.closeJoin(route.params.tenantSlug, 'gone')
+  }
+})
 
 onMounted(() => {
   // Only if an account has been used on this device. A guest never loads

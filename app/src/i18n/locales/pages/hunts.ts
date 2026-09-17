@@ -41,7 +41,7 @@ const en = {
   deleteConfirm: 'Delete this hunt? Fans mid-hunt will lose it.',
   missionCount: '{count} missions',
 
-  statsSubtitle: 'How many fans played, and when.',
+  statsSubtitle: 'Who played, how they did, and when.',
   statsParticipants: 'Participants',
   statsParticipantsHelp: 'Devices that opened this hunt.',
   statsCompletions: 'Completed',
@@ -55,7 +55,28 @@ const en = {
   statsTimelineEmpty: 'No activity yet.',
   statsEmpty: 'No one has played this hunt yet.',
   statsLoadFailed: 'Could not load analytics.',
-  statsPrivacyNote: 'Aggregate counts only — no personal data about fans is stored.',
+  statsPrivacyNote:
+    'Counts are aggregate. Finishers are recorded per device by a random, anonymous code — no name, no email — so you can rank them and match a winner at the counter. Confirm the code before awarding a prize.',
+  // ── Derived headline metrics ──────────────────────────────────
+  statsAccuracy: 'Photo accuracy',
+  statsAccuracyHelp: 'Share of photos that matched.',
+  statsConversion: 'Completion rate',
+  statsConversionHelp: 'Of participants, how many finished.',
+  // ── Per-mission breakdown (aggregate) ─────────────────────────
+  statsMissionsHeading: 'Mission breakdown',
+  statsMissionsHelp: 'Photos checked and badges earned per mission — spot the one that stumps people.',
+  statsMissionsEmpty: 'No photos checked yet.',
+  statsMissionRemoved: 'Removed mission',
+  statsMissionMeta: '{count} checked · {percent}% matched',
+  // ── Finisher wall (server-verified, guest-inclusive) ──────────
+  statsFinishersHeading: 'Finishers',
+  statsFinishersHelp: 'Everyone who finished, earliest first — counted from verified photos, so this is the order for a “first to finish” prize.',
+  statsFinishersEmpty: 'No one has finished yet.',
+  statsFinisherCode: 'Code {code}',
+  statsFinisherGuest: 'Guest',
+  statsFinisherFan: 'Signed in',
+  statsFinisherFinished: 'Finished {when}',
+  statsFinishersCodeNote: 'The code is what the fan sees in their own app — match it at the prize counter to confirm a winner. Ids are anonymous (a random per-device code, no name or email), so confirm before awarding.',
 
   editHeading: 'Missions',
   editHelp: 'Each mission is one photo a fan has to find. Order here is the order they see.',
@@ -85,6 +106,17 @@ const en = {
   saved: 'Saved.',
   unsaved: 'You have unsaved changes.',
   saveFailed: 'Could not save.',
+  // ── Mission validation ───────────────────────────────────────
+  // Shown inline under the offending field and gathered into a summary
+  // above Save, so a rejected draft names the mission and the field rather
+  // than failing as an opaque "Validation failed".
+  validation: {
+    titleRequired: 'Give this mission a title — it’s what fans tap to open it.',
+    hintRequired: 'Add a hint so fans know what to photograph.',
+    summaryHeading: 'Fix these before you can save:',
+    missionRef: 'Mission {n}',
+    cantSave: 'Fix the highlighted fields to save.',
+  },
 
   prizeHeading: 'Prize & win condition',
   prizeHelp: 'What a fan wins, and how many badges it takes. Shown on the redeem screen.',
@@ -167,7 +199,7 @@ const es: typeof en = {
   deleteConfirm: '¿Eliminar esta búsqueda? Quienes la estén jugando la perderán.',
   missionCount: '{count} misiones',
 
-  statsSubtitle: 'Cuántos aficionados jugaron, y cuándo.',
+  statsSubtitle: 'Quién jugó, cómo le fue y cuándo.',
   statsParticipants: 'Participantes',
   statsParticipantsHelp: 'Dispositivos que abrieron esta búsqueda.',
   statsCompletions: 'Completadas',
@@ -181,7 +213,25 @@ const es: typeof en = {
   statsTimelineEmpty: 'Aún no hay actividad.',
   statsEmpty: 'Nadie ha jugado esta búsqueda todavía.',
   statsLoadFailed: 'No se pudieron cargar las estadísticas.',
-  statsPrivacyNote: 'Solo recuentos agregados: no se almacena ningún dato personal de los aficionados.',
+  statsPrivacyNote:
+    'Los recuentos son agregados. Los finalistas se registran por dispositivo mediante un código aleatorio y anónimo (sin nombre ni correo) para poder ordenarlos y cotejar a un ganador en el mostrador. Confirma el código antes de entregar un premio.',
+  statsAccuracy: 'Precisión de fotos',
+  statsAccuracyHelp: 'Proporción de fotos que coincidieron.',
+  statsConversion: 'Tasa de finalización',
+  statsConversionHelp: 'De los participantes, cuántos terminaron.',
+  statsMissionsHeading: 'Desglose por misión',
+  statsMissionsHelp: 'Fotos revisadas e insignias ganadas por misión: detecta la que atasca a todos.',
+  statsMissionsEmpty: 'Aún no se han revisado fotos.',
+  statsMissionRemoved: 'Misión eliminada',
+  statsMissionMeta: '{count} revisadas · {percent}% coincidieron',
+  statsFinishersHeading: 'Finalistas',
+  statsFinishersHelp: 'Todos los que terminaron, los primeros arriba: contados a partir de fotos verificadas, así que este es el orden para un premio al “primero en terminar”.',
+  statsFinishersEmpty: 'Nadie ha terminado todavía.',
+  statsFinisherCode: 'Código {code}',
+  statsFinisherGuest: 'Invitado',
+  statsFinisherFan: 'Con sesión',
+  statsFinisherFinished: 'Terminó {when}',
+  statsFinishersCodeNote: 'El código es el que el aficionado ve en su propia app: cotéjalo en el mostrador de premios para confirmar a un ganador. Los identificadores son anónimos (un código aleatorio por dispositivo, sin nombre ni correo), así que confirma antes de entregar.',
 
   editHeading: 'Misiones',
   editHelp: 'Cada misión es una foto que el aficionado debe encontrar. Este es el orden que verán.',
@@ -211,6 +261,13 @@ const es: typeof en = {
   saved: 'Guardado.',
   unsaved: 'Tienes cambios sin guardar.',
   saveFailed: 'No se pudo guardar.',
+  validation: {
+    titleRequired: 'Ponle un título a esta misión: es lo que los aficionados tocan para abrirla.',
+    hintRequired: 'Añade una pista para que los aficionados sepan qué fotografiar.',
+    summaryHeading: 'Corrige esto antes de guardar:',
+    missionRef: 'Misión {n}',
+    cantSave: 'Corrige los campos resaltados para guardar.',
+  },
 
   prizeHeading: 'Premio y condición de victoria',
   prizeHelp: 'Qué gana el aficionado y cuántas insignias hacen falta. Se muestra en la pantalla de canje.',

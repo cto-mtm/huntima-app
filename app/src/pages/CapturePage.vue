@@ -11,6 +11,7 @@ import { useGeofence } from '../composables/useGeofence'
 import { useMissionsStore } from '../stores/missions'
 import { useMissionText } from '../lib/missionText'
 import { useProgressStore } from '../stores/progress'
+import { useSessionStore } from '../stores/session'
 import { prepareCapture, type PreparedImage } from '../lib/image'
 import { takePendingCapture } from '../lib/pendingCapture'
 import { apiPost } from '../lib/api'
@@ -20,6 +21,7 @@ const { resolve } = useMissionText()
 const route = useRoute()
 const missionsStore = useMissionsStore()
 const progress = useProgressStore()
+const session = useSessionStore()
 const reducedMotion = useReducedMotion()
 const geofence = useGeofence()
 
@@ -148,6 +150,11 @@ async function verify(file: File): Promise<void> {
     missionId: missionId.value,
     imageBase64: capture.value.base64,
     mimeType: capture.value.mimeType,
+    // Who is capturing, so a verified match lands on the right finisher row —
+    // the account uid when signed in, else the on-device id (mirrors the
+    // claim-code seed in stores/progress.ts). Guests included by design.
+    participantId: session.user?.uid ?? session.deviceId,
+    isGuest: !session.isFan,
   })
 
   if (!result.ok) {

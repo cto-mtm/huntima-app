@@ -170,6 +170,70 @@ function setText(mission: Mission, field: 'title' | 'hint', value: string): void
   markDirty()
 }
 
+// ── Per-mission validation ───────────────────────────────────────────
+// Both title and hint are required by the shared contract (missionTextSchema
+// rejects an empty string), yet the editor used to gate Save on the title
+// alone — so a blank hint sailed past canSave and then failed the whole-list
+// safeParse as an opaque "Invalid mission". Validate every field the fan
+// depends on here, name the mission and the field, and never let a save
+// attempt reach the API in a shape the schema will reject.
+type MissionField = 'title' | 'hint'
+interface MissionIssue {
+  id: string
+  index: number
+  field: MissionField
+  message: string
+}
+
+const fieldValidators: Record<MissionField, string> = {
+  title: 'hunts.validation.titleRequired',
+  hint: 'hunts.validation.hintRequired',
+}
+
+const missionIssues = computed<MissionIssue[]>(() => {
+  const issues: MissionIssue[] = []
+  draft.value.forEach((mission, index) => {
+    // Seeded missions carry i18n keys, not editable prose, so they are always
+    // valid — there is nothing on screen for staff to get wrong.
+    if (isSeeded(mission)) return
+    for (const field of ['title', 'hint'] as const) {
+      if (textOf(mission, field).trim().length === 0) {
+        issues.push({ id: mission.id, index, field, message: t(fieldValidators[field]) })
+      }
+    }
+  })
+  return issues
+})
+
+/**
+ * Which fields have been interacted with, so a brand-new blank mission isn't
+ * scolded before the author has typed anything. Keyed by mission id + field
+ * (not index — reordering and removal shift indexes). A save attempt reveals
+ * every issue at once by flipping `attemptedSave`.
+ */
+const touched = ref<Set<string>>(new Set())
+const attemptedSave = ref(false)
+
+function touchKey(id: string, field: MissionField): string {
+  return `${id}:${field}`
+}
+
+function markTouched(id: string, field: MissionField): void {
+  touched.value = new Set(touched.value).add(touchKey(id, field))
+}
+
+/** The message to show under a field, or null while it is still pristine. */
+function issueFor(mission: Mission, field: MissionField): string | null {
+  if (!attemptedSave.value && !touched.value.has(touchKey(mission.id, field))) return null
+  return missionIssues.value.find((i) => i.id === mission.id && i.field === field)?.message ?? null
+}
+
+/** The summary list above Save — only after a save attempt, so it announces
+ *  "here is what blocked you" rather than nagging mid-edit. */
+const visibleIssues = computed<MissionIssue[]>(() =>
+  attemptedSave.value ? missionIssues.value : [],
+)
+
 /** A level name, or null when the field is blank — "no level" is the default,
  *  not an empty-named one, which would render as a chapter with no title. */
 function groupOf(mission: Mission): string {
@@ -214,14 +278,23 @@ function removeMission(index: number): void {
   markDirty()
 }
 
-const canSave = computed(
-  () => dirty.value && draft.value.every((m) => isSeeded(m) || textOf(m, 'title').trim().length > 0),
-)
+// Save stays enabled whenever there are changes — a disabled button with no
+// explanation is the opaque failure we are replacing. Clicking an invalid
+// draft reveals what is wrong (below) instead of silently doing nothing.
+const canSave = computed(() => dirty.value)
 
 async function save(): Promise<void> {
+  // Reveal every field-level problem in one pass rather than saving a draft the
+  // schema would bounce.
+  if (missionIssues.value.length > 0) {
+    attemptedSave.value = true
+    return
+  }
   if (await hunts.saveMissions(huntId.value, draft.value)) {
     dirty.value = false
     savedAt.value = Date.now()
+    attemptedSave.value = false
+    touched.value = new Set()
   }
 }
 </script>
@@ -243,12 +316,38 @@ async function save(): Promise<void> {
         <BaseButton :disabled="!canSave || hunts.saving" @click="save">
           {{ hunts.saving ? t('hunts.saving') : t('hunts.save') }}
         </BaseButton>
-        <p v-if="dirty" class="mt-1 text-xs font-medium text-accent-600">{{ t('hunts.unsaved') }}</p>
+        <p v-if="visibleIssues.length" class="mt-1 text-xs font-medium text-red-600">
+          {{ t('hunts.validation.cantSave') }}
+        </p>
+        <p v-else-if="dirty" class="mt-1 text-xs font-medium text-accent-600">
+          {{ t('hunts.unsaved') }}
+        </p>
         <p v-else-if="savedAt" class="mt-1 text-xs font-medium text-green-700">
           {{ t('hunts.saved') }}
         </p>
       </div>
     </header>
+
+    <!-- ── Validation summary ──────────────────────────────────────
+         Appears only after a save attempt: it names each blocking field so
+         staff can jump to it, rather than the old opaque "Validation failed".
+         aria-live so a screen reader announces it when Save is pressed. -->
+    <div
+      v-if="visibleIssues.length"
+      role="alert"
+      aria-live="assertive"
+      class="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700 ring-1 ring-red-200"
+    >
+      <p class="font-semibold">{{ t('hunts.validation.summaryHeading') }}</p>
+      <ul class="mt-1 list-disc space-y-0.5 pl-5">
+        <li v-for="issue in visibleIssues" :key="`${issue.id}:${issue.field}`">
+          <a :href="`#${issue.field}-${issue.id}`" class="font-medium underline">
+            {{ t('hunts.validation.missionRef', { n: issue.index + 1 }) }}
+          </a>
+          — {{ issue.message }}
+        </li>
+      </ul>
+    </div>
 
     <p v-if="hunts.error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
       {{ t('hunts.saveFailed') }} {{ hunts.error }}
@@ -439,9 +538,20 @@ async function save(): Promise<void> {
               type="text"
               maxlength="200"
               :placeholder="t('hunts.missionTitlePlaceholder')"
-              class="mt-1 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+              class="mt-1 w-full rounded-xl border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+              :class="issueFor(mission, 'title') ? 'border-red-400' : 'border-brand-200'"
+              :aria-invalid="!!issueFor(mission, 'title')"
+              :aria-describedby="issueFor(mission, 'title') ? `title-err-${mission.id}` : undefined"
               @input="setText(mission, 'title', ($event.target as HTMLInputElement).value)"
+              @blur="markTouched(mission.id, 'title')"
             />
+            <p
+              v-if="issueFor(mission, 'title')"
+              :id="`title-err-${mission.id}`"
+              class="mt-1 text-xs font-medium text-red-600"
+            >
+              {{ issueFor(mission, 'title') }}
+            </p>
           </div>
 
           <div>
@@ -454,9 +564,20 @@ async function save(): Promise<void> {
               rows="2"
               maxlength="200"
               :placeholder="t('hunts.missionHintPlaceholder')"
-              class="mt-1 w-full rounded-xl border border-brand-200 bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+              class="mt-1 w-full rounded-xl border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+              :class="issueFor(mission, 'hint') ? 'border-red-400' : 'border-brand-200'"
+              :aria-invalid="!!issueFor(mission, 'hint')"
+              :aria-describedby="issueFor(mission, 'hint') ? `hint-err-${mission.id}` : undefined"
               @input="setText(mission, 'hint', ($event.target as HTMLTextAreaElement).value)"
+              @blur="markTouched(mission.id, 'hint')"
             />
+            <p
+              v-if="issueFor(mission, 'hint')"
+              :id="`hint-err-${mission.id}`"
+              class="mt-1 text-xs font-medium text-red-600"
+            >
+              {{ issueFor(mission, 'hint') }}
+            </p>
           </div>
         </div>
 

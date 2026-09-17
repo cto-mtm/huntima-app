@@ -16,6 +16,9 @@ const en = {
   // that is not currently loaded has no mission list on this device.
   seriesHeading: 'Your badges',
   seriesCount: '{count} of {total}',
+  // Tag on a hunt that can no longer be played — its org took it down or
+  // replaced it. The badges stay; only Continue goes away.
+  seriesEnded: 'Ended',
   // The journey timeline, built from dates the app already keeps.
   journeyHeading: 'Your journey',
   journeyJoined: 'Started',
@@ -39,6 +42,7 @@ const es: typeof en = {
   statHunts: 'Búsquedas ganadas',
   seriesHeading: 'Tus insignias',
   seriesCount: '{count} de {total}',
+  seriesEnded: 'Terminada',
   journeyHeading: 'Tu recorrido',
   journeyJoined: 'Empezaste',
   journeyWon: 'Ganaste',

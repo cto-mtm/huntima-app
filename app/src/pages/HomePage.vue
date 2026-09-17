@@ -16,7 +16,7 @@
  * Reachable by anyone with a session (guest or signed in); the router guard
  * sends the signed-out to the marketing landing instead.
  */
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
@@ -40,6 +40,13 @@ function earnedCount(campaignId: string): number {
 function enter(slug: string): void {
   void router.push(`/${slug}`)
 }
+
+// The cards are a snapshot from when each hunt was joined. Show them at once
+// (they render offline), then drop any whose hunt has ended or whose org is
+// gone, so Continue never leads to "no team here".
+onMounted(() => {
+  void progress.reconcileJoined()
+})
 
 // Organizing needs an accountable owner, so a guest is sent to sign in first
 // and carried on to the organizer hub afterwards. The link itself stays

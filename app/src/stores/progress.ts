@@ -1,14 +1,26 @@
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, ref, watch } from 'vue'
-import { joinedHuntSchema, type JoinedHunt } from 'shared'
+import {
+  deriveClaimCode,
+  HUNT_STATUS_BATCH,
+  huntStatusesSchema,
+  joinedHuntSchema,
+  type HuntRef,
+  type HuntStatus,
+  type JoinedHunt,
+} from 'shared'
 import { useSessionStore } from './session'
 import { useMissionsStore } from './missions'
 import { reportFanEvent } from '../lib/analytics'
-import { apiFetch } from '../lib/api'
+import { apiFetch, apiPost } from '../lib/api'
 
 const STORAGE_KEY = 'huntima:progress'
 /** Authenticated cross-device progress store. See helpers/fanProgress.ts. */
 const PROGRESS_ENDPOINT = '/me/progress'
+/** Public batch check of saved cards. See helpers/huntStatus.ts. */
+const HUNT_STATUS_ENDPOINT = '/hunts/status'
+/** How long an unchanged set of cards counts as freshly checked. */
+const RECONCILE_COOLDOWN_MS = 5 * 60_000
 
 /**
  * A hunt the fan has finished. This is what a "trophy" is: a past win, kept
@@ -149,6 +161,19 @@ function mergeJoinedHunts(a: JoinedHunt[], b: JoinedHunt[]): JoinedHunt[] {
   return [...bySlug.values()]
 }
 
+/** Identity of a card for a status check: the org plus the campaign it
+ *  snapshotted. JSON so no separator can collide with an id. */
+function cardKey({ tenantSlug, campaignId }: HuntRef): string {
+  return JSON.stringify([tenantSlug, campaignId])
+}
+
+/** The card with no `closed` flag — an open card. */
+function openCard(hunt: JoinedHunt): JoinedHunt {
+  const open = { ...hunt }
+  delete open.closed
+  return open
+}
+
 function load(): PersistedProgress {
   const empty: PersistedProgress = {
     nickname: '',
@@ -216,7 +241,14 @@ export const useProgressStore = defineStore('progress', () => {
   // the server ships badgeTarget alongside the missions, and a trophy case
   // showing six slots while /redeem unlocks at five is the kind of bug a fan
   // notices at the counter.
-  const isComplete = computed(() => earnedCount.value >= missionsStore.badgeTarget)
+  //
+  // Only a loaded, published hunt can be complete, and a campaign id is set
+  // only by one (whose badge target the contract makes positive). Before a
+  // load the target is 0, so `0 >= 0` used to read as a win — which put a
+  // "claim your prize" button on the trophy case after a plain reload.
+  const isComplete = computed(
+    () => campaignId.value !== '' && earnedCount.value >= missionsStore.badgeTarget,
+  )
   const remaining = computed(() => Math.max(0, missionsStore.badgeTarget - earnedCount.value))
 
   const hasBadge = computed(() => (id: string) => earnedIds.value.includes(id))
@@ -227,30 +259,31 @@ export const useProgressStore = defineStore('progress', () => {
   /** Ongoing games for the platform home, newest first, finished ones
    *  dropped. Keyed by CAMPAIGN id, not slug: a club whose last hunt you won
    *  can publish a NEW one, and re-joining updates the card's campaignId — so
-   *  the fresh hunt reappears as ongoing while the won one stays a trophy. */
+   *  the fresh hunt reappears as ongoing while the won one stays a trophy.
+   *  Closed cards (the hunt ended, or the org is gone) drop out too: a
+   *  Continue button must lead somewhere playable. They stay in
+   *  `joinedHunts`, so the collection keeps the history. */
   const ongoing = computed(() => {
     const wonCampaigns = new Set(wonHunts.value.map((h) => h.campaignId))
     return [...joinedHunts.value]
-      .filter((h) => !wonCampaigns.has(h.campaignId))
+      .filter((h) => !h.closed && !wonCampaigns.has(h.campaignId))
       .sort((a, b) => b.joinedAt - a.joinedAt)
   })
 
   /**
-   * Four-digit claim code, derived from the DEVICE ID so it is stable across
-   * reloads without needing a server round trip.
+   * Four-digit claim code, derived from the participant id so it is stable
+   * across reloads without a server round trip — and identical to the code the
+   * console shows next to this fan on the finisher wall, so staff can match a
+   * winner at the counter (`deriveClaimCode` is the shared definition).
+   *
+   * Prefer the account uid when signed in: it is stable across a browser
+   * reinstall, where the device id is not — the same participant id sent on a
+   * capture (see CapturePage.vue).
    *
    * SEAM: derived, not issued — anyone can compute another fan's code. A real
    * deployment must have the server mint and invalidate these.
    */
-  const claimCode = computed(() => {
-    let hash = 7
-    // Prefer the account uid when signed in: it is stable across a browser
-    // reinstall, where the device id is not.
-    for (const ch of `${session.user?.uid ?? session.deviceId}`) {
-      hash = (hash * 31 + ch.charCodeAt(0)) % 10000
-    }
-    return String(hash).padStart(4, '0')
-  })
+  const claimCode = computed(() => deriveClaimCode(`${session.user?.uid ?? session.deviceId}`))
 
   function setProfile(name: string, nextAvatarId: string | null): void {
     nickname.value = name.trim()
@@ -299,6 +332,7 @@ export const useProgressStore = defineStore('progress', () => {
     const existing = joinedHunts.value.find((h) => h.tenantSlug === hunt.tenantSlug)
     if (
       existing &&
+      !existing.closed &&
       existing.campaignId === hunt.campaignId &&
       existing.teamName === hunt.teamName &&
       existing.badgeTarget === hunt.badgeTarget
@@ -307,12 +341,113 @@ export const useProgressStore = defineStore('progress', () => {
     }
     // Preserve the ORIGINAL joinedAt for an existing card (ordering by first
     // encounter reads better than jumping to the top on every revisit),
-    // while taking the fresh campaign/name/target snapshot.
+    // while taking the fresh campaign/name/target snapshot. The new record
+    // carries no `closed`: landing on a live hub is proof it is open.
     const joinedAt = existing?.joinedAt ?? hunt.joinedAt
     joinedHunts.value = [
       ...joinedHunts.value.filter((h) => h.tenantSlug !== hunt.tenantSlug),
-      { ...hunt, joinedAt },
+      { ...openCard(hunt), joinedAt },
     ]
+  }
+
+  /**
+   * Rewrites the `closed` flag on saved cards from what the server knows.
+   * Only cards whose flag actually changes are replaced, so an all-live check
+   * is a no-op for the persist/sync watcher below.
+   */
+  function applyClosures(match: (hunt: JoinedHunt) => JoinedHunt['closed'] | null): void {
+    let changed = false
+    const next = joinedHunts.value.map((hunt) => {
+      const verdict = match(hunt)
+      // null = no information about this card; leave it alone.
+      if (verdict === null || verdict === hunt.closed) return hunt
+      changed = true
+      return verdict ? { ...hunt, closed: verdict } : openCard(hunt)
+    })
+    if (changed) joinedHunts.value = next
+  }
+
+  /**
+   * The fan reached an org's page and the server answered definitively:
+   * `gone` for a 404 on the org, `ended` for an org with nothing published.
+   * Callers must only pass a real server answer — never a network failure: a
+   * fan in a concrete concourse is offline, not looking at a dead hunt.
+   */
+  function closeJoin(tenantSlug: string, reason: NonNullable<JoinedHunt['closed']>): void {
+    applyClosures((hunt) => {
+      if (hunt.tenantSlug !== tenantSlug) return null
+      // The org 404 and the empty mission list race on the same page load;
+      // an unknown slug also answers "nothing published". Gone is the
+      // stronger fact, so the later, weaker answer must not overwrite it.
+      if (reason === 'ended' && hunt.closed === 'gone') return null
+      return reason
+    })
+  }
+
+  /** Asks the server about these cards, in batches of its cap. Whatever
+   *  comes back is returned even if a batch failed: a partial answer is
+   *  still true for the cards it covers. */
+  async function fetchVerdicts(refs: HuntRef[]): Promise<Map<string, HuntStatus>> {
+    const batches = Array.from({ length: Math.ceil(refs.length / HUNT_STATUS_BATCH) }, (_, i) =>
+      refs.slice(i * HUNT_STATUS_BATCH, (i + 1) * HUNT_STATUS_BATCH),
+    )
+    const results = await Promise.all(
+      batches.map((hunts) => apiPost<unknown>(HUNT_STATUS_ENDPOINT, { hunts })),
+    )
+    const verdicts = new Map<string, HuntStatus>()
+    for (const result of results) {
+      if (!result.ok) continue
+      const parsed = huntStatusesSchema.safeParse(result.data)
+      if (!parsed.success) continue
+      for (const s of parsed.data.statuses) verdicts.set(cardKey(s), s.status)
+    }
+    return verdicts
+  }
+
+  /** The last check that answered for every card: when, and which cards. */
+  let lastReconciled: { at: number; signature: string } | null = null
+  let reconciling: Promise<void> | null = null
+
+  /**
+   * Checks every saved card against the server so home never offers a
+   * Continue into "no team here". Fire-and-forget and failure-silent: on a
+   * network error the cards keep their last known state, which is the right
+   * thing to show offline.
+   *
+   * Throttled: the same set of cards is re-checked at most once per cooldown,
+   * while a changed set (a new join, cards merged in from the account) is
+   * checked straight away. Only a check that answered for every card starts
+   * the cooldown, so anything left unanswered is retried on the next visit.
+   *
+   * Concurrent callers share one run, and that run loops until the set it
+   * checked is still the current one — cards merged in mid-check are not
+   * left waiting for the next visit.
+   */
+  function reconcileJoined(): Promise<void> {
+    reconciling ??= (async () => {
+      for (;;) {
+        const refs = [...joinedHunts.value]
+          .sort((a, b) => b.joinedAt - a.joinedAt)
+          .map(({ tenantSlug, campaignId }) => ({ tenantSlug, campaignId }))
+        const signature = JSON.stringify(refs.map(cardKey))
+        const fresh =
+          lastReconciled?.signature === signature &&
+          Date.now() - lastReconciled.at < RECONCILE_COOLDOWN_MS
+        if (!refs.length || fresh) return
+
+        const verdicts = await fetchVerdicts(refs)
+        applyClosures((hunt) => {
+          const status = verdicts.get(cardKey(hunt))
+          if (!status) return null
+          return status === 'live' ? undefined : status
+        })
+        if (!refs.every((ref) => verdicts.has(cardKey(ref)))) return
+        lastReconciled = { at: Date.now(), signature }
+      }
+    })().finally(() => {
+      reconciling = null
+    })
+    return reconciling
   }
 
   function reset(): void {
@@ -398,6 +533,13 @@ export const useProgressStore = defineStore('progress', () => {
       claimed.value = mergeClaimed(claimed.value, parseClaimed(r.claimed))
       wonHunts.value = mergeWonHunts(wonHunts.value, parseWonHunts(r.wonHunts))
       joinedHunts.value = mergeJoinedHunts(joinedHunts.value, parseJoinedHunts(r.joinedHunts))
+      // Cards from another device carry THAT device's last check, which may
+      // be stale in either direction — re-derive them from the server. The
+      // cooldown is cleared first: a merged card can bring a different
+      // `closed` flag under the same org and campaign, so an unchanged card
+      // list is no proof the flags are fresh.
+      lastReconciled = null
+      void reconcileJoined()
     }
 
     // Explicit (not scheduled): converge immediately, and cover the empty-server
@@ -417,23 +559,23 @@ export const useProgressStore = defineStore('progress', () => {
   )
 
   // The moment the badge target is first reached on a real published hunt:
-  // report the aggregate completion, and keep the hunt as a trophy. Requires a
-  // real campaign id — there is no hunt to win when none is published.
+  // report the aggregate completion, and keep the hunt as a trophy.
+  // `isComplete` already implies a real published hunt; the slug check only
+  // narrows the type.
   //
-  // Gated on the win being GENUINELY new. A reload while complete is fine (no
-  // false→true transition), but hydrateFromAccount can manufacture that
-  // transition by merging in a hunt already finished on another device — and
+  // Gated on the win being GENUINELY new. Every load of a finished hunt is a
+  // false→true transition (isComplete requires a loaded hunt), and so is
+  // hydrateFromAccount merging in a hunt already finished on another device — and
   // reportFanEvent is a fire-and-forget aggregate counter with no server-side
   // dedupe, so an already-won hunt must not report a second completion. By the
   // time this flushes, mergeWonHunts has folded the account's trophy in, so the
   // wonHunts check sees it. recordWin is itself idempotent.
   watch(isComplete, (complete) => {
-    if (complete && missionsStore.loaded && missionsStore.campaignId && missionsStore.slug) {
-      const id = missionsStore.campaignId
-      if (wonHunts.value.some((h) => h.campaignId === id)) return
-      reportFanEvent(missionsStore.slug, id, 'completion')
-      recordWin(id, missionsStore.name, missionsStore.slug)
-    }
+    const id = campaignId.value
+    const slug = missionsStore.slug
+    if (!complete || !slug || wonHunts.value.some((h) => h.campaignId === id)) return
+    reportFanEvent(slug, id, 'completion')
+    recordWin(id, missionsStore.name, slug)
   })
 
   watch(
@@ -482,6 +624,8 @@ export const useProgressStore = defineStore('progress', () => {
     claimCode,
     setProfile,
     recordJoin,
+    closeJoin,
+    reconcileJoined,
     awardBadge,
     markRedeemed,
     recordWin,

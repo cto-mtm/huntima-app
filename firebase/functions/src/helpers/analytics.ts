@@ -38,6 +38,7 @@ function hourBucket(at: Date): string {
 export async function recordCapture(
   slug: string,
   campaignId: string,
+  missionId: string,
   matched: boolean,
   at: Date,
 ): Promise<void> {
@@ -46,6 +47,15 @@ export async function recordCapture(
       captures: FieldValue.increment(1),
       matches: FieldValue.increment(matched ? 1 : 0),
       hours: { [hourBucket(at)]: FieldValue.increment(1) },
+      // Per-mission breakdown, same atomic-increment shape as the hourly
+      // buckets. Mission ids are UUIDs / `seed-N` — no dots, so they are safe
+      // as Firestore field keys. Still a count, never a person.
+      missions: {
+        [missionId]: {
+          captures: FieldValue.increment(1),
+          matches: FieldValue.increment(matched ? 1 : 0),
+        },
+      },
     },
     { merge: true },
   )
@@ -66,7 +76,14 @@ export async function recordFanEvent(
   await statsRef(slug, campaignId).set({ [field]: FieldValue.increment(1) }, { merge: true })
 }
 
-const EMPTY: CampaignStats = { participants: 0, completions: 0, captures: 0, matches: 0, hours: {} }
+const EMPTY: CampaignStats = {
+  participants: 0,
+  completions: 0,
+  captures: 0,
+  matches: 0,
+  hours: {},
+  missions: {},
+}
 
 export async function getCampaignStats(slug: string, campaignId: string): Promise<CampaignStats> {
   const doc = await statsRef(slug, campaignId).get()
